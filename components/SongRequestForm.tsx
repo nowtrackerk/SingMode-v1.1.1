@@ -19,7 +19,7 @@ interface SongRequestFormProps {
 const SongRequestForm: React.FC<SongRequestFormProps> = ({
   onSubmit,
   onCancel,
-  title = "Interface Input",
+  title = "Global Track Input",
   showSingerName = false,
   initialSingerName = '',
   initialSongName = '',
@@ -28,6 +28,7 @@ const SongRequestForm: React.FC<SongRequestFormProps> = ({
   initialType = RequestType.SINGING,
   submitLabel = "Process Request"
 }) => {
+  const displayTitle = singerName ? `${title}: ${singerName}` : title;
   const [singerName, setSingerName] = useState(initialSingerName);
   const [songName, setSongName] = useState(initialSongName);
   const [artist, setArtist] = useState(initialArtist);
@@ -45,14 +46,14 @@ const SongRequestForm: React.FC<SongRequestFormProps> = ({
     <form onSubmit={handleSubmit} className="space-y-6 bg-slate-900 p-10 rounded-3xl shadow-3xl border border-white/5 animate-in fade-in zoom-in-95 duration-300">
       <div className="flex justify-between items-start mb-6">
         <div>
-          <h3 className="text-3xl font-black text-white font-outfit uppercase tracking-tighter leading-none">{title}</h3>
+          <h3 className="text-3xl font-black text-white font-outfit uppercase tracking-tighter leading-none">{displayTitle}</h3>
           <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.3em] mt-2">SingMode Operations</p>
         </div>
       </div>
 
       {showSingerName && (
         <div className="animate-in fade-in slide-in-from-top-2">
-          <label className="block text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 ml-2">Performer Alias</label>
+          <label className="block text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3 ml-2">Performer Alias as a user in the directory</label>
           <input
             type="text"
             required
