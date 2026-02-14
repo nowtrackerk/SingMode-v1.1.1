@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SingMode Karaoke</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;700;900&family=Monoton&family=Bungee&family=Righteous&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            /* Neon Color Palette - Island Groove Inspired */
+            --neon-pink: #FF1493;
+            --neon-yellow: #FFD700;
+            --neon-green: #00FF00;
+            --neon-cyan: #00FFFF;
+            --neon-purple: #9D00FF;
+            --neon-orange: #FF6B00;
+            --accent-yellow: #FFEB3B;
+            --bg-black: #000000;
+            --bg-dark: #0a0a0a;
+            --bg-card: #0f0f0f;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-black);
+            background-image:
+                radial-gradient(circle at 20% 50%, rgba(255, 20, 147, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 255, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(157, 0, 255, 0.1) 0%, transparent 50%);
+            color: #ffffff;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .font-outfit {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .font-monoton {
+            font-family: 'Monoton', cursive;
+        }
+
+        .font-bungee {
+            font-family: 'Bungee', cursive;
+        }
+
+        .font-righteous {
+            font-family: 'Righteous', cursive;
+        }
+
+        /* Neon Glow Effects */
+        .neon-glow-pink {
+            text-shadow:
+                0 0 2px var(--neon-pink),
+                0 0 10px var(--neon-pink),
+                0 0 30px var(--neon-pink),
+                0 0 60px var(--neon-pink);
+        }
+
+        .neon-glow-yellow {
+            text-shadow:
+                0 0 2px var(--neon-yellow),
+                0 0 10px var(--neon-yellow),
+                0 0 30px var(--neon-yellow);
+        }
+
+        .neon-glow-cyan {
+            text-shadow:
+                0 0 2px var(--neon-cyan),
+                0 0 10px var(--neon-cyan),
+                0 0 30px var(--neon-cyan);
+        }
+
+        .neon-glow-green {
+            text-shadow:
+                0 0 2px var(--neon-green),
+                0 0 10px var(--neon-green),
+                0 0 30px var(--neon-green);
+        }
+
+        .neon-border-pink {
+            border: 2px solid var(--neon-pink);
+            box-shadow:
+                0 0 10px var(--neon-pink),
+                0 0 20px var(--neon-pink),
+                inset 0 0 10px rgba(255, 20, 147, 0.2);
+        }
+
+        .neon-border-cyan {
+            border: 2px solid var(--neon-cyan);
+            box-shadow:
+                0 0 10px var(--neon-cyan),
+                0 0 20px var(--neon-cyan),
+                inset 0 0 10px rgba(0, 255, 255, 0.2);
+        }
+
+        .neon-border-yellow {
+            border: 2px solid var(--neon-yellow);
+            box-shadow:
+                0 0 10px var(--neon-yellow),
+                0 0 20px var(--neon-yellow),
+                inset 0 0 10px rgba(255, 215, 0, 0.2);
+        }
+
+        /* Rainbow Gradient Text */
+        .rainbow-text {
+            background: linear-gradient(90deg,
+                    var(--neon-pink) 0%,
+                    var(--neon-orange) 20%,
+                    var(--neon-yellow) 40%,
+                    var(--neon-green) 60%,
+                    var(--neon-cyan) 80%,
+                    var(--neon-purple) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: rainbow-shift 3s ease-in-out infinite;
+        }
+
+        @keyframes rainbow-shift {
+
+            0%,
+            100% {
+                filter: hue-rotate(0deg);
+            }
+
+            50% {
+                filter: hue-rotate(20deg);
+            }
+        }
+
+        /* Glass Panel with Neon */
+        .glass-panel {
+            background: rgba(15, 15, 15, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 20, 147, 0.3);
+            box-shadow: 0 0 20px rgba(255, 20, 147, 0.1);
+        }
+
+        /* Custom Scrollbar - Neon Style */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+            border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, var(--neon-pink), var(--neon-cyan));
+            border-radius: 10px;
+            box-shadow: 0 0 10px var(--neon-pink);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, var(--neon-yellow), var(--neon-green));
+            box-shadow: 0 0 15px var(--neon-yellow);
+        }
+
+        /* Pulsing Neon Animation */
+        @keyframes neon-pulse {
+
+            0%,
+            100% {
+                opacity: 0.6;
+                text-shadow:
+                    0 0 2px currentColor,
+                    0 0 5px currentColor,
+                    0 0 15px currentColor,
+                    0 0 30px currentColor;
+            }
+
+            50% {
+                opacity: 0.4;
+                text-shadow:
+                    0 0 1px currentColor,
+                    0 0 3px currentColor,
+                    0 0 8px currentColor,
+                    0 0 15px currentColor;
+            }
+        }
+
+        .neon-pulse {
+            animation: neon-pulse 2s ease-in-out infinite;
+        }
+
+        /* Glowing Button Effect */
+        @keyframes button-glow {
+
+            0%,
+            100% {
+                box-shadow:
+                    0 0 20px var(--neon-pink),
+                    0 0 30px var(--neon-pink),
+                    inset 0 0 10px rgba(255, 20, 147, 0.3);
+            }
+
+            50% {
+                box-shadow:
+                    0 0 30px var(--neon-pink),
+                    0 0 40px var(--neon-pink),
+                    inset 0 0 15px rgba(255, 20, 147, 0.5);
+            }
+        }
+
+        .btn-glow {
+            animation: button-glow 2s ease-in-out infinite;
+        }
+
+        /* Tropical Accent Lines */
+        .tropical-divider {
+            height: 2px;
+            background: linear-gradient(90deg,
+                    transparent 0%,
+                    var(--neon-pink) 20%,
+                    var(--neon-yellow) 50%,
+                    var(--neon-cyan) 80%,
+                    transparent 100%);
+            box-shadow: 0 0 10px var(--neon-pink);
+        }
+
+        /* Neon Flicker (subtle) */
+        @keyframes neon-flicker {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            98% {
+                opacity: 1;
+            }
+
+            99% {
+                opacity: 0.9;
+            }
+        }
+
+        .neon-flicker {
+            animation: neon-flicker 5s infinite;
+        }
+    </style>
+
+    <link rel="stylesheet" href="/index.css">
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "peerjs": "https://esm.sh/peerjs@1.5.4"
+  }
+}
+</script>
+  <script type="module" crossorigin src="./assets/index-DKnrAHey.js"></script>
+</head>
+
+<body>
+    <div id="root"></div>
+</body>
+
+</html>
