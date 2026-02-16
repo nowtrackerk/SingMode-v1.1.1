@@ -104,7 +104,7 @@ const App: React.FC = () => {
         <div className="max-w-4xl w-full">
           <div className="text-center mb-16 animate-in fade-in slide-in-from-top-4 duration-700">
             <div className="flex justify-center mb-8">
-              <img src="IGK.jpeg" alt="Island Groove" className="w-40 h-40 rounded-full neon-border-cyan shadow-[0_0_30px_rgba(0,255,255,0.5)]" />
+              <img src="IGK.jpeg" alt="Island Groove" className="w-40 h-40 rounded-full neon-border-pink shadow-[0_0_30px_rgba(255,20,147,0.5)]" />
             </div>
             <h1 className="text-8xl font-black font-bungee mb-4 rainbow-text tracking-tighter neon-pulse">
               SINGMODE
@@ -222,7 +222,7 @@ const App: React.FC = () => {
         <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
           <div onClick={() => setRole('SELECT')} className="cursor-pointer">
             <div className="flex items-center gap-3">
-              <img src="IGK.jpeg" alt="Logo" className="w-12 h-12 rounded-full neon-border-cyan" />
+              <img src="IGK.jpeg" alt="Logo" className="w-12 h-12 rounded-full neon-border-pink" />
               <span className="font-bungee text-xl rainbow-text">SINGMODE</span>
             </div>
           </div>
