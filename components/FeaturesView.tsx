@@ -11,12 +11,12 @@ const FeatureCard: React.FC<{ title: string; icon: string; description: string; 
         <div className="w-20 h-20 bg-black border border-white/10 rounded-2xl flex items-center justify-center text-4xl mb-8 group-hover:scale-110 group-hover:border-[var(--neon-pink)] group-hover:text-white transition-all shadow-2xl relative z-10">
             {icon}
         </div>
-        <h3 className="text-3xl font-black text-white font-bungee uppercase mb-4 tracking-tight group-hover:text-[var(--neon-pink)] transition-colors relative z-10 leading-none">{title}</h3>
-        <p className="text-[var(--neon-cyan)]/70 mb-8 font-black uppercase text-[10px] tracking-[0.2em] font-righteous leading-relaxed relative z-10 transition-opacity">{description}</p>
+        <h3 className="text-3xl font-bold text-white font-bungee uppercase mb-4 tracking-tight group-hover:text-[var(--neon-pink)] transition-colors relative z-10 leading-none">{title}</h3>
+        <p className="text-[var(--neon-cyan)]/70 mb-8 font-bold uppercase text-[10px] tracking-[0.2em] font-righteous leading-relaxed relative z-10 transition-opacity">{description}</p>
         <ul className="space-y-4 relative z-10">
             {items.map((item, i) => (
-                <li key={i} className="flex items-start gap-3 text-[11px] text-slate-500 font-black uppercase tracking-widest font-righteous group-hover:text-[var(--neon-cyan)] transition-colors">
-                    <span className="text-[var(--neon-cyan)] font-black">»</span>
+                <li key={i} className="flex items-start gap-3 text-[11px] text-slate-500 font-bold uppercase tracking-widest font-righteous group-hover:text-[var(--neon-cyan)] transition-colors">
+                    <span className="text-[var(--neon-cyan)] font-bold">»</span>
                     {item}
                 </li>
             ))}
@@ -45,7 +45,7 @@ const FeaturesView: React.FC<FeaturesViewProps> = ({ onBack }) => {
                     </div>
                     <button
                         onClick={onBack}
-                        className="px-8 py-4 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-slate-400 hover:text-white rounded-2xl font-black text-[9px] uppercase tracking-[0.3em] font-righteous transition-all"
+                        className="px-8 py-4 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-slate-400 hover:text-white rounded-2xl font-bold text-[9px] uppercase tracking-widest font-righteous transition-all"
                     >
                         RETURN TO HUB
                     </button>
@@ -53,10 +53,10 @@ const FeaturesView: React.FC<FeaturesViewProps> = ({ onBack }) => {
 
                 {/* Hero Section */}
                 <div className="text-center max-w-4xl mx-auto mb-32 animate-in fade-in zoom-in duration-700 delay-100">
-                    <h1 className="text-6xl md:text-8xl font-black font-bungee text-white mb-8 tracking-tighter uppercase leading-none neon-text-glow-purple">
+                    <h1 className="text-6xl md:text-8xl font-bold font-bungee text-white mb-8 tracking-tight uppercase leading-none neon-text-glow-purple">
                         The ultimate <span className="text-[var(--neon-cyan)]">karaoke</span> os
                     </h1>
-                    <p className="text-[10px] md:text-xs text-[var(--neon-cyan)]/80 font-black uppercase tracking-[0.5em] font-righteous leading-relaxed max-w-2xl mx-auto border-y border-[var(--neon-cyan)]/20 py-4">
+                    <p className="text-[10px] md:text-xs text-[var(--neon-cyan)]/80 font-bold uppercase tracking-[0.4em] font-righteous leading-relaxed max-w-2xl mx-auto border-y border-[var(--neon-cyan)]/20 py-4">
                         SingMode transforms any arena into a high-fidelity visual theater.
                         Connect instantly, dominate the queue, and emit your signal.
                     </p>
@@ -136,7 +136,7 @@ const FeaturesView: React.FC<FeaturesViewProps> = ({ onBack }) => {
                 <div className="text-center animate-in fade-in duration-700 delay-500 pb-32">
                     <button
                         onClick={onBack}
-                        className="px-16 py-8 bg-[var(--neon-cyan)] hover:bg-white text-black rounded-[3rem] font-black text-2xl uppercase tracking-[0.3em] font-righteous shadow-[0_0_50px_rgba(34,211,238,0.4)] hover:scale-105 transition-all"
+                        className="px-16 py-8 bg-[var(--neon-cyan)] hover:bg-white text-black rounded-[3rem] font-bold text-2xl uppercase tracking-widest font-righteous shadow-[0_0_50px_rgba(34,211,238,0.4)] hover:scale-105 transition-all"
                     >
                         INITIATE SESSION
                     </button>

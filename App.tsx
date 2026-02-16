@@ -121,19 +121,19 @@ const App: React.FC = () => {
                 </div>
               </div>
             </div>
-            <h1 className="text-6xl md:text-9xl font-black font-bungee text-white mb-6 uppercase tracking-tighter neon-text-glow-purple leading-none drop-shadow-2xl">
+            <h1 className="text-6xl md:text-9xl font-bold font-bungee text-white mb-6 uppercase tracking-tight neon-text-glow-purple leading-none drop-shadow-2xl">
               SINGMODE
             </h1>
-            <p className="text-[var(--neon-yellow)] text-xl md:text-2xl font-black tracking-[0.6em] uppercase neon-glow-yellow font-righteous">KARAOKE_LOUNGE_SYSTEM</p>
+            <p className="text-[var(--neon-yellow)] text-xl md:text-2xl font-bold tracking-widest uppercase neon-glow-yellow font-righteous">KARAOKE_LOUNGE_SYSTEM</p>
           </div>
 
           {error && (
             <div className="mb-12 p-10 bg-[#150005] border-4 border-rose-500 rounded-[3rem] text-center animate-in zoom-in duration-500 max-w-3xl mx-auto shadow-[0_0_60px_rgba(244,63,94,0.4)] relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-2 bg-rose-500 animate-pulse"></div>
               <div className="text-6xl mb-6">🚫</div>
-              <h3 className="text-rose-500 font-black uppercase tracking-[0.3em] text-3xl mb-4 font-bungee">SYSTEM_CONFLICT</h3>
+              <h3 className="text-rose-500 font-bold uppercase tracking-widest text-3xl mb-4 font-bungee">SYSTEM_CONFLICT</h3>
               <p className="text-white text-xl font-bold leading-relaxed font-righteous">{error}</p>
-              <p className="text-rose-500/50 text-xs mt-8 uppercase font-black tracking-[0.2em] font-righteous">SINGLE_DJ_PROTOCOL_ACTIVE</p>
+              <p className="text-rose-500/50 text-xs mt-8 uppercase font-bold tracking-widest font-righteous">SINGLE_DJ_PROTOCOL_ACTIVE</p>
             </div>
           )}
 
@@ -146,8 +146,8 @@ const App: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-br from-[var(--neon-pink)]/0 to-[var(--neon-pink)]/5 group-hover:to-[var(--neon-pink)]/10 transition-all"></div>
                 <div className="relative z-10">
                   <div className="w-24 h-24 bg-black border-2 border-white/10 rounded-3xl flex items-center justify-center text-5xl mb-8 group-hover:scale-110 transition-all group-hover:border-[var(--neon-pink)] shadow-2xl">🎧</div>
-                  <h2 className="text-5xl font-black mb-4 font-bungee uppercase tracking-tighter text-white group-hover:text-[var(--neon-pink)] transition-colors">DJ_CONSOLE</h2>
-                  <p className="text-sm font-righteous uppercase tracking-widest text-[var(--neon-cyan)] opacity-70 leading-relaxed">COORDINATE_ROTATION. APPROVE_THREADS. COMMAND_ATMOSPHERE.</p>
+                  <h2 className="text-5xl font-bold mb-4 font-bungee uppercase tracking-tight text-white group-hover:text-[var(--neon-pink)] transition-colors">DJ_CONSOLE</h2>
+                  <p className="text-sm font-medium font-righteous uppercase tracking-widest text-[var(--neon-cyan)] opacity-90 leading-relaxed">COORDINATE_ROTATION. APPROVE_THREADS. COMMAND_ATMOSPHERE.</p>
                 </div>
               </button>
             )}
@@ -159,8 +159,8 @@ const App: React.FC = () => {
               <div className="absolute inset-0 bg-gradient-to-br from-[var(--neon-cyan)]/0 to-[var(--neon-cyan)]/5 group-hover:to-[var(--neon-cyan)]/10 transition-all"></div>
               <div className="relative z-10">
                 <div className="w-24 h-24 bg-black border-2 border-white/10 rounded-3xl flex items-center justify-center text-5xl mb-8 group-hover:scale-110 transition-all group-hover:border-[var(--neon-cyan)] shadow-2xl">🎤</div>
-                <h2 className="text-5xl font-black mb-4 font-bungee uppercase tracking-tighter text-white group-hover:text-[var(--neon-cyan)] transition-colors">SINGER_UI</h2>
-                <p className="text-sm font-righteous uppercase tracking-widest text-[var(--neon-yellow)] opacity-70 leading-relaxed">REQUEST_TRACKS. FAVORITE_VIBES. ACCESS_SONGBOOK.</p>
+                <h2 className="text-5xl font-bold mb-4 font-bungee uppercase tracking-tight text-white group-hover:text-[var(--neon-cyan)] transition-colors">SINGER_UI</h2>
+                <p className="text-sm font-medium font-righteous uppercase tracking-widest text-[var(--neon-yellow)] opacity-90 leading-relaxed">REQUEST_TRACKS. FAVORITE_VIBES. ACCESS_SONGBOOK.</p>
               </div>
             </button>
           </div>
@@ -200,11 +200,11 @@ const App: React.FC = () => {
             <div className="w-full max-w-lg bg-[#0a0a0a] border-2 border-white/10 rounded-[3rem] p-10 space-y-8 shadow-[0_0_60px_rgba(0,0,0,0.8)] relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-cyan)] to-[var(--neon-blue)]"></div>
               <div>
-                <h2 className="text-3xl font-black text-white mb-2 font-bungee uppercase tracking-tight">Network Config</h2>
+                <h2 className="text-3xl font-bold text-white mb-2 font-bungee uppercase tracking-tight">Network Config</h2>
                 <p className="text-slate-500 text-[10px] uppercase tracking-widest font-righteous">ESTABLISH REMOTE CONNECTION PROTOCOLS</p>
               </div>
               <div className="space-y-4">
-                <label className="block text-[9px] font-black text-[var(--neon-cyan)] uppercase tracking-[0.3em] ml-4 font-righteous">Network IP Address</label>
+                <label className="block text-[11px] font-bold text-[var(--neon-cyan)] uppercase tracking-[0.2em] ml-4 font-righteous">Network IP Address</label>
                 <input
                   type="text"
                   value={networkIpInput}
@@ -219,13 +219,13 @@ const App: React.FC = () => {
               <div className="flex gap-4">
                 <button
                   onClick={() => setShowNetworkConfig(false)}
-                  className="flex-1 py-4 bg-black border border-white/10 hover:bg-white/5 text-slate-400 hover:text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all font-righteous"
+                  className="flex-1 py-4 bg-black border border-white/10 hover:bg-white/5 text-slate-400 hover:text-white rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all font-righteous"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSaveNetworkIp}
-                  className="flex-1 py-4 bg-[var(--neon-cyan)] text-black rounded-xl font-black text-[10px] uppercase tracking-widest shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all font-righteous hover:scale-105"
+                  className="flex-1 py-4 bg-[var(--neon-cyan)] text-black rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all font-righteous hover:scale-105"
                 >
                   Save Configuration
                 </button>
@@ -253,7 +253,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-6">
             <button
               onClick={() => { setRole('SELECT'); setError(null); }}
-              className="text-[9px] font-black uppercase tracking-[0.3em] px-5 py-2.5 rounded-xl transition-all font-righteous bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/5 hover:border-white/20"
+              className="text-[9px] font-bold uppercase tracking-widest px-5 py-2.5 rounded-xl transition-all font-righteous bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/5 hover:border-white/20"
             >
               EXIT {role}
             </button>

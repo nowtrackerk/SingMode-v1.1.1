@@ -47,68 +47,68 @@ const SongRequestForm: React.FC<SongRequestFormProps> = ({
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
 
       <div className="mb-8 text-center">
-        <h3 className="text-3xl font-black text-white font-bungee uppercase tracking-tight neon-text-glow-purple mb-2">{displayTitle}</h3>
-        <p className="text-[10px] text-[var(--neon-cyan)] font-black uppercase tracking-[0.4em] font-righteous opacity-80">SYS_SEQUENCE_INPUT</p>
+        <h3 className="text-3xl font-bold text-white font-bungee uppercase tracking-tight neon-text-glow-purple mb-2">{displayTitle}</h3>
+        <p className="text-[10px] text-[var(--neon-cyan)] font-bold uppercase tracking-widest font-righteous opacity-80">SYS_SEQUENCE_INPUT</p>
       </div>
 
       <div className="space-y-6">
         {showSingerName && (
           <div className="animate-in fade-in slide-in-from-top-2">
-            <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Performer Handle</label>
+            <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Performer Handle</label>
             <input
               type="text"
               required
               value={singerName}
               onChange={(e) => setSingerName(e.target.value)}
               placeholder="e.g. STAR_VIBE"
-              className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-black focus:border-[var(--neon-cyan)] outline-none transition-all uppercase shadow-inner text-sm font-righteous tracking-widest"
+              className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:border-[var(--neon-cyan)] outline-none transition-all uppercase shadow-inner text-sm font-righteous tracking-widest"
             />
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Track Title</label>
+            <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Track Title</label>
             <input
               type="text"
               value={songName}
               onChange={(e) => setSongName(e.target.value)}
               placeholder="TITLE"
-              className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-black focus:border-[var(--neon-pink)] outline-none transition-all uppercase shadow-inner text-sm font-righteous tracking-widest"
+              className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:border-[var(--neon-pink)] outline-none transition-all uppercase shadow-inner text-sm font-righteous tracking-widest"
             />
           </div>
           <div>
-            <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Artist</label>
+            <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Artist</label>
             <input
               type="text"
               value={artist}
               onChange={(e) => setArtist(e.target.value)}
               placeholder="ARTIST"
-              className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-black focus:border-[var(--neon-pink)] outline-none transition-all uppercase shadow-inner text-sm font-righteous tracking-widest"
+              className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:border-[var(--neon-pink)] outline-none transition-all uppercase shadow-inner text-sm font-righteous tracking-widest"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Source URL (Override)</label>
+          <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Source URL (Override)</label>
           <input
             type="url"
             value={youtubeUrl}
             onChange={(e) => setYoutubeUrl(e.target.value)}
             placeholder="https://youtube.com/watch?v=..."
-            className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-black focus:border-[var(--neon-cyan)] outline-none transition-all text-xs font-mono shadow-inner tracking-wider"
+            className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:border-[var(--neon-cyan)] outline-none transition-all text-xs font-mono shadow-inner tracking-wider"
           />
         </div>
 
         <div>
-          <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Performance Mode</label>
+          <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Performance Mode</label>
           <div className="flex bg-black/40 p-1.5 rounded-2xl border-2 border-white/5">
             {(Object.values(RequestType)).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setType(t)}
-                className={`flex-1 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all font-righteous ${type === t
+                className={`flex-1 py-3 rounded-xl font-bold text-[9px] uppercase tracking-widest transition-all font-righteous ${type === t
                   ? 'bg-[var(--neon-cyan)] text-black shadow-[0_0_20px_rgba(0,229,255,0.4)]'
                   : 'text-slate-600 hover:text-white hover:bg-white/5'
                   }`}
@@ -123,13 +123,13 @@ const SongRequestForm: React.FC<SongRequestFormProps> = ({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 py-4 bg-black hover:bg-white/5 text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all border-2 border-white/10 font-righteous"
+            className="flex-1 py-4 bg-black hover:bg-white/5 text-white rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all border-2 border-white/10 font-righteous"
           >
             DISCARD
           </button>
           <button
             type="submit"
-            className="flex-[2] py-4 bg-[var(--neon-pink)] hover:bg-white hover:text-black text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-[0_0_30px_rgba(255,0,127,0.4)] transition-all font-righteous hover:scale-105"
+            className="flex-[2] py-4 bg-[var(--neon-pink)] hover:bg-white hover:text-black text-white rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-[0_0_30px_rgba(255,0,127,0.4)] transition-all font-righteous hover:scale-105"
           >
             {submitLabel}
           </button>

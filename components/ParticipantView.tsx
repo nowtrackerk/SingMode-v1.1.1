@@ -211,7 +211,7 @@ const ParticipantView: React.FC = () => {
           </div>
         </div>
 
-        <h1 className="text-6xl md:text-8xl font-black font-bungee text-white mb-6 uppercase tracking-tighter neon-text-glow-purple leading-none">
+        <h1 className="text-6xl md:text-8xl font-bold font-bungee text-white mb-6 uppercase tracking-tight neon-text-glow-purple leading-none">
           SINGMODE
         </h1>
         <p className="text-[var(--neon-cyan)] font-righteous mb-16 uppercase tracking-[0.6em] text-xs font-black neon-glow-cyan">AUTHORIZED_ACCESS_REQUIRED</p>
@@ -229,7 +229,7 @@ const ParticipantView: React.FC = () => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="ENTER_HANDLE"
-              className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-8 py-5 text-white font-black focus:border-[var(--neon-cyan)] outline-none transition-all shadow-inner text-lg uppercase tracking-widest placeholder:text-slate-800 font-righteous"
+              className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-8 py-5 text-white font-bold focus:border-[var(--neon-cyan)] outline-none transition-all shadow-inner text-lg uppercase tracking-wider placeholder:text-slate-600 font-righteous"
             />
           </div>
 
@@ -250,7 +250,7 @@ const ParticipantView: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-8 py-5 text-white font-black focus:border-[var(--neon-pink)] outline-none transition-all shadow-inner text-xl tracking-widest placeholder:text-slate-800 font-rightous"
+              className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-8 py-5 text-white font-bold focus:border-[var(--neon-pink)] outline-none transition-all shadow-inner text-xl tracking-wider placeholder:text-slate-600 font-righteous"
             />
           </div>
 
@@ -292,7 +292,7 @@ const ParticipantView: React.FC = () => {
             </div>
           </div>
 
-          <h2 className="text-4xl font-black text-white tracking-tight uppercase leading-none font-bungee mb-2">{participant.name}</h2>
+          <h2 className="text-4xl font-bold text-white tracking-tight uppercase leading-none font-bungee mb-2">{participant.name}</h2>
           <div className="flex items-center gap-3">
             <span className="text-[9px] text-[var(--neon-cyan)] font-black uppercase tracking-[0.3em] font-righteous bg-[var(--neon-cyan)]/10 px-3 py-1 rounded-lg border border-[var(--neon-cyan)]/20">AUTHORIZED_NODE</span>
           </div>
@@ -317,8 +317,8 @@ const ParticipantView: React.FC = () => {
                         {song.songName}
                       </div>
                     </div>
-                    <div className="text-[10px] text-[var(--neon-cyan)] font-black uppercase tracking-[0.3em] truncate font-righteous">{song.artist}</div>
-                    <div className="mt-2 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">@{song.participantName}</div>
+                    <div className="text-[11px] text-[var(--neon-cyan)] font-bold uppercase tracking-[0.2em] truncate font-righteous">{song.artist}</div>
+                    <div className="mt-2 text-[10px] font-medium text-slate-400 uppercase tracking-widest font-mono">@{song.participantName}</div>
                   </div>
                   {i === 0 && <VideoLink url={song.youtubeUrl} />}
                 </div>
@@ -351,7 +351,7 @@ const ParticipantView: React.FC = () => {
 
       <button
         onClick={() => { setPrefillData(null); setShowRequestForm(true); }}
-        className="w-full py-6 bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] text-white rounded-[2rem] font-black text-lg shadow-[0_0_40px_rgba(93,0,255,0.3)] uppercase tracking-[0.2em] active:scale-95 transition-all font-bungee hover:brightness-110 border-2 border-white/10"
+        className="w-full py-6 bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] text-white rounded-[2rem] font-bold text-lg shadow-[0_0_40px_rgba(93,0,255,0.3)] uppercase tracking-wider active:scale-95 transition-all font-bungee hover:brightness-110 border-2 border-white/10"
       >
         + REQUEST TRACK
       </button>
@@ -359,7 +359,7 @@ const ParticipantView: React.FC = () => {
       <div className="pt-2">
         <button
           onClick={toggleStatus}
-          className={`w-full py-8 rounded-[2.5rem] font-black text-2xl uppercase tracking-[0.2em] transition-all border-2 flex flex-col items-center justify-center gap-2 group relative overflow-hidden font-bungee ${participant.status === ParticipantStatus.READY
+          className={`w-full py-8 rounded-[2.5rem] font-bold text-2xl uppercase tracking-wider transition-all border-2 flex flex-col items-center justify-center gap-2 group relative overflow-hidden font-bungee ${participant.status === ParticipantStatus.READY
             ? 'bg-[#051005] border-[var(--neon-green)] shadow-[0_0_30px_rgba(0,255,157,0.1)]'
             : 'bg-[#101015] border-white/5 text-slate-700 hover:border-white/10'
             }`}
@@ -400,9 +400,9 @@ const ParticipantView: React.FC = () => {
                 session.requests.filter(r => r.status === RequestStatus.APPROVED && !r.isInRound).map(req => (
                   <div key={req.id} className="bg-[#101015] border-2 border-white/5 p-6 rounded-[2rem] flex justify-between items-center group hover:border-[var(--neon-blue)] transition-all">
                     <div className="min-w-0 pr-4">
-                      <div className="text-white font-black uppercase truncate text-lg font-bungee tracking-tight mb-1 group-hover:text-[var(--neon-blue)] transition-colors">{req.songName}</div>
-                      <div className="text-[9px] text-[var(--neon-cyan)] uppercase tracking-[0.2em] flex items-center gap-2 font-righteous">
-                        {req.artist} <span className="text-white/20">|</span> <span className="text-slate-500">{req.participantName}</span>
+                      <div className="text-white font-bold uppercase truncate text-lg font-bungee tracking-tight mb-1 group-hover:text-[var(--neon-blue)] transition-colors">{req.songName}</div>
+                      <div className="text-[10px] text-[var(--neon-cyan)] uppercase tracking-[0.2em] flex items-center gap-2 font-righteous">
+                        {req.artist} <span className="text-white/20">|</span> <span className="text-slate-400">{req.participantName}</span>
                       </div>
                     </div>
                     <div className="shrink-0 w-8 h-8 rounded-full border border-[var(--neon-blue)]/50 bg-[var(--neon-blue)]/10 flex items-center justify-center text-[var(--neon-blue)] text-xs shadow-[0_0_15px_rgba(5,217,232,0.2)]">✓</div>
@@ -425,12 +425,12 @@ const ParticipantView: React.FC = () => {
                   <div className="flex justify-between items-start mb-4">
                     <div className="min-w-0 pr-4">
                       <div className="flex items-center gap-3 mb-2">
-                        <div className="font-black text-white tracking-tight uppercase truncate font-bungee text-xl group-hover:text-[var(--neon-pink)] transition-colors">
-                          <span className="text-slate-700 mr-2 text-[10px] font-mono tracking-widest">#{req.requestNumber}</span>{req.songName}
+                        <div className="font-bold text-white tracking-tight uppercase truncate font-bungee text-xl group-hover:text-[var(--neon-pink)] transition-colors">
+                          <span className="text-slate-500 mr-2 text-[11px] font-mono tracking-widest">#{req.requestNumber}</span>{req.songName}
                         </div>
                         <VideoLink url={req.youtubeUrl} />
                       </div>
-                      <div className="text-[9px] text-slate-500 font-black uppercase tracking-[0.3em] truncate font-righteous">{req.artist}</div>
+                      <div className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] truncate font-righteous">{req.artist}</div>
                     </div>
                     <div className={`shrink-0 px-3 py-1 rounded-lg border text-[8px] font-black uppercase tracking-widest ${req.status === RequestStatus.APPROVED
                       ? (req.isInRound ? 'bg-[var(--neon-pink)] border-[var(--neon-pink)] text-black animate-pulse' : 'bg-[var(--neon-cyan)]/10 border-[var(--neon-cyan)] text-[var(--neon-cyan)]')
@@ -464,7 +464,7 @@ const ParticipantView: React.FC = () => {
                 placeholder="SEARCH ARCHIVE..."
                 value={librarySearchQuery}
                 onChange={(e) => setLibrarySearchQuery(e.target.value)}
-                className="w-full bg-[#101015] border-2 border-white/10 rounded-[2rem] py-5 px-6 pl-14 text-xs font-black uppercase tracking-[0.2em] text-white focus:outline-none focus:border-[var(--neon-pink)] transition-all font-righteous placeholder:text-slate-700 shadow-inner"
+                className="w-full bg-[#101015] border-2 border-white/10 rounded-[2rem] py-5 px-6 pl-14 text-sm font-bold uppercase tracking-wider text-white focus:outline-none focus:border-[var(--neon-pink)] transition-all font-righteous placeholder:text-slate-600 shadow-inner"
               />
               <span className="absolute left-6 top-1/2 -translate-y-1/2 text-lg text-slate-600 group-focus-within:text-[var(--neon-pink)] transition-colors">🔍</span>
             </div>
@@ -484,10 +484,10 @@ const ParticipantView: React.FC = () => {
                   <div key={song.id} className="bg-[#101015] p-5 rounded-[2rem] flex justify-between items-center group border-2 border-white/5 hover:border-[var(--neon-yellow)] transition-all">
                     <div className="min-w-0 pr-4">
                       <div className="flex items-center gap-2 mb-1">
-                        <div className="text-white font-black uppercase truncate text-base font-bungee tracking-tight group-hover:text-[var(--neon-yellow)] transition-colors">{song.songName}</div>
+                        <div className="text-white font-bold uppercase truncate text-base font-bungee tracking-tight group-hover:text-[var(--neon-yellow)] transition-colors">{song.songName}</div>
                         {song.isFavorite && <span className="text-xs text-[var(--neon-yellow)] animate-pulse">★</span>}
                       </div>
-                      <div className="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em] font-righteous">{song.artist}</div>
+                      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] font-righteous">{song.artist}</div>
                     </div>
                     <div className="flex gap-3">
                       <button onClick={() => { setPrefillData({ ...song }); setShowRequestForm(true); }} className="bg-[var(--neon-pink)] text-black px-4 py-2 rounded-xl font-black text-[8px] uppercase tracking-widest hover:bg-white transition-all font-righteous shadow-[0_0_15px_rgba(255,0,127,0.3)] hover:scale-105 active:scale-95">ADD</button>
@@ -505,8 +505,8 @@ const ParticipantView: React.FC = () => {
             {userProfile.personalHistory.map((h, i) => (
               <div key={i} className="bg-[#101015] p-6 rounded-[2rem] flex justify-between items-center border-2 border-white/5 hover:border-[var(--neon-purple)] group transition-all">
                 <div className="min-w-0 pr-4">
-                  <div className="text-white font-black uppercase truncate text-lg font-bungee tracking-tight mb-1 group-hover:text-[var(--neon-purple)] transition-colors">{h.songName}</div>
-                  <div className="text-[9px] text-[var(--neon-cyan)]/70 font-black uppercase tracking-[0.2em] font-righteous">{h.artist}</div>
+                  <div className="text-white font-bold uppercase truncate text-lg font-bungee tracking-tight mb-1 group-hover:text-[var(--neon-purple)] transition-colors">{h.songName}</div>
+                  <div className="text-[10px] text-[var(--neon-cyan)]/70 font-bold uppercase tracking-[0.2em] font-righteous">{h.artist}</div>
                 </div>
                 <button onClick={() => { setPrefillData({ ...h, type: RequestType.SINGING }); setShowRequestForm(true); }} className="text-slate-600 hover:text-white border border-white/5 hover:border-white px-4 py-2 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all font-righteous">AGAIN</button>
               </div>

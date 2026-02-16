@@ -573,21 +573,21 @@ const DJView: React.FC<DJViewProps> = () => {
               </div>
             </div>
             <div>
-              <h1 className="text-8xl font-black font-bungee text-white flex items-center gap-6 uppercase tracking-tighter neon-glow-pink leading-none">
+              <h1 className="text-8xl font-bold font-bungee text-white flex items-center gap-6 uppercase tracking-tight neon-glow-pink leading-none">
                 SINGMODE <span className="text-[var(--neon-blue)] neon-glow-cyan text-5xl font-righteous translate-y-2">MAX</span>
               </h1>
               <div className="flex items-center gap-4 mt-4">
-                <span className="px-4 py-1.5 rounded-full bg-[var(--neon-pink)]/10 border border-[var(--neon-pink)]/30 text-[var(--neon-pink)] text-xs font-black uppercase tracking-[0.3em] font-righteous">SYS_OP_01</span>
+                <span className="px-4 py-1.5 rounded-full bg-[var(--neon-pink)]/10 border border-[var(--neon-pink)]/30 text-[var(--neon-pink)] text-xs font-bold uppercase tracking-widest font-righteous">SYS_OP_01</span>
                 <span className="text-[var(--neon-blue)]/30">||</span>
-                <span className="text-[var(--neon-blue)] text-xs font-black uppercase tracking-[0.3em] font-righteous neon-glow-cyan">ACTIVE_NODES: {session.participants.length}</span>
+                <span className="text-[var(--neon-blue)] text-xs font-bold uppercase tracking-widest font-righteous neon-glow-cyan">ACTIVE_NODES: {session.participants.length}</span>
               </div>
             </div>
           </div>
 
           <div className="flex gap-4">
             <div className="text-right">
-              <div className="text-[10px] text-[var(--neon-yellow)] font-black uppercase tracking-[0.4em] font-righteous mb-1">SYSTEM_STATUS</div>
-              <div className="text-2xl text-white font-black uppercase tracking-widest font-bungee flex items-center justify-end gap-3">
+              <div className="text-[10px] text-[var(--neon-yellow)] font-bold uppercase tracking-widest font-righteous mb-1">SYSTEM_STATUS</div>
+              <div className="text-2xl text-white font-bold uppercase tracking-widest font-bungee flex items-center justify-end gap-3">
                 ONLINE <div className="w-3 h-3 bg-[var(--neon-green)] rounded-full animate-pulse shadow-[0_0_10px_var(--neon-green)]"></div>
               </div>
             </div>
@@ -634,7 +634,7 @@ const DJView: React.FC<DJViewProps> = () => {
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); }}
-                className={`px-8 py-3 text-[10px] font-black uppercase tracking-[0.3em] transition-all rounded-[1.2rem] font-righteous ${activeTab === tab
+                className={`px-8 py-3 text-[10px] font-bold uppercase tracking-widest transition-all rounded-[1.2rem] font-righteous ${activeTab === tab
                   ? 'bg-white text-black shadow-[0_0_30px_rgba(255,255,255,0.4)] scale-105'
                   : 'text-slate-500 hover:text-white hover:bg-white/5'
                   }`}
@@ -655,10 +655,10 @@ const DJView: React.FC<DJViewProps> = () => {
                   <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-orange)] opacity-20 animate-pulse"></div>
                   <div className="relative bg-[#150030]/90 p-10 rounded-[2.8rem] backdrop-blur-xl border-2 border-[var(--neon-pink)]/50">
                     <div className="flex justify-between items-center mb-8">
-                      <h2 className="text-4xl font-black font-bungee text-white uppercase flex items-center gap-4 neon-glow-pink">
+                      <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-pink">
                         <span className="text-6xl animate-pulse">▶</span> ACTIVE SEQUENCE
                       </h2>
-                      <button onClick={async () => { await finishRound(); await refresh(); }} className="px-8 py-3 bg-[var(--neon-pink)] text-black text-[10px] font-black uppercase hover:bg-white transition-all rounded-[1rem] tracking-[0.3em] font-righteous shadow-[0_0_20px_var(--neon-pink)] active:scale-95">
+                      <button onClick={async () => { await finishRound(); await refresh(); }} className="px-8 py-3 bg-[var(--neon-pink)] text-black text-[10px] font-bold uppercase hover:bg-white transition-all rounded-[1rem] tracking-widest font-righteous shadow-[0_0_20px_var(--neon-pink)] active:scale-95">
                         FINISH_SET
                       </button>
                     </div>
@@ -678,10 +678,10 @@ const DJView: React.FC<DJViewProps> = () => {
                           >
                             {isActive && <div className="absolute top-4 right-4 text-[var(--neon-pink)] animate-pulse">● LIVE</div>}
                             <div className="min-w-0 pr-6 mb-6">
-                              <div className="text-2xl font-black text-white uppercase truncate font-bungee tracking-tighter mb-2 leading-none">
+                              <div className="text-2xl font-bold text-white uppercase truncate font-bungee tracking-tight mb-2 leading-none">
                                 {song.songName}
                               </div>
-                              <div className="text-sm text-[var(--neon-blue)] font-black uppercase tracking-[0.2em] font-righteous truncate">{song.artist}</div>
+                              <div className="text-sm text-[var(--neon-blue)] font-bold uppercase tracking-widest font-righteous truncate">{song.artist}</div>
                             </div>
 
                             <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-auto">
@@ -704,10 +704,10 @@ const DJView: React.FC<DJViewProps> = () => {
 
               <section className="bg-[#10002B]/80 border-2 border-[var(--neon-blue)]/30 rounded-[3rem] p-10 shadow-[0_0_60px_rgba(5,217,232,0.1)] relative overflow-hidden backdrop-blur-md">
                 <div className="flex justify-between items-center mb-8 px-2">
-                  <h2 className="text-4xl font-black font-bungee text-white uppercase flex items-center gap-4 neon-glow-cyan">
+                  <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-cyan">
                     <span className="text-[var(--neon-blue)]">⟳</span> QUEUE VALIDATION
                   </h2>
-                  <span className="px-6 py-2 bg-[var(--neon-blue)]/10 border border-[var(--neon-blue)]/30 rounded-full text-[10px] text-[var(--neon-blue)] font-black tracking-[0.2em] font-righteous">
+                  <span className="px-6 py-2 bg-[var(--neon-blue)]/10 border border-[var(--neon-blue)]/30 rounded-full text-[10px] text-[var(--neon-blue)] font-bold tracking-widest font-righteous">
                     {pendingRequests.length} PENDING
                   </span>
                 </div>
@@ -736,9 +736,9 @@ const DJView: React.FC<DJViewProps> = () => {
                       </div>
 
                       <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-auto">
-                        <button onClick={() => viewPerformerProfile(req.participantId)} className="text-xs font-black text-white uppercase truncate hover:text-[var(--neon-pink)] transition-colors font-righteous tracking-widest">@{req.participantName}</button>
+                        <button onClick={() => viewPerformerProfile(req.participantId)} className="text-xs font-bold text-white uppercase truncate hover:text-[var(--neon-pink)] transition-colors font-righteous tracking-widest">@{req.participantName}</button>
                         <div className="flex gap-2">
-                          <button onClick={async () => { await approveRequest(req.id); await refresh(); }} className="px-4 py-2 bg-[var(--neon-blue)] text-black border border-[var(--neon-blue)] text-[9px] font-black uppercase hover:bg-white transition-all rounded-lg tracking-[0.1em] shadow-[0_0_15px_rgba(5,217,232,0.4)]">ACCEPT</button>
+                          <button onClick={async () => { await approveRequest(req.id); await refresh(); }} className="px-4 py-2 bg-[var(--neon-blue)] text-black border border-[var(--neon-blue)] text-[9px] font-bold uppercase hover:bg-white transition-all rounded-lg tracking-wider shadow-[0_0_15px_rgba(5,217,232,0.4)]">ACCEPT</button>
                           <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="p-2 text-rose-500/30 hover:text-rose-500 transition-all">✕</button>
                         </div>
                       </div>
@@ -754,7 +754,7 @@ const DJView: React.FC<DJViewProps> = () => {
 
               <div className="flex flex-col gap-10">
                 <section className="bg-[#10002B]/60 border-2 border-[var(--neon-yellow)]/20 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
-                  <h3 className="text-3xl font-black font-bungee text-white uppercase mb-8 px-2 neon-glow-yellow flex items-center gap-4">
+                  <h3 className="text-3xl font-bold font-bungee text-white uppercase mb-8 px-2 neon-glow-yellow flex items-center gap-4">
                     <span className="text-[var(--neon-yellow)] animate-pulse">★</span> READY NODES
                   </h3>
                   <div className="flex gap-4 overflow-x-auto pb-6 no-scrollbar custom-scrollbar-h">
@@ -769,7 +769,7 @@ const DJView: React.FC<DJViewProps> = () => {
                       >
                         <div className="flex justify-between items-start mb-4">
                           <div className="min-w-0 flex-1 pr-2">
-                            <div className="text-lg font-black text-white truncate uppercase tracking-tight font-bungee group-hover:text-[var(--neon-yellow)] transition-colors mb-1">{req.songName}</div>
+                            <div className="text-lg font-bold text-white truncate uppercase tracking-tight font-bungee group-hover:text-[var(--neon-yellow)] transition-colors mb-1">{req.songName}</div>
                             <div className="text-[10px] text-slate-500 uppercase tracking-widest font-righteous">{req.artist}</div>
                           </div>
                           <div className="flex flex-col gap-1">
@@ -779,9 +779,9 @@ const DJView: React.FC<DJViewProps> = () => {
                         </div>
 
                         <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between">
-                          <button onClick={(e) => { e.stopPropagation(); viewPerformerProfile(req.participantId); }} className="text-[var(--neon-pink)] font-black text-xs uppercase tracking-widest font-righteous hover:underline">@{req.participantName}</button>
+                          <button onClick={(e) => { e.stopPropagation(); viewPerformerProfile(req.participantId); }} className="text-[var(--neon-pink)] font-bold text-xs uppercase tracking-widest font-righteous hover:underline">@{req.participantName}</button>
                           <div className="flex gap-3">
-                            <button onClick={() => handlePromoteToStage(req.id)} className="px-4 py-2 bg-[var(--neon-yellow)] text-black text-[9px] font-black uppercase rounded-lg hover:bg-white transition-all shadow-[0_0_15px_rgba(255,200,87,0.4)] tracking-[0.1em]">STAGE</button>
+                            <button onClick={() => handlePromoteToStage(req.id)} className="px-4 py-2 bg-[var(--neon-yellow)] text-black text-[9px] font-bold uppercase rounded-lg hover:bg-white transition-all shadow-[0_0_15px_rgba(255,200,87,0.4)] tracking-wider">STAGE</button>
                             <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="text-rose-500/20 hover:text-rose-500 font-black text-lg p-1">✕</button>
                           </div>
                         </div>
@@ -796,7 +796,7 @@ const DJView: React.FC<DJViewProps> = () => {
                 </section>
 
                 <section className="bg-[#10002B]/60 border-2 border-[var(--neon-green)]/20 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
-                  <h3 className="text-3xl font-black font-bungee text-white uppercase mb-8 px-2 neon-glow-green flex items-center gap-4">
+                  <h3 className="text-3xl font-bold font-bungee text-white uppercase mb-8 px-2 neon-glow-green flex items-center gap-4">
                     <span className="text-[var(--neon-green)] animate-pulse">☢</span> ATMOSPHERE
                   </h3>
 
@@ -834,7 +834,7 @@ const DJView: React.FC<DJViewProps> = () => {
                         {[...verifiedSongs].reverse().map(v => (
                           <div key={v.id} className="bg-black/80 p-5 rounded-[2rem] border border-white/5 flex flex-col justify-between group hover:border-[var(--neon-cyan)] transition-all shadow-lg min-w-[280px] max-w-[280px]">
                             <div className="min-w-0 mb-4">
-                              <div className="text-base font-black text-white uppercase truncate tracking-tight group-hover:text-[var(--neon-cyan)] transition-colors font-bungee mb-1">{v.songName}</div>
+                              <div className="text-base font-bold text-white uppercase truncate tracking-tight group-hover:text-[var(--neon-cyan)] transition-colors font-bungee mb-1">{v.songName}</div>
                               <div className="text-[9px] text-slate-600 uppercase truncate tracking-widest font-righteous font-bold">{v.artist}</div>
                             </div>
                             <div className="flex items-center justify-between border-t border-white/5 pt-4">
@@ -871,10 +871,10 @@ const DJView: React.FC<DJViewProps> = () => {
             <div className="lg:col-span-4 space-y-8">
               <section className="bg-[#0a0a0a] border-4 border-white/5 rounded-[3rem] p-8 shadow-[0_0_40px_rgba(0,0,0,0.5)] relative overflow-hidden flex flex-col h-[600px]">
                 <div className="flex justify-between items-center mb-6 px-2">
-                  <h2 className="text-2xl font-black font-bungee text-white uppercase tracking-tight opacity-90">PERFORMERS</h2>
+                  <h2 className="text-2xl font-bold font-bungee text-white uppercase tracking-tight opacity-90">PERFORMERS</h2>
                   <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">
                     <div className="w-2 h-2 rounded-full bg-[var(--neon-cyan)] animate-pulse"></div>
-                    <span className="text-[9px] text-[var(--neon-cyan)] font-black uppercase tracking-widest">{liveMicCount} ONLINE</span>
+                    <span className="text-[9px] text-[var(--neon-cyan)] font-bold uppercase tracking-widest">{liveMicCount} ONLINE</span>
                   </div>
                 </div>
                 <div className="space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
@@ -915,9 +915,9 @@ const DJView: React.FC<DJViewProps> = () => {
 
               <section className="bg-[#0a0a0a] border-4 border-white/5 rounded-[3rem] p-8 shadow-[0_0_40px_rgba(0,0,0,0.5)] relative overflow-hidden flex flex-col h-[400px]">
                 <div className="flex justify-between items-center mb-6 px-2">
-                  <h2 className="text-2xl font-black font-bungee text-white uppercase tracking-tight opacity-90">LOG</h2>
+                  <h2 className="text-2xl font-bold font-bungee text-white uppercase tracking-tight opacity-90">LOG</h2>
                   {session.history.length > 0 && (
-                    <button onClick={async () => { await clearHistory(); await refresh(); }} className="text-[9px] font-black text-rose-500/40 hover:text-rose-500 uppercase tracking-widest transition-all">
+                    <button onClick={async () => { await clearHistory(); await refresh(); }} className="text-[9px] font-bold text-rose-500/40 hover:text-rose-500 uppercase tracking-widest transition-all">
                       CLEAR
                     </button>
                   )}
@@ -927,7 +927,7 @@ const DJView: React.FC<DJViewProps> = () => {
                     <div key={i} className="bg-black/40 p-4 rounded-2xl border border-white/5 flex flex-col group hover:border-[var(--neon-purple)] transition-all">
                       <div className="flex justify-between items-start mb-2">
                         <div className="min-w-0 pr-2">
-                          <div className="text-sm font-black text-white uppercase truncate tracking-tight group-hover:text-[var(--neon-purple)] transition-colors font-bungee">{item.songName}</div>
+                          <div className="text-sm font-bold text-white uppercase truncate tracking-tight group-hover:text-[var(--neon-purple)] transition-colors font-bungee">{item.songName}</div>
                           <div className="text-[9px] text-slate-600 uppercase truncate tracking-widest font-righteous">{item.artist}</div>
                         </div>
                         <VideoLink url={item.youtubeUrl} />
@@ -972,14 +972,14 @@ const DJView: React.FC<DJViewProps> = () => {
                       >
                         <div className="flex justify-between items-start mb-10">
                           <div className="min-w-0 pr-8">
-                            <div className="text-4xl font-black text-white uppercase truncate tracking-tighter mb-6 font-righteous neon-glow-white">
+                            <div className="text-4xl font-bold text-white uppercase truncate tracking-tight mb-6 font-righteous neon-glow-white">
                               <span className="text-[var(--neon-cyan)] mr-6 text-base opacity-60 font-mono">ID_{song.requestNumber}</span>
                               {song.songName}
                             </div>
-                            <div className="text-2xl text-[var(--neon-cyan)] font-black uppercase tracking-[0.4em] font-righteous opacity-100 neon-glow-cyan">{song.artist}</div>
-                            <div className="mt-8 text-xl font-black text-[var(--neon-pink)] uppercase tracking-[0.2em] font-righteous neon-glow-pink">PERFORMER: @{song.participantName}</div>
+                            <div className="text-2xl text-[var(--neon-cyan)] font-bold uppercase tracking-widest font-righteous opacity-100 neon-glow-cyan">{song.artist}</div>
+                            <div className="mt-8 text-xl font-bold text-[var(--neon-pink)] uppercase tracking-widest font-righteous neon-glow-pink">PERFORMER: @{song.participantName}</div>
                           </div>
-                          {i === 0 && <div className="px-8 py-3 bg-[var(--neon-pink)] text-black rounded-full text-xs font-black uppercase tracking-widest font-righteous shadow-[0_0_30px_var(--neon-pink)] animate-flicker">LIVE_ON_STAGE</div>}
+                          {i === 0 && <div className="px-8 py-3 bg-[var(--neon-pink)] text-black rounded-full text-xs font-bold uppercase tracking-widest font-righteous shadow-[0_0_30px_var(--neon-pink)] animate-flicker">LIVE_ON_STAGE</div>}
                         </div>
 
                         <div className="flex gap-6 pt-10 border-t-2 border-white/5 mt-10">
@@ -995,7 +995,7 @@ const DJView: React.FC<DJViewProps> = () => {
               <section className="bg-[#050510] border-4 border-[var(--neon-cyan)]/30 rounded-[3rem] p-10 shadow-[0_0_80px_rgba(0,229,255,0.15)] relative overflow-hidden backdrop-blur-md">
                 <div className="flex items-center gap-6 mb-10">
                   <div className="w-4 h-4 bg-[var(--neon-cyan)] shadow-[0_0_20px_var(--neon-cyan)] rounded-full animate-pulse"></div>
-                  <h3 className="text-4xl font-black text-white uppercase tracking-tighter font-bungee neon-glow-cyan">UPCOMING NODES</h3>
+                  <h3 className="text-4xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-cyan">UPCOMING NODES</h3>
                 </div>
                 <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
                   {approvedSinging.map((req) => (
@@ -1033,10 +1033,10 @@ const DJView: React.FC<DJViewProps> = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 animate-in slide-in-from-bottom-2 pb-32">
               <section className="lg:col-span-8 bg-[#0a0a0a] border-4 border-[var(--neon-cyan)]/20 rounded-[3rem] p-10 shadow-[0_0_60px_rgba(0,229,255,0.1)] relative overflow-hidden backdrop-blur-md">
                 <div className="flex justify-between items-center mb-10 px-2">
-                  <h2 className="text-4xl font-black text-white uppercase tracking-tighter font-bungee neon-glow-cyan">PERFORMER INDEX</h2>
+                  <h2 className="text-4xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-cyan">PERFORMER INDEX</h2>
                   <div className="flex items-center gap-4 px-6 py-2 bg-black/40 border border-[var(--neon-cyan)]/30 rounded-full shadow-lg">
                     <div className="w-2 h-2 rounded-full bg-[var(--neon-cyan)] animate-pulse"></div>
-                    <span className="text-xs font-black text-[var(--neon-cyan)] uppercase tracking-[0.3em] font-righteous">{liveMicCount} ACTIVE</span>
+                    <span className="text-xs font-bold text-[var(--neon-cyan)] uppercase tracking-widest font-righteous">{liveMicCount} ACTIVE</span>
                   </div>
                 </div>
                 <div className="grid gap-6">
@@ -1057,11 +1057,11 @@ const DJView: React.FC<DJViewProps> = () => {
                           <div className="min-w-0">
                             <button
                               onClick={() => viewPerformerProfile(p.id)}
-                              className={`font-black text-2xl uppercase truncate font-bungee tracking-tight transition-colors ${isReady ? 'text-white' : 'text-slate-600 hover:text-[var(--neon-pink)]'}`}
+                              className={`font-bold text-2xl uppercase truncate font-bungee tracking-tight transition-colors ${isReady ? 'text-white' : 'text-slate-600 hover:text-[var(--neon-pink)]'}`}
                             >
                               {p.name}
                             </button>
-                            {approvedCount > 0 && <div className="text-[10px] font-black text-[var(--neon-cyan)] uppercase mt-1 tracking-[0.3em] font-righteous opacity-90">{approvedCount} TRACKS READY</div>}
+                            {approvedCount > 0 && <div className="text-[10px] font-bold text-[var(--neon-cyan)] uppercase mt-1 tracking-widest font-righteous opacity-90">{approvedCount} TRACKS READY</div>}
                           </div>
                         </div>
                         <div className="flex gap-4 items-center">
@@ -1116,7 +1116,7 @@ const DJView: React.FC<DJViewProps> = () => {
                     placeholder="SCANNING GLOBAL SONGBOOK..."
                     value={librarySearchQuery}
                     onChange={(e) => setLibrarySearchQuery(e.target.value)}
-                    className="w-full bg-black/50 border-2 border-white/10 rounded-[2.3rem] py-6 pl-16 pr-32 text-lg font-black tracking-widest text-white placeholder:text-slate-600 focus:outline-none focus:border-[var(--neon-pink)] transition-all font-righteous uppercase"
+                    className="w-full bg-black/50 border-2 border-white/10 rounded-[2.3rem] py-6 pl-16 pr-32 text-lg font-bold tracking-widest text-white placeholder:text-slate-600 focus:outline-none focus:border-[var(--neon-pink)] transition-all font-righteous uppercase"
                   />
                   <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-[var(--neon-pink)] transition-colors pointer-events-none">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -1174,8 +1174,8 @@ const DJView: React.FC<DJViewProps> = () => {
                         </div>
 
                         <div className="min-w-0 mb-6 flex-1">
-                          <h4 className="text-xl font-black text-white uppercase truncate tracking-tight font-bungee mb-1 group-hover:text-[var(--neon-cyan)] transition-colors">{song.title}</h4>
-                          <p className="text-xs text-slate-500 font-black uppercase tracking-[0.2em] font-righteous opacity-70 truncate">{song.artist}</p>
+                          <h4 className="text-xl font-bold text-white uppercase truncate tracking-tight font-bungee mb-1 group-hover:text-[var(--neon-cyan)] transition-colors">{song.title}</h4>
+                          <p className="text-xs text-slate-500 font-bold uppercase tracking-widest font-righteous opacity-70 truncate">{song.artist}</p>
                         </div>
 
                         <div className="flex gap-2 border-t border-white/5 pt-4 mt-auto">
@@ -1251,10 +1251,10 @@ const DJView: React.FC<DJViewProps> = () => {
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-6 z-[100] backdrop-blur-xl animate-in fade-in duration-300">
           <div className="w-full max-w-2xl bg-[#0a0a0a] border-4 border-[var(--neon-pink)]/30 rounded-[3rem] p-10 shadow-[0_0_100px_rgba(255,42,109,0.2)] animate-in zoom-in-95 duration-500 relative overflow-hidden">
             <div className="flex justify-between items-start mb-8">
-              <h2 className="text-3xl font-black text-white uppercase tracking-tight leading-none font-bungee neon-glow-pink">REVIEW LINEUP</h2>
-              <button onClick={() => setShowRoundConfirm(false)} className="text-slate-600 hover:text-white font-black text-3xl px-2 transition-all transform hover:scale-110">✕</button>
+              <h2 className="text-3xl font-bold text-white uppercase tracking-tight leading-none font-bungee neon-glow-pink">REVIEW LINEUP</h2>
+              <button onClick={() => setShowRoundConfirm(false)} className="text-slate-600 hover:text-white font-bold text-3xl px-2 transition-all transform hover:scale-110">✕</button>
             </div>
-            <div className="mb-8 text-xs text-[var(--neon-cyan)] font-black uppercase tracking-[0.4em] font-righteous opacity-80 decoration-dotted underline underline-offset-4">OPERATIONAL READY CHECK</div>
+            <div className="mb-8 text-xs text-[var(--neon-cyan)] font-bold uppercase tracking-widest font-righteous opacity-80 decoration-dotted underline underline-offset-4">OPERATIONAL READY CHECK</div>
 
             <div className="space-y-4 mb-10 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
               {session.participants
@@ -1279,7 +1279,7 @@ const DJView: React.FC<DJViewProps> = () => {
                           {isReady && <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>}
                         </button>
                         <div className="min-w-0">
-                          <div className={`font-black uppercase text-lg truncate tracking-tight font-bungee ${isReady ? 'text-white' : 'text-slate-600'}`}>{p.name}</div>
+                          <div className={`font-bold uppercase text-lg truncate tracking-tight font-bungee ${isReady ? 'text-white' : 'text-slate-600'}`}>{p.name}</div>
                           {isReady ? (
                             song ? (
                               <div className="text-[var(--neon-cyan)] text-[10px] font-black uppercase tracking-[0.2em] font-righteous mt-0.5 opacity-90">
@@ -1402,8 +1402,8 @@ const DJView: React.FC<DJViewProps> = () => {
                             <UserAvatar name={managedProfile.name} isActive={session.participants.some(p => p.id === managedProfile.id)} />
                           </div>
                           <div className="mt-4">
-                            <div className="text-[9px] font-black text-[var(--neon-cyan)] uppercase tracking-[0.3em] mb-2 font-righteous">AUTHENTICATED IDENTITY</div>
-                            <h3 className="text-3xl font-black text-white uppercase tracking-tight leading-none font-bungee break-words">{managedProfile.name}</h3>
+                            <div className="text-[9px] font-bold text-[var(--neon-cyan)] uppercase tracking-widest mb-2 font-righteous">AUTHENTICATED IDENTITY</div>
+                            <h3 className="text-3xl font-bold text-white uppercase tracking-tight leading-none font-bungee break-words">{managedProfile.name}</h3>
                           </div>
 
                           <div className="w-full mt-8 space-y-3 pt-6 border-t border-white/5">
@@ -1457,7 +1457,7 @@ const DJView: React.FC<DJViewProps> = () => {
                               <div key={i} className="bg-black/40 border border-white/5 p-4 rounded-xl group hover:border-[var(--neon-cyan)] transition-all">
                                 <div className="flex justify-between items-start">
                                   <div className="min-w-0 pr-4">
-                                    <div className="text-sm font-black text-white truncate uppercase tracking-tight font-righteous group-hover:text-[var(--neon-cyan)] transition-colors">{h.songName}</div>
+                                    <div className="text-sm font-bold text-white truncate uppercase tracking-tight font-righteous group-hover:text-[var(--neon-cyan)] transition-colors">{h.songName}</div>
                                     <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5 font-righteous opacity-60">{h.artist}</div>
                                   </div>
                                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
@@ -1484,28 +1484,28 @@ const DJView: React.FC<DJViewProps> = () => {
                   </div>
                 ) : isCreatingProfile ? (
                   <form onSubmit={handleProfileFormSubmit} className="max-w-xl mx-auto bg-[#101015] border-2 border-white/10 p-10 rounded-[3rem] space-y-6 shadow-[0_0_60px_rgba(255,0,127,0.1)] animate-in fade-in zoom-in-95 duration-500">
-                    <h3 className="text-3xl font-black text-white uppercase tracking-tight font-bungee neon-glow-pink mb-2 text-center">{editingProfile ? 'Modify Profile' : 'New User Account'}</h3>
+                    <h3 className="text-3xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-pink mb-2 text-center">{editingProfile ? 'Modify Profile' : 'New User Account'}</h3>
                     <div className="space-y-6">
                       <div>
-                        <label className="block text-[9px] font-black text-slate-500 uppercase mb-2 ml-4 tracking-[0.3em] font-righteous">IDENTITY HANDLE</label>
-                        <input required type="text" value={profileForm.name} onChange={e => { setProfileForm({ ...profileForm, name: e.target.value }); setProfileError(''); }} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-black uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" />
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-2 ml-4 tracking-widest font-righteous">IDENTITY HANDLE</label>
+                        <input required type="text" value={profileForm.name} onChange={e => { setProfileForm({ ...profileForm, name: e.target.value }); setProfileError(''); }} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-bold uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" />
                       </div>
 
                       {profileError && (
                         <div className="mb-4 animate-pulse">
-                          <p className="text-[var(--neon-pink)] font-black uppercase text-[9px] tracking-widest flex items-center gap-2">
+                          <p className="text-[var(--neon-pink)] font-bold uppercase text-[9px] tracking-widest flex items-center gap-2">
                             <span className="text-xs">⚠️</span> {profileError}
                           </p>
                         </div>
                       )}
                       <div>
-                        <label className="block text-[9px] font-black text-slate-500 uppercase mb-2 ml-4 tracking-[0.3em] font-righteous">ENCRYPTION PIN (OPTIONAL)</label>
-                        <input type="password" value={profileForm.password} onChange={e => setProfileForm({ ...profileForm, password: e.target.value })} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-black uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" />
+                        <label className="block text-[9px] font-bold text-slate-500 uppercase mb-2 ml-4 tracking-widest font-righteous">ENCRYPTION PIN (OPTIONAL)</label>
+                        <input type="password" value={profileForm.password} onChange={e => setProfileForm({ ...profileForm, password: e.target.value })} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-bold uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" />
                       </div>
                     </div>
                     <div className="flex gap-4 pt-4">
-                      <button type="button" onClick={() => { setIsCreatingProfile(false); setEditingProfile(null); }} className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-[9px] font-black uppercase tracking-widest font-righteous hover:bg-white/5">ABORT</button>
-                      <button type="submit" className="flex-[2] py-4 bg-[var(--neon-cyan)] text-black rounded-xl text-[9px] font-black uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white">AUTHORIZE ACCOUNT</button>
+                      <button type="button" onClick={() => { setIsCreatingProfile(false); setEditingProfile(null); }} className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-[9px] font-bold uppercase tracking-widest font-righteous hover:bg-white/5">ABORT</button>
+                      <button type="submit" className="flex-[2] py-4 bg-[var(--neon-cyan)] text-black rounded-xl text-[9px] font-bold uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white">AUTHORIZE ACCOUNT</button>
                     </div>
                   </form>
                 ) : (
@@ -1538,7 +1538,7 @@ const DJView: React.FC<DJViewProps> = () => {
                                       <div className="min-w-0">
                                         <button
                                           onClick={() => setManagedProfile(user)}
-                                          className="text-white font-black text-lg uppercase truncate tracking-tight text-left block hover:text-[var(--neon-pink)] transition-colors font-bungee"
+                                          className="text-white font-bold text-lg uppercase truncate tracking-tight text-left block hover:text-[var(--neon-pink)] transition-colors font-bungee"
                                         >
                                           {user.name}
                                         </button>
@@ -1551,8 +1551,8 @@ const DJView: React.FC<DJViewProps> = () => {
 
                                     <div className="grid grid-cols-1 gap-2 relative z-10">
                                       <div className="flex gap-2">
-                                        <button onClick={() => setManagedProfile(user)} className="flex-[2] py-2.5 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-white rounded-lg text-[8px] font-black uppercase tracking-widest transition-all font-righteous">OPEN PROFILE</button>
-                                        <button onClick={() => startEditProfile(user)} className="flex-1 py-2.5 bg-slate-900 border border-white/5 text-slate-500 hover:text-white rounded-lg text-[8px] font-black uppercase transition-all font-righteous">EDIT</button>
+                                        <button onClick={() => setManagedProfile(user)} className="flex-[2] py-2.5 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-white rounded-lg text-[8px] font-bold uppercase tracking-widest transition-all font-righteous">OPEN PROFILE</button>
+                                        <button onClick={() => startEditProfile(user)} className="flex-1 py-2.5 bg-slate-900 border border-white/5 text-slate-500 hover:text-white rounded-lg text-[8px] font-bold uppercase transition-all font-righteous">EDIT</button>
                                       </div>
                                       <button
                                         onClick={() => handleQuickSet(user)}
@@ -1592,7 +1592,7 @@ const DJView: React.FC<DJViewProps> = () => {
                                         <div className="flex justify-between items-start gap-2">
                                           <button
                                             onClick={() => setManagedProfile(user)}
-                                            className="text-white font-black text-lg uppercase truncate tracking-tight text-left block hover:text-[var(--neon-purple)] transition-colors font-bungee"
+                                            className="text-white font-bold text-lg uppercase truncate tracking-tight text-left block hover:text-[var(--neon-purple)] transition-colors font-bungee"
                                           >
                                             {user.name}
                                           </button>

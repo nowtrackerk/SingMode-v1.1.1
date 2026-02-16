@@ -29,11 +29,11 @@
             --neon-orange: #FF6B35;
             /* Sunset Orange */
 
-            --bg-deep: #050510;
-            /* Deep Space Black */
-            --bg-glass: rgba(5, 5, 16, 0.7);
-            /* Tinted Glass */
-            --overlay-gradient: linear-gradient(135deg, rgba(255, 42, 109, 0.05), rgba(5, 217, 232, 0.05));
+            --bg-deep: #000000;
+            /* Pure Black for Cyberpunk */
+            --bg-glass: rgba(10, 10, 15, 0.95);
+            /* Nearly Opaque for Contrast */
+            --overlay-gradient: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.03));
         }
 
         body {
@@ -43,6 +43,9 @@
             margin: 0;
             overflow-x: hidden;
             background-attachment: fixed;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
             /* Retro Grid Background */
             background-image:
                 linear-gradient(rgba(16, 0, 43, 0.9), rgba(16, 0, 43, 0.9)),
@@ -86,7 +89,7 @@
         .text-neon-huge {
             font-size: 8rem;
             line-height: 0.9;
-            font-weight: 900;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: -0.05em;
             font-family: 'Righteous', cursive;
@@ -113,24 +116,25 @@
         }
 
         /* Tropical Neon Glows */
+        /* Crisp Neon Accents (Reduced Bloom) */
         .neon-glow-pink {
-            text-shadow: 0 0 10px var(--neon-pink), 0 0 20px var(--neon-pink), 0 0 30px rgba(255, 42, 109, 0.4);
+            text-shadow: 0 0 2px var(--neon-pink);
         }
 
         .neon-glow-cyan {
-            text-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue), 0 0 30px rgba(5, 217, 232, 0.4);
+            text-shadow: 0 0 2px var(--neon-blue);
         }
 
         .neon-glow-yellow {
-            text-shadow: 0 0 10px var(--neon-yellow), 0 0 20px var(--neon-yellow), 0 0 30px rgba(255, 200, 87, 0.4);
+            text-shadow: 0 0 2px var(--neon-yellow);
         }
 
         .neon-glow-purple {
-            text-shadow: 0 0 10px var(--neon-purple), 0 0 20px var(--neon-purple), 0 0 30px rgba(119, 0, 166, 0.5);
+            text-shadow: 0 0 2px var(--neon-purple);
         }
 
         .neon-glow-green {
-            text-shadow: 0 0 10px var(--neon-green), 0 0 20px var(--neon-green);
+            text-shadow: 0 0 2px var(--neon-green);
         }
 
         /* Premium Glassmorphism V2 */
@@ -251,20 +255,21 @@
         }
 
         /* Text Glow Aliases */
+        /* Text Glow Aliases - Crisp */
         .neon-text-glow-pink {
-            text-shadow: 0 0 10px var(--neon-pink), 0 0 20px var(--neon-pink), 0 0 30px rgba(255, 42, 109, 0.4);
+            text-shadow: 0 0 4px var(--neon-pink);
         }
 
         .neon-text-glow-cyan {
-            text-shadow: 0 0 10px var(--neon-blue), 0 0 20px var(--neon-blue), 0 0 30px rgba(5, 217, 232, 0.4);
+            text-shadow: 0 0 4px var(--neon-blue);
         }
 
         .neon-text-glow-purple {
-            text-shadow: 0 0 10px var(--neon-purple), 0 0 20px var(--neon-purple), 0 0 30px rgba(119, 0, 166, 0.5);
+            text-shadow: 0 0 4px var(--neon-purple);
         }
 
         .neon-text-glow-yellow {
-            text-shadow: 0 0 10px var(--neon-yellow), 0 0 20px var(--neon-yellow), 0 0 30px rgba(255, 200, 87, 0.4);
+            text-shadow: 0 0 4px var(--neon-yellow);
         }
 
         /* Gradient Animation */
@@ -445,13 +450,13 @@
 
             0%,
             100% {
-                opacity: 0.9;
-                text-shadow: 0 0 10px currentColor;
+                opacity: 0.8;
+                text-shadow: none;
             }
 
             50% {
                 opacity: 1;
-                text-shadow: 0 0 20px currentColor, 0 0 30px currentColor;
+                text-shadow: 0 0 5px currentColor;
             }
         }
 
