@@ -200,8 +200,8 @@ const ParticipantView: React.FC = () => {
   if (!participant) {
     return (
       <div className="max-w-md mx-auto p-8 flex flex-col items-center justify-center min-h-[85vh] text-center animate-in fade-in duration-700">
-        <div className="w-24 h-24 bg-pink-500 neon-border-pink rounded-3xl flex items-center justify-center mb-10 shadow-2xl shadow-pink-500/20">
-          <span className="text-5xl font-black text-white neon-glow-pink font-bungee">SM</span>
+        <div className="w-40 h-40 flex items-center justify-center mb-10 shadow-2xl relative">
+          <img src="IGK.jpeg" alt="Island Groove" className="w-full h-full rounded-full neon-border-pink shadow-[0_0_30px_rgba(255,20,147,0.5)]" />
         </div>
         <h1 className="text-4xl font-black font-bungee text-white mb-3 uppercase tracking-tighter neon-glow-pink">
           Activate <span className="rainbow-text">SingMode</span>
@@ -248,6 +248,7 @@ const ParticipantView: React.FC = () => {
           <button onClick={async () => { await logoutUser(); await refresh(); }} className="text-rose-500 hover:text-rose-400 text-[10px] font-black uppercase tracking-widest py-2 px-4 bg-rose-500/5 hover:bg-rose-500/10 rounded-xl transition-all border border-rose-500/10">Log Out</button>
         </div>
         <div className="flex flex-col items-center text-center">
+          <img src="IGK.jpeg" alt="Logo" className="w-20 h-20 rounded-full mb-4 neon-border-pink shadow-[0_0_15px_rgba(255,20,147,0.5)]" />
           <div className="text-[10px] text-cyan-400 font-black uppercase tracking-[0.4em] mb-2 px-4 py-1 bg-cyan-400/5 rounded-full border border-cyan-400/10 neon-glow-cyan">Secure Connection</div>
           <h2 className="text-4xl font-black text-white tracking-tighter uppercase leading-none mt-2 font-bungee neon-glow-pink">{participant.name}</h2>
           <div className="text-[10px] text-yellow-400 font-bold uppercase tracking-widest mt-4 font-righteous neon-glow-yellow">Authorized Performer Account</div>
