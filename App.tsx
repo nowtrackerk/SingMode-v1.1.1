@@ -86,8 +86,14 @@ const App: React.FC = () => {
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(currentUrl + (roomId ? `?room=${roomId}` : ''))}&bgcolor=ffffff`;
 
   if (loading) return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="w-16 h-16 border-4 border-t-transparent rounded-full animate-spin neon-border-pink" style={{ borderColor: 'var(--neon-pink)', borderTopColor: 'transparent' }}></div>
+    <div className="min-h-screen bg-[#050510] flex flex-col items-center justify-center space-y-8 relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-black via-[#10002B] to-black"></div>
+      <div className="w-24 h-24 relative">
+        <div className="absolute inset-0 border-4 border-[var(--neon-pink)]/30 rounded-full animate-ping"></div>
+        <div className="absolute inset-0 border-4 border-[var(--neon-cyan)]/30 rounded-full animate-ping delay-75"></div>
+        <div className="relative z-10 w-full h-full border-4 border-t-[var(--neon-pink)] border-r-[var(--neon-purple)] border-b-[var(--neon-cyan)] border-l-[var(--neon-yellow)] rounded-full animate-spin"></div>
+      </div>
+      <h2 className="text-2xl font-black font-bungee text-white uppercase tracking-widest animate-pulse z-10">INITIALIZING</h2>
     </div>
   );
 
@@ -100,70 +106,87 @@ const App: React.FC = () => {
     const isUsingLocalhost = currentUrl.includes('localhost') || currentUrl.includes('127.0.0.1');
 
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-black">
-        <div className="max-w-4xl w-full">
-          <div className="text-center mb-16 animate-in fade-in slide-in-from-top-4 duration-700">
-            <div className="flex justify-center mb-8">
-              <img src="IGK.jpeg" alt="Island Groove" className="w-40 h-40 rounded-full neon-border-pink shadow-[0_0_30px_rgba(255,20,147,0.5)]" />
+
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#050510] relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-black via-[#10002B] to-black -z-10"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] opacity-10"></div>
+
+        <div className="max-w-7xl w-full z-10">
+          <div className="text-center mb-20 animate-in fade-in slide-in-from-top-4 duration-1000">
+            <div className="flex justify-center mb-10 relative">
+              <div className="absolute inset-0 bg-[var(--neon-pink)]/20 blur-[100px] rounded-full"></div>
+              <div className="p-3 rounded-full border-4 border-white/10 bg-black shadow-2xl relative z-10">
+                <div className="rounded-full overflow-hidden border-4 border-[var(--neon-pink)] shadow-[0_0_50px_rgba(255,0,127,0.5)] w-48 h-48">
+                  <img src="IGK.jpeg" alt="Island Groove" className="w-full h-full object-cover" />
+                </div>
+              </div>
             </div>
-            <h1 className="text-8xl font-black font-bungee mb-4 rainbow-text tracking-tighter neon-pulse">
+            <h1 className="text-6xl md:text-9xl font-black font-bungee text-white mb-6 uppercase tracking-tighter neon-text-glow-purple leading-none drop-shadow-2xl">
               SINGMODE
             </h1>
-            <p className="text-[#FFD700] text-xl font-bold tracking-wide uppercase neon-glow-yellow">KARAOKE LOUNGE</p>
+            <p className="text-[var(--neon-yellow)] text-xl md:text-2xl font-black tracking-[0.6em] uppercase neon-glow-yellow font-righteous">KARAOKE_LOUNGE_SYSTEM</p>
           </div>
 
           {error && (
-            <div className="mb-8 p-6 bg-rose-500/10 border-2 border-rose-500 rounded-[2rem] text-center animate-in zoom-in duration-300">
-              <div className="text-3xl mb-2">🚫</div>
-              <h3 className="text-rose-500 font-black uppercase tracking-widest text-lg mb-2">Session Conflict</h3>
-              <p className="text-white font-medium">{error}</p>
-              <p className="text-slate-400 text-xs mt-4 uppercase font-bold">Only one DJ is allowed per local network.</p>
+            <div className="mb-12 p-10 bg-[#150005] border-4 border-rose-500 rounded-[3rem] text-center animate-in zoom-in duration-500 max-w-3xl mx-auto shadow-[0_0_60px_rgba(244,63,94,0.4)] relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-2 bg-rose-500 animate-pulse"></div>
+              <div className="text-6xl mb-6">🚫</div>
+              <h3 className="text-rose-500 font-black uppercase tracking-[0.3em] text-3xl mb-4 font-bungee">SYSTEM_CONFLICT</h3>
+              <p className="text-white text-xl font-bold leading-relaxed font-righteous">{error}</p>
+              <p className="text-rose-500/50 text-xs mt-8 uppercase font-black tracking-[0.2em] font-righteous">SINGLE_DJ_PROTOCOL_ACTIVE</p>
             </div>
           )}
 
-          <div className={`grid gap-8 ${isQRCodeUser ? 'grid-cols-1 max-w-md mx-auto' : 'md:grid-cols-2'}`}>
+          <div className={`grid gap-8 ${isQRCodeUser ? 'grid-cols-1 max-w-2xl mx-auto' : 'md:grid-cols-2'}`}>
             {!isQRCodeUser && (
               <button
                 onClick={() => handleManualRoleSelect('DJ')}
-                className="group p-10 bg-black/80 border-2 rounded-[2.5rem] text-left hover:bg-black transition-all shadow-2xl neon-border-pink hover:neon-border-cyan"
+                className="group relative p-12 bg-[#101015] border-4 border-white/5 rounded-[4rem] text-left transition-all hover:border-[var(--neon-pink)] hover:-translate-y-2 hover:shadow-[0_0_80px_rgba(255,0,127,0.2)] overflow-hidden"
               >
-                <div className="w-16 h-16 bg-black border-2 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-all neon-border-yellow group-hover:neon-border-green">🎧</div>
-                <h2 className="text-3xl font-black mb-2 font-righteous uppercase tracking-tight neon-glow-pink" style={{ color: 'var(--neon-pink)' }}>DJ CONSOLE</h2>
-                <p className="font-medium" style={{ color: 'var(--neon-cyan)' }}>Coordinate the room. Approve tracks and manage the rotation.</p>
+                <div className="absolute inset-0 bg-gradient-to-br from-[var(--neon-pink)]/0 to-[var(--neon-pink)]/5 group-hover:to-[var(--neon-pink)]/10 transition-all"></div>
+                <div className="relative z-10">
+                  <div className="w-24 h-24 bg-black border-2 border-white/10 rounded-3xl flex items-center justify-center text-5xl mb-8 group-hover:scale-110 transition-all group-hover:border-[var(--neon-pink)] shadow-2xl">🎧</div>
+                  <h2 className="text-5xl font-black mb-4 font-bungee uppercase tracking-tighter text-white group-hover:text-[var(--neon-pink)] transition-colors">DJ_CONSOLE</h2>
+                  <p className="text-sm font-righteous uppercase tracking-widest text-[var(--neon-cyan)] opacity-70 leading-relaxed">COORDINATE_ROTATION. APPROVE_THREADS. COMMAND_ATMOSPHERE.</p>
+                </div>
               </button>
             )}
 
             <button
               onClick={() => handleManualRoleSelect('PARTICIPANT')}
-              className="group p-10 bg-black/80 border-2 rounded-[2.5rem] text-left hover:bg-black transition-all shadow-2xl neon-border-cyan hover:neon-border-yellow"
+              className="group relative p-12 bg-[#101015] border-4 border-white/5 rounded-[4rem] text-left transition-all hover:border-[var(--neon-cyan)] hover:-translate-y-2 hover:shadow-[0_0_80px_rgba(0,229,255,0.2)] overflow-hidden"
             >
-              <div className="w-16 h-16 bg-black border-2 rounded-2xl flex items-center justify-center text-3xl mb-6 group-hover:scale-110 transition-all neon-border-purple group-hover:neon-border-green">🎤</div>
-              <h2 className="text-3xl font-black mb-2 font-righteous uppercase tracking-tight neon-glow-cyan" style={{ color: 'var(--neon-cyan)' }}>SINGER UI</h2>
-              <p className="font-medium" style={{ color: 'var(--neon-yellow)' }}>Request songs, star your favorites, and prepare to perform.</p>
+              <div className="absolute inset-0 bg-gradient-to-br from-[var(--neon-cyan)]/0 to-[var(--neon-cyan)]/5 group-hover:to-[var(--neon-cyan)]/10 transition-all"></div>
+              <div className="relative z-10">
+                <div className="w-24 h-24 bg-black border-2 border-white/10 rounded-3xl flex items-center justify-center text-5xl mb-8 group-hover:scale-110 transition-all group-hover:border-[var(--neon-cyan)] shadow-2xl">🎤</div>
+                <h2 className="text-5xl font-black mb-4 font-bungee uppercase tracking-tighter text-white group-hover:text-[var(--neon-cyan)] transition-colors">SINGER_UI</h2>
+                <p className="text-sm font-righteous uppercase tracking-widest text-[var(--neon-yellow)] opacity-70 leading-relaxed">REQUEST_TRACKS. FAVORITE_VIBES. ACCESS_SONGBOOK.</p>
+              </div>
             </button>
           </div>
 
-          <div className="mt-16 p-8 bg-black/60 border-2 rounded-[2.5rem] flex flex-col md:flex-row items-center gap-8 backdrop-blur-sm neon-border-pink">
-            <div className="bg-white p-3 rounded-2xl shrink-0 shadow-2xl border-4 neon-border-yellow" style={{ borderColor: 'var(--neon-yellow)' }}>
+          <div className="mt-16 p-10 bg-[#080808] border-2 border-white/5 rounded-[3rem] flex flex-col md:flex-row items-center gap-10 relative overflow-hidden group hover:border-[var(--neon-green)] transition-all">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--neon-green)]/5 blur-[80px] rounded-full -mr-32 -mt-32 pointer-events-none"></div>
+            <div className="bg-white p-4 rounded-3xl shrink-0 shadow-[0_0_40px_rgba(0,255,157,0.2)] border-4 border-white/10 group-hover:scale-105 transition-transform">
               <img
                 src={qrCodeUrl}
                 alt="Join QR Code"
-                width="120"
-                height="120"
+                width="140"
+                height="140"
                 className="block"
               />
             </div>
-            <div className="text-center md:text-left flex-1">
-              <strong className="text-[#FFD700] block mb-2 uppercase tracking-[0.3em] text-[10px] font-black neon-glow-yellow">SCAN TO JOIN</strong>
-              <div className="text-[#00FFFF] text-lg font-mono break-all">{currentUrl}</div>
+            <div className="text-center md:text-left flex-1 relative z-10">
+              <strong className="text-[var(--neon-green)] block mb-3 uppercase tracking-[0.3em] text-xs font-black font-righteous">SCAN TO JOIN</strong>
+              <div className="text-white text-xl font-mono break-all mb-4 bg-black/50 px-4 py-2 rounded-lg inline-block border border-white/5">{currentUrl}</div>
               {isUsingLocalhost && (
-                <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                  <p className="text-amber-400 text-xs font-bold mb-2">⚠️ Using localhost - phones cannot connect</p>
+                <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl">
+                  <p className="text-amber-500 text-[10px] font-black uppercase tracking-widest mb-2 font-righteous">⚠️ LOCALHOST DETECTED</p>
                   <button
                     onClick={() => { setShowNetworkConfig(true); setNetworkIpInput(storedIp || ''); }}
-                    className="text-[10px] font-black text-teal-400 hover:text-teal-300 uppercase tracking-widest underline"
+                    className="text-[10px] font-black text-white hover:text-[var(--neon-cyan)] uppercase tracking-[0.2em] underline decoration-white/30 hover:decoration-[var(--neon-cyan)] transition-all font-righteous"
                   >
-                    Configure Network IP
+                    CONFIGURE NETWORK IP
                   </button>
                 </div>
               )}
@@ -173,37 +196,38 @@ const App: React.FC = () => {
 
         {/* Network IP Configuration Modal */}
         {showNetworkConfig && (
-          <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-6 z-50 backdrop-blur-2xl">
-            <div className="w-full max-w-md bg-slate-900 border border-white/10 rounded-3xl p-8 space-y-6">
+          <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-6 z-50 backdrop-blur-3xl animate-in fade-in duration-300">
+            <div className="w-full max-w-lg bg-[#0a0a0a] border-2 border-white/10 rounded-[3rem] p-10 space-y-8 shadow-[0_0_60px_rgba(0,0,0,0.8)] relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-cyan)] to-[var(--neon-blue)]"></div>
               <div>
-                <h2 className="text-2xl font-black text-white mb-2">Network Configuration</h2>
-                <p className="text-slate-500 text-sm">Enter your PC's local IP or a public URL (e.g., ngrok) for remote access.</p>
+                <h2 className="text-3xl font-black text-white mb-2 font-bungee uppercase tracking-tight">Network Config</h2>
+                <p className="text-slate-500 text-[10px] uppercase tracking-widest font-righteous">ESTABLISH REMOTE CONNECTION PROTOCOLS</p>
               </div>
-              <div>
-                <label className="block text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3">Network IP Address</label>
+              <div className="space-y-4">
+                <label className="block text-[9px] font-black text-[var(--neon-cyan)] uppercase tracking-[0.3em] ml-4 font-righteous">Network IP Address</label>
                 <input
                   type="text"
                   value={networkIpInput}
                   onChange={(e) => setNetworkIpInput(e.target.value)}
                   placeholder="e.g. 192.168.0.x OR https://....ngrok.io"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-6 py-4 text-white font-mono focus:border-teal-400 outline-none"
+                  className="w-full bg-[#151520] border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-mono focus:border-[var(--neon-cyan)] outline-none transition-all shadow-inner text-sm"
                 />
-                <p className="text-slate-600 text-xs mt-2">
-                  <span className="text-teal-400 font-bold">Tip:</span> Use <span className="text-white">ngrok</span> or similar tunnels if devices are on different WiFi networks (Public/Private).
+                <p className="text-slate-500 text-[9px] uppercase tracking-widest font-righteous ml-4 opacity-60">
+                  <span className="text-[var(--neon-yellow)]">PRO TIP:</span> Use <span className="text-white">ngrok</span> for secure external tunneling.
                 </p>
               </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={handleSaveNetworkIp}
-                  className="flex-1 py-3 bg-teal-400 text-slate-950 rounded-xl font-black text-sm uppercase"
-                >
-                  Save
-                </button>
+              <div className="flex gap-4">
                 <button
                   onClick={() => setShowNetworkConfig(false)}
-                  className="flex-1 py-3 bg-slate-800 text-white rounded-xl font-black text-sm uppercase"
+                  className="flex-1 py-4 bg-black border border-white/10 hover:bg-white/5 text-slate-400 hover:text-white rounded-xl font-black text-[10px] uppercase tracking-widest transition-all font-righteous"
                 >
                   Cancel
+                </button>
+                <button
+                  onClick={handleSaveNetworkIp}
+                  className="flex-1 py-4 bg-[var(--neon-cyan)] text-black rounded-xl font-black text-[10px] uppercase tracking-widest shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all font-righteous hover:scale-105"
+                >
+                  Save Configuration
                 </button>
               </div>
             </div>
@@ -216,22 +240,20 @@ const App: React.FC = () => {
 
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-[#050510] text-white selection:bg-[var(--neon-pink)] selection:text-white">
       <SyncBadge role={role} />
-      <nav className="border-b-2 border-[#FF1493] bg-black/95 sticky top-0 z-40 backdrop-blur-xl neon-border-pink">
-        <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div onClick={() => setRole('SELECT')} className="cursor-pointer">
-            <div className="flex items-center gap-3">
-              <img src="IGK.jpeg" alt="Logo" className="w-12 h-12 rounded-full neon-border-pink" />
-              <span className="font-bungee text-xl rainbow-text">SINGMODE</span>
+      <nav className="fixed top-0 inset-x-0 z-[100] backdrop-blur-xl bg-black/80 border-b border-white/5 transition-all duration-300">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div onClick={() => setRole('SELECT')} className="cursor-pointer group flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full border-2 border-[var(--neon-pink)] p-0.5 group-hover:shadow-[0_0_20px_rgba(255,0,127,0.4)] transition-all">
+              <img src="IGK.jpeg" alt="Logo" className="w-full h-full rounded-full" />
             </div>
+            <span className="font-bungee text-xl text-white tracking-widest group-hover:text-[var(--neon-cyan)] transition-colors">SINGMODE</span>
           </div>
           <div className="flex items-center gap-6">
-
             <button
               onClick={() => { setRole('SELECT'); setError(null); }}
-              className="text-[10px] font-black uppercase tracking-widest px-4 py-2 border-2 rounded-xl transition-all neon-border-cyan neon-glow-cyan"
-              style={{ color: 'var(--neon-cyan)', borderColor: 'var(--neon-cyan)' }}
+              className="text-[9px] font-black uppercase tracking-[0.3em] px-5 py-2.5 rounded-xl transition-all font-righteous bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/5 hover:border-white/20"
             >
               EXIT {role}
             </button>

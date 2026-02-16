@@ -19,9 +19,9 @@ const VideoLink: React.FC<{ url?: string }> = ({ url }) => {
       target="_blank"
       rel="noopener noreferrer"
       title="Open Video Link"
-      className="p-1.5 rounded-lg text-slate-500 hover:text-cyan-400 hover:bg-cyan-400/10 transition-all"
+      className="p-2 rounded-lg text-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)]/20 border border-[var(--neon-cyan)]/30 transition-all shadow-[0_0_10px_rgba(0,229,255,0.2)]"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
     </a>
   );
 };
@@ -199,39 +199,68 @@ const ParticipantView: React.FC = () => {
 
   if (!participant) {
     return (
-      <div className="max-w-md mx-auto p-8 flex flex-col items-center justify-center min-h-[85vh] text-center animate-in fade-in duration-700">
-        <div className="w-40 h-40 flex items-center justify-center mb-10 shadow-2xl relative">
-          <img src="IGK.jpeg" alt="Island Groove" className="w-full h-full rounded-full neon-border-pink shadow-[0_0_30px_rgba(255,20,147,0.5)]" />
-        </div>
-        <h1 className="text-4xl font-black font-bungee text-white mb-3 uppercase tracking-tighter neon-glow-pink">
-          Activate <span className="rainbow-text">SingMode</span>
-        </h1>
-        <p className="text-cyan-400 font-righteous mb-10 uppercase tracking-widest text-[10px] font-bold neon-glow-cyan">Claim your session handle.</p>
+      <div className="max-w-2xl mx-auto p-8 flex flex-col items-center justify-center min-h-[90vh] text-center animate-in fade-in duration-1000 relative">
+        <div className="absolute inset-0 bg-gradient-to-b from-black via-[#10002B] to-black -z-10"></div>
 
-        <form onSubmit={handleAuth} className="w-full space-y-5 bg-black/60 p-8 rounded-3xl border border-pink-500/30 shadow-3xl backdrop-blur-md">
-          {authError && <div className="bg-rose-500/10 border border-rose-500/30 text-rose-500 text-[10px] py-3 px-4 rounded-xl font-black uppercase tracking-widest">{authError}</div>}
-          <div>
-            <label className="block text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-3 text-left font-righteous">Your Handle</label>
-            <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. VocalistPrime" className="w-full bg-black border border-slate-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-cyan-400 outline-none transition-all shadow-inner" />
+        <div className="w-48 h-48 flex items-center justify-center mb-12 relative group">
+          <div className="absolute inset-0 bg-[var(--neon-pink)] blur-[60px] opacity-40 group-hover:opacity-60 transition-opacity"></div>
+          <div className="p-3 rounded-full border-4 border-white/10 relative z-10 bg-black shadow-2xl">
+            <div className="rounded-full overflow-hidden border-4 border-[var(--neon-pink)] shadow-[0_0_40px_rgba(255,0,127,0.5)] w-full h-full">
+              <img src="IGK.jpeg" alt="Island Groove" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
+            </div>
+          </div>
+        </div>
+
+        <h1 className="text-6xl md:text-8xl font-black font-bungee text-white mb-6 uppercase tracking-tighter neon-text-glow-purple leading-none">
+          SINGMODE
+        </h1>
+        <p className="text-[var(--neon-cyan)] font-righteous mb-16 uppercase tracking-[0.6em] text-xs font-black neon-glow-cyan">AUTHORIZED_ACCESS_REQUIRED</p>
+
+        <form onSubmit={handleAuth} className="w-full space-y-8 bg-[#050510] p-10 md:p-14 rounded-[4rem] border-4 border-white/5 shadow-[0_0_100px_rgba(0,0,0,0.8)] relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)]"></div>
+
+          {authError && <div className="bg-rose-500/10 border border-rose-500/30 text-rose-500 text-[10px] py-4 px-6 rounded-2xl font-black uppercase tracking-widest animate-pulse font-righteous">{authError}</div>}
+
+          <div className="space-y-4">
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3 text-left font-righteous ml-4">USER_IDENTITY</label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="ENTER_HANDLE"
+              className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-8 py-5 text-white font-black focus:border-[var(--neon-cyan)] outline-none transition-all shadow-inner text-lg uppercase tracking-widest placeholder:text-slate-800 font-righteous"
+            />
           </div>
 
           <div className="pt-2">
-            <div id="google-signin-btn" className="w-full overflow-hidden rounded-xl bg-white/5 border border-white/10"></div>
+            <div id="google-signin-btn" className="w-full overflow-hidden rounded-2xl border-2 border-white/5 bg-white/5 grayscale hover:grayscale-0 transition-all"></div>
           </div>
 
-          <div className="flex items-center gap-4 py-2 opacity-20">
-            <div className="h-px flex-1 bg-white"></div>
-            <span className="text-[10px] font-black uppercase tracking-widest">OR</span>
-            <div className="h-px flex-1 bg-white"></div>
+          <div className="flex items-center gap-6 py-2 opacity-30">
+            <div className="h-px flex-1 bg-white/30"></div>
+            <span className="text-[9px] font-black uppercase tracking-widest font-righteous text-white">OR_USE_KEY</span>
+            <div className="h-px flex-1 bg-white/30"></div>
           </div>
-          <div>
-            <label className="block text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-3 text-left font-righteous">Passkey (Optional)</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" className="w-full bg-black border border-slate-800 rounded-2xl px-6 py-4 text-white font-bold focus:border-cyan-400 outline-none transition-all shadow-inner" />
+
+          <div className="space-y-4">
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-3 text-left font-righteous ml-4">PASS_ENCRYPTION</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-8 py-5 text-white font-black focus:border-[var(--neon-pink)] outline-none transition-all shadow-inner text-xl tracking-widest placeholder:text-slate-800 font-rightous"
+            />
           </div>
-          <button type="submit" className="w-full py-5 mt-4 bg-pink-500 text-white rounded-2xl font-black text-lg shadow-2xl shadow-pink-900/40 active:scale-95 transition-all uppercase tracking-widest neon-border-pink font-righteous">
-            {isLoginMode ? 'Authorize' : 'Initialize'}
+
+          <button type="submit" className="w-full py-6 mt-6 bg-[var(--neon-pink)] hover:bg-white hover:text-black text-white rounded-2xl font-black text-xl shadow-[0_0_40px_rgba(255,0,127,0.3)] transition-all uppercase tracking-[0.2em] font-bungee hover:scale-[1.02] active:scale-95">
+            {isLoginMode ? 'AUTHORIZE' : 'INITIALIZE'}
           </button>
-          <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setAuthError(''); }} className="text-slate-600 hover:text-cyan-400 text-[10px] font-black uppercase tracking-[0.2em] pt-6 block mx-auto">{isLoginMode ? "New User?" : "Back to Auth"}</button>
+
+          <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setAuthError(''); }} className="text-slate-600 hover:text-[var(--neon-cyan)] text-[9px] font-black uppercase tracking-[0.3em] pt-6 block mx-auto transition-colors font-righteous border-b-2 border-transparent hover:border-[var(--neon-cyan)] pb-1">
+            {isLoginMode ? "ROOT_ACCESS_NEW?" : "BACK_TO_LOGIN"}
+          </button>
         </form>
       </div>
     );
@@ -242,45 +271,56 @@ const ParticipantView: React.FC = () => {
   const myRequests = session.requests.filter(r => r.participantId === participant.id);
 
   return (
-    <div className="max-w-md mx-auto p-6 space-y-8 relative">
-      <header className="bg-black/60 rounded-3xl p-8 border border-cyan-400/30 relative shadow-2xl overflow-hidden backdrop-blur-md">
-        <div className="absolute top-0 right-0 p-6">
-          <button onClick={async () => { await logoutUser(); await refresh(); }} className="text-rose-500 hover:text-rose-400 text-[10px] font-black uppercase tracking-widest py-2 px-4 bg-rose-500/5 hover:bg-rose-500/10 rounded-xl transition-all border border-rose-500/10">Log Out</button>
-        </div>
-        <div className="flex flex-col items-center text-center">
-          <img src="IGK.jpeg" alt="Logo" className="w-20 h-20 rounded-full mb-4 neon-border-pink shadow-[0_0_15px_rgba(255,20,147,0.5)]" />
-          <div className="text-[10px] text-cyan-400 font-black uppercase tracking-[0.4em] mb-2 px-4 py-1 bg-cyan-400/5 rounded-full border border-cyan-400/10 neon-glow-cyan">Secure Connection</div>
-          <h2 className="text-4xl font-black text-white tracking-tighter uppercase leading-none mt-2 font-bungee neon-glow-pink">{participant.name}</h2>
-          <div className="text-[10px] text-yellow-400 font-bold uppercase tracking-widest mt-4 font-righteous neon-glow-yellow">Authorized Performer Account</div>
+    <div className="max-w-2xl mx-auto p-6 space-y-10 relative">
+      {/* Tropical Profile Header */}
+      <header className="relative rounded-[3rem] p-1 overflow-hidden shadow-2xl group">
+        <div className="absolute inset-0 bg-[#0a0a0a] rounded-[2.9rem]"></div>
+        <div className="absolute top-0 inset-x-0 h-32 bg-[var(--neon-purple)]/10 blur-[50px]"></div>
+
+        <div className="relative p-8 flex flex-col items-center text-center">
+          <div className="absolute top-6 right-6">
+            <button onClick={async () => { await logoutUser(); await refresh(); }} className="text-slate-700 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            </button>
+          </div>
+
+          <div className="w-24 h-24 p-1 rounded-full border-2 border-white/10 mb-6 relative">
+            <div className="absolute inset-0 rounded-full bg-[var(--neon-pink)]/20 blur-xl"></div>
+            <img src="IGK.jpeg" alt="Logo" className="w-full h-full rounded-full object-cover relative z-10" />
+            <div className="absolute bottom-0 right-0 w-6 h-6 bg-black rounded-full flex items-center justify-center border-2 border-black z-20">
+              <div className="w-3 h-3 bg-[var(--neon-green)] rounded-full animate-pulse shadow-[0_0_10px_rgba(0,255,157,0.8)]"></div>
+            </div>
+          </div>
+
+          <h2 className="text-4xl font-black text-white tracking-tight uppercase leading-none font-bungee mb-2">{participant.name}</h2>
+          <div className="flex items-center gap-3">
+            <span className="text-[9px] text-[var(--neon-cyan)] font-black uppercase tracking-[0.3em] font-righteous bg-[var(--neon-cyan)]/10 px-3 py-1 rounded-lg border border-[var(--neon-cyan)]/20">AUTHORIZED_NODE</span>
+          </div>
         </div>
       </header>
 
-
-
-      {/* Persistent On Stage Now Section */}
+      {/* Live On Stage - Palm Glow */}
       {session.currentRound && session.currentRound.length > 0 && (
-        <section className="animate-in fade-in slide-in-from-top-2 space-y-4">
-          <div className="flex items-center gap-3 px-2">
-            <div className="w-2 h-2 bg-pink-500 rounded-full animate-ping shadow-[0_0_10px_var(--neon-pink)]"></div>
-            <h3 className="text-white font-black uppercase tracking-widest text-[10px] font-righteous neon-glow-cyan">On Stage Now</h3>
+        <section className="animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center gap-3 mb-4 px-4">
+            <div className="w-2 h-2 bg-[var(--neon-yellow)] rounded-full animate-blink"></div>
+            <h3 className="text-[var(--neon-yellow)] font-black uppercase tracking-[0.3em] text-[10px] font-righteous">CURRENT_WAVEFORM</h3>
           </div>
-          <div className="grid gap-4">
+          <div className="space-y-4">
             {session.currentRound.map((song, i) => (
-              <div key={song.id} className={`bg-black/80 border p-6 rounded-3xl shadow-2xl transition-all backdrop-blur-sm ${i === 0 ? 'neon-border-pink ring-1 ring-pink-500/20' : 'border-white/10'}`}>
-                <div className="flex justify-between items-start">
-                  <div className="min-w-0 pr-2">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className={`font-black tracking-tight uppercase truncate font-outfit ${i === 0 ? 'text-white text-lg neon-glow-pink' : 'text-slate-300'}`}>
-                        <span className="text-cyan-400 mr-2 text-sm opacity-50 font-normal">#{song.requestNumber}</span>{song.songName}
+              <div key={song.id} className={`relative overflow-hidden rounded-[2.5rem] transition-all duration-500 ${i === 0 ? 'border-2 border-[var(--neon-yellow)] shadow-[0_0_30px_rgba(255,255,0,0.1)]' : 'opacity-60 grayscale-[0.5] hover:opacity-100 hover:grayscale-0'}`}>
+                <div className={`relative bg-[#101015] p-6 rounded-[2.4rem] flex justify-between items-center z-10 ${i === 0 ? 'bg-[#151520]' : ''}`}>
+                  <div className="min-w-0 pr-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      {i === 0 && <span className="text-[9px] bg-[var(--neon-pink)] text-white px-2 py-0.5 rounded font-black uppercase tracking-widest font-righteous rotate-[-2deg] shadow-lg">LIVE</span>}
+                      <div className={`font-black uppercase truncate font-bungee ${i === 0 ? 'text-xl text-white' : 'text-lg text-slate-500'}`}>
+                        {song.songName}
                       </div>
-                      <VideoLink url={song.youtubeUrl} />
                     </div>
-                    <div className="text-[10px] text-cyan-400 font-bold uppercase tracking-widest truncate font-righteous">{song.artist}</div>
-                    <div className="mt-3 text-[11px] font-black text-yellow-400 uppercase tracking-tighter neon-glow-yellow">{song.participantName}</div>
+                    <div className="text-[10px] text-[var(--neon-cyan)] font-black uppercase tracking-[0.3em] truncate font-righteous">{song.artist}</div>
+                    <div className="mt-2 text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">@{song.participantName}</div>
                   </div>
-                  {i === 0 && (
-                    <div className="px-3 py-1 bg-pink-500 text-white rounded-full text-[8px] font-black uppercase tracking-widest shadow-lg shadow-pink-500/20 neon-pulse">LIVE</div>
-                  )}
+                  {i === 0 && <VideoLink url={song.youtubeUrl} />}
                 </div>
               </div>
             ))}
@@ -288,58 +328,58 @@ const ParticipantView: React.FC = () => {
         </section>
       )}
 
-      <div className="flex bg-black/60 p-1.5 rounded-2xl border border-white/10 shadow-inner backdrop-blur-md">
+      {/* Retro Arcade Tabs */}
+      <div className="grid grid-cols-4 gap-2 bg-[#0a0a0a] p-2 rounded-2xl border border-white/5 shadow-inner">
         {(['ROTATION', 'REQUESTS', 'FAVORITES', 'HISTORY'] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all font-righteous ${activeTab === tab ? 'bg-cyan-400 text-black shadow-xl shadow-cyan-900/20 neon-border-cyan' : 'text-slate-500 hover:text-cyan-400'
+            className={`py-4 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all font-righteous flex flex-col items-center justify-center gap-1.5 ${activeTab === tab
+              ? 'bg-[#151520] text-white shadow-[0_0_20px_rgba(255,255,255,0.05)] border border-white/10'
+              : 'text-slate-600 hover:text-white hover:bg-white/5'
               }`}
           >
-            {tab === 'ROTATION' ? 'Rotation' :
-              tab === 'REQUESTS' ? 'Requests' :
-                tab === 'FAVORITES' ? 'Library' :
-                  tab === 'HISTORY' ? 'History' : tab}
+            <span className={`text-xl mb-0.5 ${activeTab === tab ? 'text-[var(--neon-pink)]' : 'grayscale opacity-50'}`}>
+              {tab === 'ROTATION' ? '💿' : tab === 'REQUESTS' ? '📼' : tab === 'FAVORITES' ? '⭐' : '📜'}
+            </span>
+            {tab === 'ROTATION' ? 'LIVE' :
+              tab === 'REQUESTS' ? 'MY_SET' :
+                tab === 'FAVORITES' ? 'FAVS' : 'LOG'}
           </button>
         ))}
       </div>
 
       <button
         onClick={() => { setPrefillData(null); setShowRequestForm(true); }}
-        className="w-full py-5 bg-pink-500 text-white rounded-2xl font-black text-lg shadow-3xl shadow-pink-900/40 uppercase tracking-widest active:scale-95 transition-all neon-border-pink font-righteous"
+        className="w-full py-6 bg-gradient-to-r from-[var(--neon-blue)] to-[var(--neon-purple)] text-white rounded-[2rem] font-black text-lg shadow-[0_0_40px_rgba(93,0,255,0.3)] uppercase tracking-[0.2em] active:scale-95 transition-all font-bungee hover:brightness-110 border-2 border-white/10"
       >
-        + Queue Track
+        + REQUEST TRACK
       </button>
 
-      <div className="pt-4 space-y-8">
-        <section className="flex justify-center">
-          <button
-            onClick={toggleStatus}
-            className={`w-full py-8 rounded-[2.5rem] font-black text-2xl uppercase tracking-[0.2em] transition-all border-2 flex flex-col items-center justify-center gap-2 group shadow-2xl relative overflow-hidden font-bungee ${participant.status === ParticipantStatus.READY
-              ? 'bg-cyan-400 text-black border-cyan-300 shadow-cyan-900/40 scale-105 neon-border-cyan'
-              : 'bg-black text-slate-500 border-white/10 hover:border-cyan-400/50'
-              }`}
-          >
-            {participant.status === ParticipantStatus.READY && (
-              <div className="absolute inset-0 bg-gradient-to-t from-white/20 to-transparent opacity-50 group-hover:opacity-80 transition-opacity" />
-            )}
-            <span className="relative z-10">{participant.status === ParticipantStatus.READY ? 'IM READY' : 'CLICK TO START'}</span>
-            <span className={`relative z-10 text-[10px] tracking-[0.4em] font-black font-righteous ${participant.status === ParticipantStatus.READY ? 'opacity-80' : 'opacity-30'}`}>
-              {participant.status === ParticipantStatus.READY ? 'BROADCASTING STATUS' : 'CURRENTLY STANDBY'}
-            </span>
-          </button>
-        </section>
-
-
+      <div className="pt-2">
+        <button
+          onClick={toggleStatus}
+          className={`w-full py-8 rounded-[2.5rem] font-black text-2xl uppercase tracking-[0.2em] transition-all border-2 flex flex-col items-center justify-center gap-2 group relative overflow-hidden font-bungee ${participant.status === ParticipantStatus.READY
+            ? 'bg-[#051005] border-[var(--neon-green)] shadow-[0_0_30px_rgba(0,255,157,0.1)]'
+            : 'bg-[#101015] border-white/5 text-slate-700 hover:border-white/10'
+            }`}
+        >
+          <span className={`relative z-10 ${participant.status === ParticipantStatus.READY ? 'text-[var(--neon-green)]' : 'text-slate-600'}`}>
+            {participant.status === ParticipantStatus.READY ? 'STAGE_READY' : 'GO_OFFLINE'}
+          </span>
+          <span className={`relative z-10 text-[9px] font-righteous tracking-[0.4em] uppercase ${participant.status === ParticipantStatus.READY ? 'text-[var(--neon-green)] opacity-80' : 'text-slate-800'}`}>
+            {participant.status === ParticipantStatus.READY ? 'MICROPHONE_LINK_ESTABLISHED' : 'STANDBY_MODE'}
+          </span>
+        </button>
       </div>
 
       {(showRequestForm || editingRequest) && (
-        <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-6 z-50 overflow-y-auto backdrop-blur-2xl">
-          <div className="w-full max-w-md space-y-6 py-10">
+        <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-50 overflow-y-auto backdrop-blur-3xl animate-in fade-in duration-300">
+          <div className="w-full max-w-lg space-y-6">
             <SongRequestForm
               key={editingRequest?.id || 'new-request'}
-              title={editingRequest ? "Modify Request" : "Request Mode"}
-              submitLabel={editingRequest ? "Save Update" : "Add to Rotation"}
+              title={editingRequest ? "Remix Request" : "New Transmission"}
+              submitLabel={editingRequest ? "Save Remix" : "Transmit"}
               initialSongName={editingRequest?.songName || prefillData?.songName || ''}
               initialArtist={editingRequest?.artist || prefillData?.artist || ''}
               initialYoutubeUrl={editingRequest?.youtubeUrl || prefillData?.youtubeUrl || ''}
@@ -351,143 +391,107 @@ const ParticipantView: React.FC = () => {
         </div>
       )}
 
-      <main className="min-h-[300px]">
+      <main className="min-h-[300px] pb-32">
         {activeTab === 'ROTATION' && (
-          <section className="animate-in fade-in slide-in-from-bottom-2 space-y-8">
-            {/* Rotation Queue Section */}
+          <section className="animate-in slide-in-from-bottom-8 duration-500 space-y-6">
+            <h3 className="text-[var(--neon-pink)] font-black uppercase tracking-[0.3em] text-[9px] px-4 font-righteous opacity-80">UPCOMING_WAVEFORM</h3>
             <div className="space-y-4">
-              <h3 className="text-slate-500 font-black uppercase tracking-widest text-[10px] px-2">Performance Queue</h3>
-              <div className="space-y-3">
-                {session.requests.filter(r => r.status === RequestStatus.APPROVED && !r.isInRound).length > 0 ? (
-                  session.requests.filter(r => r.status === RequestStatus.APPROVED && !r.isInRound).map(req => (
-                    <div key={req.id} className="bg-black/60 border border-white/10 p-5 rounded-2xl flex justify-between items-center group backdrop-blur-sm">
-                      <div className="min-w-0 pr-2">
-                        <div className="text-white font-bold uppercase truncate text-sm font-outfit">{req.songName}</div>
-                        <div className="text-[9px] text-cyan-400 uppercase tracking-widest flex items-center gap-1.5 font-righteous">
-                          {req.artist} • <span className="text-pink-500/80">{req.participantName}</span>
-                        </div>
+              {session.requests.filter(r => r.status === RequestStatus.APPROVED && !r.isInRound).length > 0 ? (
+                session.requests.filter(r => r.status === RequestStatus.APPROVED && !r.isInRound).map(req => (
+                  <div key={req.id} className="bg-[#101015] border-2 border-white/5 p-6 rounded-[2rem] flex justify-between items-center group hover:border-[var(--neon-blue)] transition-all">
+                    <div className="min-w-0 pr-4">
+                      <div className="text-white font-black uppercase truncate text-lg font-bungee tracking-tight mb-1 group-hover:text-[var(--neon-blue)] transition-colors">{req.songName}</div>
+                      <div className="text-[9px] text-[var(--neon-cyan)] uppercase tracking-[0.2em] flex items-center gap-2 font-righteous">
+                        {req.artist} <span className="text-white/20">|</span> <span className="text-slate-500">{req.participantName}</span>
                       </div>
-                      <div className="shrink-0 text-[8px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest bg-black text-cyan-400 border border-cyan-400/20 neon-glow-cyan">Approved</div>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-10 opacity-40 bg-black/40 rounded-3xl border border-dashed border-cyan-400/20">
-                    <p className="text-[10px] font-black uppercase tracking-widest font-righteous text-cyan-400">No tracks in queue</p>
+                    <div className="shrink-0 w-8 h-8 rounded-full border border-[var(--neon-blue)]/50 bg-[var(--neon-blue)]/10 flex items-center justify-center text-[var(--neon-blue)] text-xs shadow-[0_0_15px_rgba(5,217,232,0.2)]">✓</div>
                   </div>
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {activeTab === 'REQUESTS' && (
-          <section className="animate-in fade-in slide-in-from-bottom-2">
-            <div className="space-y-4">
-              {myRequests.map(req => (
-                <div key={req.id} className="bg-black/80 border border-white/10 p-6 rounded-3xl shadow-2xl transition-all hover:neon-border-cyan backdrop-blur-sm">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="min-w-0 pr-2">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="font-black text-white tracking-tight uppercase truncate font-outfit">
-                          <span className="text-cyan-400 mr-2 text-sm opacity-50 font-normal">#{req.requestNumber}</span>{req.songName}
-                        </div>
-                        <VideoLink url={req.youtubeUrl} />
-                      </div>
-                      <div className="text-[10px] text-cyan-400 font-bold uppercase tracking-widest truncate font-righteous">{req.artist} • <span className={req.type === RequestType.SINGING ? 'text-pink-500' : 'text-purple-400'}>{req.type}</span></div>
-                    </div>
-                    <div className="text-right flex flex-col items-end gap-2 shrink-0">
-                      <div className={`text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-[0.2em] border ${req.status === RequestStatus.APPROVED ? (req.isInRound ? 'bg-pink-500/10 text-pink-500 border-pink-500/20 neon-glow-pink' : 'bg-cyan-400/10 text-cyan-400 border-cyan-400/20 neon-glow-cyan') : 'bg-black text-slate-600 border-white/10'}`}>
-                        {req.status === RequestStatus.APPROVED ? (req.isInRound ? 'LIVE' : 'READY') : 'QUEUE'}
-                      </div>
-                      {req.status === RequestStatus.PENDING && (
-                        <div className="flex gap-4">
-                          <button onClick={() => setEditingRequest(req)} className="text-[9px] font-black text-cyan-400 hover:text-white uppercase tracking-widest underline underline-offset-4 font-righteous">Edit</button>
-                          <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="text-[9px] font-black text-rose-500/60 hover:text-rose-500 uppercase tracking-widest px-2 font-righteous">Cancel</button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {myRequests.length === 0 && (
-                <div className="text-center py-20 opacity-40">
-                  <p className="text-xs font-bold uppercase italic font-righteous text-cyan-400/50">Your rotation is empty</p>
+                ))
+              ) : (
+                <div className="text-center py-16 opacity-30 border-2 border-dashed border-white/5 rounded-[2.5rem] bg-black/20">
+                  <p className="text-[9px] font-black uppercase tracking-[0.4em] font-righteous text-slate-600">SILENCE_DETECTED</p>
                 </div>
               )}
             </div>
           </section>
         )}
 
-        {activeTab === 'FAVORITES' && userProfile && (
-          <section className="animate-in fade-in slide-in-from-bottom-2 space-y-6">
-            {/* Search Bar */}
-            <div className="sticky top-0 z-20 pb-2">
-              <div className="relative group">
-                <input
-                  type="text"
-                  placeholder="SEARCH SONGBOOK..."
-                  value={librarySearchQuery}
-                  onChange={(e) => setLibrarySearchQuery(e.target.value)}
-                  className="w-full bg-black/80 border border-cyan-400/30 rounded-2xl py-4 pl-12 pr-4 text-xs font-black uppercase tracking-widest text-white placeholder:text-slate-600 focus:outline-none focus:neon-border-cyan transition-all backdrop-blur-xl font-righteous"
-                />
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-cyan-400 group-focus-within:neon-glow-cyan transition-colors">🔍</span>
+        {activeTab === 'REQUESTS' && (
+          <section className="animate-in slide-in-from-bottom-8 duration-500 space-y-4">
+            {myRequests.map(req => (
+              <div key={req.id} className="relative group">
+                <div className="bg-[#151520] border-2 border-white/5 p-6 rounded-[2rem] hover:border-[var(--neon-pink)] transition-all">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="min-w-0 pr-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="font-black text-white tracking-tight uppercase truncate font-bungee text-xl group-hover:text-[var(--neon-pink)] transition-colors">
+                          <span className="text-slate-700 mr-2 text-[10px] font-mono tracking-widest">#{req.requestNumber}</span>{req.songName}
+                        </div>
+                        <VideoLink url={req.youtubeUrl} />
+                      </div>
+                      <div className="text-[9px] text-slate-500 font-black uppercase tracking-[0.3em] truncate font-righteous">{req.artist}</div>
+                    </div>
+                    <div className={`shrink-0 px-3 py-1 rounded-lg border text-[8px] font-black uppercase tracking-widest ${req.status === RequestStatus.APPROVED
+                      ? (req.isInRound ? 'bg-[var(--neon-pink)] border-[var(--neon-pink)] text-black animate-pulse' : 'bg-[var(--neon-cyan)]/10 border-[var(--neon-cyan)] text-[var(--neon-cyan)]')
+                      : 'border-white/10 text-slate-600'
+                      }`}>
+                      {req.status === RequestStatus.APPROVED ? (req.isInRound ? 'LIVE' : 'QUEUED') : 'PENDING'}
+                    </div>
+                  </div>
+                  {req.status === RequestStatus.PENDING && (
+                    <div className="flex gap-3 pt-4 border-t border-white/5">
+                      <button onClick={() => setEditingRequest(req)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all font-righteous text-white">EDIT</button>
+                      <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="flex-1 py-3 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all font-righteous text-rose-500">CANCEL</button>
+                    </div>
+                  )}
+                </div>
               </div>
+            ))}
+            {myRequests.length === 0 && (
+              <div className="text-center py-20 bg-black/20 rounded-[3rem] border-2 border-dashed border-white/5">
+                <p className="text-[10px] font-black uppercase tracking-[0.5em] font-righteous text-slate-700">NO_DATA_STREAM</p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {activeTab === 'FAVORITES' && userProfile && (
+          <section className="animate-in slide-in-from-bottom-8 duration-500 space-y-6">
+            <div className="relative group">
+              <input
+                type="text"
+                placeholder="SEARCH ARCHIVE..."
+                value={librarySearchQuery}
+                onChange={(e) => setLibrarySearchQuery(e.target.value)}
+                className="w-full bg-[#101015] border-2 border-white/10 rounded-[2rem] py-5 px-6 pl-14 text-xs font-black uppercase tracking-[0.2em] text-white focus:outline-none focus:border-[var(--neon-pink)] transition-all font-righteous placeholder:text-slate-700 shadow-inner"
+              />
+              <span className="absolute left-6 top-1/2 -translate-y-1/2 text-lg text-slate-600 group-focus-within:text-[var(--neon-pink)] transition-colors">🔍</span>
             </div>
 
-            <div className="space-y-4">
+            <div className="grid gap-3">
               {(() => {
                 const combined = [
                   ...userProfile.favorites.map(f => ({ ...f, isFavorite: true })),
                   ...(session?.verifiedSongbook || [])
                     .filter(v => !userProfile.favorites.some(f => f.songName === v.songName && f.artist === v.artist))
                     .map(v => ({ ...v, isFavorite: false }))
-                ].filter(song => {
-                  if (!librarySearchQuery) return true;
-                  const query = librarySearchQuery.toLowerCase();
-                  return song.songName.toLowerCase().includes(query) || song.artist.toLowerCase().includes(query);
-                });
+                ].filter(song => !librarySearchQuery || song.songName.toLowerCase().includes(librarySearchQuery.toLowerCase()) || song.artist.toLowerCase().includes(librarySearchQuery.toLowerCase()));
 
-                if (combined.length === 0) {
-                  return (
-                    <div className="text-center py-20 opacity-20">
-                      <p className="text-xs font-bold uppercase italic">{librarySearchQuery ? 'No matching tracks' : 'Library is empty'}</p>
-                    </div>
-                  );
-                }
+                if (combined.length === 0) return <div className="text-center py-20 opacity-30 font-righteous text-[9px] uppercase tracking-widest text-slate-500">NO_MATCHES</div>;
 
                 return combined.map(song => (
-                  <div key={song.id} className="bg-black/60 border border-white/10 p-5 rounded-3xl flex justify-between items-center group hover:neon-border-pink transition-all backdrop-blur-sm">
-                    <div className="min-w-0 pr-2">
-                      <div className="flex items-center gap-2">
-                        <div className="text-white font-bold uppercase truncate font-outfit">{song.songName}</div>
-                        {song.isFavorite && <span className="text-[10px]" title="Personal Favorite">⭐️</span>}
+                  <div key={song.id} className="bg-[#101015] p-5 rounded-[2rem] flex justify-between items-center group border-2 border-white/5 hover:border-[var(--neon-yellow)] transition-all">
+                    <div className="min-w-0 pr-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="text-white font-black uppercase truncate text-base font-bungee tracking-tight group-hover:text-[var(--neon-yellow)] transition-colors">{song.songName}</div>
+                        {song.isFavorite && <span className="text-xs text-[var(--neon-yellow)] animate-pulse">★</span>}
                       </div>
-                      <div className="text-[9px] text-cyan-400 uppercase tracking-widest font-righteous">{song.artist}</div>
+                      <div className="text-[8px] text-slate-500 font-black uppercase tracking-[0.2em] font-righteous">{song.artist}</div>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => { setPrefillData({ ...song }); setShowRequestForm(true); }}
-                        className="bg-pink-500 text-white px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest shadow-lg shadow-pink-500/10 active:scale-95 transition-all font-righteous neon-border-pink"
-                      >
-                        Add
-                      </button>
-                      {song.isFavorite ? (
-                        <button
-                          onClick={async () => { await toggleFavorite(song); await refresh(); }}
-                          className="text-slate-600 hover:text-rose-500 px-2 transition-colors"
-                          title="Remove from Favorites"
-                        >
-                          ✕
-                        </button>
-                      ) : (
-                        <button
-                          onClick={async () => { await toggleFavorite(song); await refresh(); }}
-                          className="text-slate-600 hover:text-yellow-400 px-2 transition-colors neon-glow-yellow"
-                          title="Add to Favorites"
-                        >
-                          +⭐️
-                        </button>
-                      )}
+                    <div className="flex gap-3">
+                      <button onClick={() => { setPrefillData({ ...song }); setShowRequestForm(true); }} className="bg-[var(--neon-pink)] text-black px-4 py-2 rounded-xl font-black text-[8px] uppercase tracking-widest hover:bg-white transition-all font-righteous shadow-[0_0_15px_rgba(255,0,127,0.3)] hover:scale-105 active:scale-95">ADD</button>
+                      <button onClick={async () => { await toggleFavorite(song); await refresh(); }} className={`px-2 transition-colors ${song.isFavorite ? 'text-rose-500' : 'text-slate-700 hover:text-[var(--neon-yellow)]'}`}>{song.isFavorite ? '✕' : '★'}</button>
                     </div>
                   </div>
                 ));
@@ -497,60 +501,48 @@ const ParticipantView: React.FC = () => {
         )}
 
         {activeTab === 'HISTORY' && userProfile && (
-          <section className="animate-in fade-in slide-in-from-bottom-2 space-y-4">
+          <section className="animate-in slide-in-from-bottom-8 duration-500 space-y-4">
             {userProfile.personalHistory.map((h, i) => (
-              <div key={i} className="bg-black/60 border border-white/10 p-5 rounded-3xl flex justify-between items-center group backdrop-blur-sm hover:neon-border-yellow transition-all">
-                <div className="min-w-0 pr-2">
-                  <div className="text-white font-bold uppercase truncate font-outfit">
-                    <span className="text-cyan-400 mr-2 text-sm opacity-50 font-normal">#{h.requestNumber}</span>{h.songName}
-                  </div>
-                  <div className="text-[9px] text-yellow-400 uppercase tracking-widest font-righteous">{h.artist}</div>
+              <div key={i} className="bg-[#101015] p-6 rounded-[2rem] flex justify-between items-center border-2 border-white/5 hover:border-[var(--neon-purple)] group transition-all">
+                <div className="min-w-0 pr-4">
+                  <div className="text-white font-black uppercase truncate text-lg font-bungee tracking-tight mb-1 group-hover:text-[var(--neon-purple)] transition-colors">{h.songName}</div>
+                  <div className="text-[9px] text-[var(--neon-cyan)]/70 font-black uppercase tracking-[0.2em] font-righteous">{h.artist}</div>
                 </div>
-                <button
-                  onClick={() => { setPrefillData({ ...h, type: RequestType.SINGING }); setShowRequestForm(true); }}
-                  className="bg-white/5 hover:bg-yellow-400 hover:text-black hover:border-yellow-400 text-white px-3 py-1.5 rounded-xl font-black text-[9px] uppercase tracking-widest border border-white/10 transition-all font-righteous"
-                >
-                  Repeat
-                </button>
+                <button onClick={() => { setPrefillData({ ...h, type: RequestType.SINGING }); setShowRequestForm(true); }} className="text-slate-600 hover:text-white border border-white/5 hover:border-white px-4 py-2 rounded-xl font-black text-[8px] uppercase tracking-widest transition-all font-righteous">AGAIN</button>
               </div>
             ))}
             {userProfile.personalHistory.length === 0 && (
-              <div className="text-center py-20 opacity-20">
-                <p className="text-xs font-bold uppercase italic">No performance history found</p>
+              <div className="text-center py-20 opacity-30 border-2 border-dashed border-white/5 rounded-[2.5rem] bg-black/20">
+                <p className="text-[9px] font-black uppercase tracking-[0.4em] font-righteous text-slate-600">NO_HISTORY_LOGS</p>
               </div>
             )}
           </section>
         )}
       </main>
 
-      <footer className="pt-8 pb-12">
+      <footer className="fixed bottom-6 left-6 right-6 z-40">
         <button
           onClick={() => setShowQrModal(true)}
-          className="w-full bg-black/60 backdrop-blur-xl border border-pink-500/20 hover:neon-border-pink p-8 rounded-[2.5rem] flex flex-col items-center justify-center gap-4 transition-all group shadow-2xl"
+          className="w-full bg-[#101015] border-2 border-white/10 p-4 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl hover:border-[var(--neon-pink)] transition-all group"
         >
-          <div className="w-16 h-16 bg-pink-500/10 border border-pink-500/20 rounded-2xl flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">📱</div>
-          <div className="text-center">
-            <h4 className="text-xl font-black text-white uppercase tracking-tight font-bungee">Invite Friends to Sing</h4>
-            <p className="text-[10px] text-cyan-400 font-bold uppercase tracking-[0.2em] mt-1 group-hover:neon-glow-cyan transition-colors font-righteous">Tap to show session QR code</p>
+          <span className="text-[9px] text-[var(--neon-pink)] font-black uppercase tracking-[0.3em] font-righteous">SYSTEM_LINK</span>
+          <div className="flex items-center gap-3">
+            <span className="text-white font-black uppercase tracking-tight font-bungee">INVITE FRIEND</span>
+            <span className="text-lg group-hover:scale-125 transition-transform">📲</span>
           </div>
         </button>
       </footer>
 
       {showQrModal && (
-        <div className="fixed inset-0 bg-black/95 backdrop-blur-3xl flex items-center justify-center p-6 z-[200] animate-in fade-in duration-300">
-          <div className="w-full max-w-sm bg-black border border-cyan-400/30 rounded-[3rem] p-10 shadow-3xl text-center relative overflow-hidden neon-border-cyan">
-            <button onClick={() => setShowQrModal(false)} className="absolute top-8 right-8 text-slate-500 hover:text-white font-black">✕</button>
-            <div className="bg-white p-6 rounded-[2rem] inline-block mb-8 shadow-2xl">
-              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(roomJoinUrl)}&bgcolor=ffffff`} alt="Room QR" className="w-56 h-56" />
+        <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-8 z-[200] animate-in zoom-in-95 duration-300">
+          <div className="w-full max-w-sm text-center relative bg-[#050510] border-4 border-white/10 rounded-[3rem] p-10 overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
+            <button onClick={() => setShowQrModal(false)} className="absolute top-6 right-6 text-slate-700 hover:text-white text-xl transition-colors">✕</button>
+            <div className="bg-white p-4 rounded-[2rem] inline-block mb-8 shadow-[0_0_40px_rgba(255,255,255,0.1)]">
+              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(roomJoinUrl)}&bgcolor=ffffff`} alt="Room QR" className="w-48 h-48" />
             </div>
-            <h3 className="text-2xl font-black text-white uppercase tracking-tighter mb-2 leading-none font-bungee">Invite Others</h3>
-            <p className="text-yellow-400 text-[10px] font-bold uppercase tracking-widest mb-8 font-righteous neon-glow-yellow">Scan to join this SingMode session</p>
-            <button
-              onClick={() => setShowQrModal(false)}
-              className="w-full py-4 bg-cyan-400 text-black rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-cyan-900/20 font-righteous"
-            >
-              Done
-            </button>
+            <h3 className="text-3xl font-black text-white uppercase tracking-tight mb-2 font-bungee neon-glow-white">SYNC_NODE</h3>
+            <p className="text-[var(--neon-cyan)] text-[9px] font-black uppercase tracking-[0.4em] font-righteous opacity-80">SCAN TO INITIALIZE CONNECTION</p>
           </div>
         </div>
       )}

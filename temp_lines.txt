@@ -1,0 +1,7 @@
+              <section className="bg-black/40 rounded-[2rem] p-8 border border-white/5 backdrop-blur-md shadow-xl">
+                <div className="flex justify-between items-center mb-8 px-2">
+                  <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] font-righteous">Performers</h2>
+                  <div className="flex items-center gap-3 px-3 py-1.5 bg-black border border-white/10 rounded-full shadow-inner">
+                    <span className="text-[9px] font-black text-cyan-400 uppercase tracking-[0.1em] font-righteous">{liveMicCount} ONLINE</span>
+                  </div>
+                </div>
