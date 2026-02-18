@@ -21,14 +21,14 @@ interface SongRequestFormProps {
 const SongRequestForm: React.FC<SongRequestFormProps> = ({
   onSubmit,
   onCancel,
-  title = "Global Track Input",
+  title = "Song Request",
   showSingerName = false,
   initialSingerName = '',
   initialSongName = '',
   initialArtist = '',
   initialYoutubeUrl = '',
   initialType = RequestType.SINGING,
-  submitLabel = "Process Request",
+  submitLabel = "SEND REQUEST",
   participants = [],
   currentUserId = ''
 }) => {
@@ -65,13 +65,13 @@ const SongRequestForm: React.FC<SongRequestFormProps> = ({
 
       <div className="mb-8 text-center">
         <h3 className="text-3xl font-bold text-white font-bungee uppercase tracking-tight neon-text-glow-purple mb-2">{displayTitle}</h3>
-        <p className="text-[10px] text-[var(--neon-cyan)] font-bold uppercase tracking-widest font-righteous opacity-80">SYS_SEQUENCE_INPUT</p>
+        <p className="text-[10px] text-[var(--neon-cyan)] font-bold uppercase tracking-widest font-righteous opacity-80">NEW REQUEST</p>
       </div>
 
       <div className="space-y-6">
         {showSingerName && (
           <div className="animate-in fade-in slide-in-from-top-2">
-            <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Performer Handle</label>
+            <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Your Name</label>
             <input
               type="text"
               required
@@ -85,7 +85,7 @@ const SongRequestForm: React.FC<SongRequestFormProps> = ({
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Track Title</label>
+            <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Song Title</label>
             <input
               type="text"
               value={songName}
@@ -107,7 +107,7 @@ const SongRequestForm: React.FC<SongRequestFormProps> = ({
         </div>
 
         <div>
-          <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Source URL (Override)</label>
+          <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">YouTube URL (Optional)</label>
           <input
             type="url"
             value={youtubeUrl}
@@ -118,7 +118,7 @@ const SongRequestForm: React.FC<SongRequestFormProps> = ({
         </div>
 
         <div>
-          <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Message to DJ (Optional)</label>
+          <label className="block text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-4 font-righteous">Note for DJ</label>
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}

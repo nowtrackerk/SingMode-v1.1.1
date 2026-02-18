@@ -124,10 +124,10 @@ const VocalFxPanel: React.FC<VocalFxPanelProps> = ({ userProfile }) => {
             <div className="bg-[#101015] p-6 rounded-[2.5rem] border-2 border-white/5 relative overflow-hidden">
                 <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[var(--neon-purple)] via-[var(--neon-pink)] to-[var(--neon-orange)] animate-gradient-x"></div>
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-white font-bungee text-2xl uppercase tracking-tight">VOCAL_FX_STUDIO</h3>
+                    <h3 className="text-white font-bungee text-2xl uppercase tracking-tight">VOCAL EFFECTS</h3>
                     <div className="flex items-center gap-2 px-3 py-1 bg-black/40 rounded-lg border border-white/10">
                         <div className="w-2 h-2 rounded-full bg-[var(--neon-green)] animate-pulse"></div>
-                        <span className="text-[10px] font-righteous text-[var(--neon-green)] tracking-widest uppercase">DSP_ACTIVE</span>
+                        <span className="text-[10px] font-righteous text-[var(--neon-green)] tracking-widest uppercase">FX ON</span>
                     </div>
                 </div>
 
@@ -147,15 +147,15 @@ const VocalFxPanel: React.FC<VocalFxPanelProps> = ({ userProfile }) => {
                 <div className="grid grid-cols-3 gap-4 mb-8">
                     <Knob label="REVERB" value={settings.reverb} onChange={(v) => updateSetting('reverb', v)} />
                     <Knob label="ECHO" value={settings.echo} onChange={(v) => updateSetting('echo', v)} />
-                    <Knob label="INPUT_GAIN" value={settings.gain} onChange={(v) => updateSetting('gain', v)} />
+                    <Knob label="MIC VOL" value={settings.gain} onChange={(v) => updateSetting('gain', v)} />
                 </div>
 
                 {/* Sliders - EQ */}
                 <div className="grid grid-cols-4 gap-2 bg-black/20 p-4 rounded-2xl border border-white/5 mb-6">
-                    <Slider label="LOW" value={settings.eqLow} onChange={(v) => updateSetting('eqLow', v)} />
-                    <Slider label="MID" value={settings.eqMid} onChange={(v) => updateSetting('eqMid', v)} />
-                    <Slider label="HIGH" value={settings.eqHigh} onChange={(v) => updateSetting('eqHigh', v)} />
-                    <Slider label="COMP" value={settings.compression} onChange={(v) => updateSetting('compression', v)} />
+                    <Slider label="BASS" value={settings.eqLow} onChange={(v) => updateSetting('eqLow', v)} />
+                    <Slider label="MIDS" value={settings.eqMid} onChange={(v) => updateSetting('eqMid', v)} />
+                    <Slider label="TREBLE" value={settings.eqHigh} onChange={(v) => updateSetting('eqHigh', v)} />
+                    <Slider label="CLARITY" value={settings.compression} onChange={(v) => updateSetting('compression', v)} />
                 </div>
 
                 {/* Toggles */}

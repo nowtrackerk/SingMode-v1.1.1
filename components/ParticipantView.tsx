@@ -278,16 +278,16 @@ const ParticipantView: React.FC = () => {
         <h1 className="text-6xl md:text-8xl font-bold font-bungee text-white mb-6 uppercase tracking-tight neon-text-glow-purple leading-none">
           SINGMODE
         </h1>
-        <p className="text-[var(--neon-cyan)] font-righteous mb-16 uppercase tracking-[0.6em] text-lg font-black neon-glow-cyan">AUTHORIZED_ACCESS_REQUIRED</p>
+        <p className="text-[var(--neon-cyan)] font-righteous mb-16 uppercase tracking-[0.6em] text-lg font-black neon-glow-cyan">MEMBER ACCESS</p>
 
         <div className="w-full max-w-lg mb-12 relative z-20">
           <button
             onClick={handleGuestSingNow}
             className="w-full py-8 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-blue)] text-white rounded-[2.5rem] font-black text-4xl shadow-[0_0_60px_rgba(255,0,127,0.4)] uppercase tracking-[0.1em] active:scale-95 transition-all font-bungee hover:brightness-110 border-4 border-white/10 animate-pulse"
           >
-            SING NOW
+            SING!
           </button>
-          <p className="text-slate-500 font-righteous uppercase tracking-widest text-xs mt-4">INSTANT_GUEST_ACCESS</p>
+          <p className="text-slate-500 font-righteous uppercase tracking-widest text-xs mt-4">GUEST PASS</p>
         </div>
 
         <div className="relative w-full max-w-lg">
@@ -295,7 +295,7 @@ const ParticipantView: React.FC = () => {
             <div className="w-full border-t border-white/10"></div>
           </div>
           <div className="relative flex justify-center mb-8">
-            <span className="bg-black px-4 text-slate-500 font-righteous uppercase tracking-widest text-sm">OR AUTHENTICATE</span>
+            <span className="bg-black px-4 text-slate-500 font-righteous uppercase tracking-widest text-sm">MEMBER LOGIN</span>
           </div>
         </div>
 
@@ -306,7 +306,7 @@ const ParticipantView: React.FC = () => {
           {authError && <div className="bg-rose-500/10 border border-rose-500/30 text-rose-500 text-base py-4 px-6 rounded-2xl font-black uppercase tracking-widest animate-pulse font-righteous">{authError}</div>}
 
           <div className="space-y-4">
-            <label className="block text-base font-black text-slate-500 uppercase tracking-[0.3em] mb-3 text-left font-righteous ml-4">USER</label>
+            <label className="block text-base font-black text-slate-500 uppercase tracking-[0.3em] mb-3 text-left font-righteous ml-4">STAGE NAME</label>
             <input
               type="text"
               required
@@ -369,11 +369,11 @@ const ParticipantView: React.FC = () => {
           )}
 
           <button type="submit" className="w-full py-6 mt-6 bg-[var(--neon-pink)] hover:bg-white hover:text-black text-white rounded-2xl font-black text-3xl shadow-[0_0_40px_rgba(255,0,127,0.3)] transition-all uppercase tracking-[0.2em] font-bungee hover:scale-[1.02] active:scale-95">
-            {isLoginMode ? 'START AS GUEST' : 'SIGN IN'}
+            {isLoginMode ? 'ENTER AS GUEST' : 'SIGN IN'}
           </button>
 
           <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setAuthError(''); }} className="text-slate-600 hover:text-[var(--neon-cyan)] text-sm font-black uppercase tracking-[0.3em] pt-6 block mx-auto transition-colors font-righteous border-b-2 border-transparent hover:border-[var(--neon-cyan)] pb-1">
-            {isLoginMode ? "NEW USER" : "BACK TO START"}
+            {isLoginMode ? "CREATE ACCOUNT" : "BACK TO START"}
           </button>
         </form>
       </div>
@@ -423,7 +423,7 @@ const ParticipantView: React.FC = () => {
           <div className="flex flex-col items-center gap-4 w-full max-w-xs mx-auto mt-8">
             <div className="bg-black/40 border border-white/5 rounded-2xl p-4 w-full group hover:border-[var(--neon-cyan)] transition-all">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-black text-slate-600 uppercase tracking-widest font-righteous">VOCAL_SIGNATURE</span>
+                <span className="text-xs font-black text-slate-600 uppercase tracking-widest font-righteous">VOICE TYPE</span>
                 <span className="text-base font-bold text-[var(--neon-cyan)] uppercase font-righteous tracking-wider">{userProfile?.vocalRange || 'UNKNOWN'}</span>
               </div>
               {isScanning ? (
@@ -456,7 +456,7 @@ const ParticipantView: React.FC = () => {
                   }}
                   className="w-full text-center py-2 text-xs font-black uppercase tracking-[0.2em] text-[var(--neon-cyan)] hover:text-white transition-colors font-righteous"
                 >
-                  [ TAP_TO_CALIBRATE_VOICE ]
+                  [ TAP TO CALIBRATE ]
                 </button>
               )}
             </div>
@@ -469,7 +469,7 @@ const ParticipantView: React.FC = () => {
         <section className="animate-in fade-in slide-in-from-top-4">
           <div className="flex items-center gap-3 mb-4 px-4">
             <div className="w-2 h-2 bg-[var(--neon-green)] rounded-full animate-blink"></div>
-            <h3 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] text-base font-righteous">CURRENT_WAVEFORM</h3>
+            <h3 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] text-base font-righteous">ON STAGE</h3>
           </div>
           <div className="flex flex-col gap-3">
             {session.currentRound.map((song, i) => (
@@ -535,10 +535,10 @@ const ParticipantView: React.FC = () => {
             <span className={`text-2xl mb-0.5 ${activeTab === tab ? 'text-[var(--neon-pink)]' : 'grayscale opacity-50'}`}>
               {tab === 'ROTATION' ? '💿' : tab === 'REQUESTS' ? '📼' : tab === 'FAVORITES' ? '⭐' : tab === 'HISTORY' ? '📜' : '🎤'}
             </span>
-            {tab === 'ROTATION' ? 'LIVE' :
-              tab === 'REQUESTS' ? 'MY_SET' :
-                tab === 'FAVORITES' ? 'FAVS' :
-                  tab === 'HISTORY' ? 'LOG' : 'VOX'}
+            {tab === 'ROTATION' ? 'STAGE' :
+              tab === 'REQUESTS' ? 'MY SONGS' :
+                tab === 'FAVORITES' ? 'SONGBOOK' :
+                  tab === 'HISTORY' ? 'LOG' : 'MIC SETUP'}
           </button>
         ))}
       </div>
@@ -547,7 +547,7 @@ const ParticipantView: React.FC = () => {
         onClick={() => { setPrefillData(null); setShowRequestForm(true); }}
         className="w-full py-8 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-blue)] text-white rounded-[2.5rem] font-black text-4xl shadow-[0_0_60px_rgba(255,0,127,0.4)] uppercase tracking-[0.1em] active:scale-95 transition-all font-bungee hover:brightness-110 border-4 border-white/10 animate-pulse"
       >
-        SING NOW
+        SING!
       </button>
 
       <div className="flex gap-4 pt-2">
@@ -595,7 +595,7 @@ const ParticipantView: React.FC = () => {
       <main className="min-h-[300px] pb-32">
         {activeTab === 'ROTATION' && (
           <section className="animate-in slide-in-from-bottom-8 duration-500 space-y-6">
-            <h3 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] text-sm px-4 font-righteous opacity-80">UPCOMING_WAVEFORM</h3>
+            <h3 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] text-sm px-4 font-righteous opacity-80">COMING UP</h3>
             <div className="space-y-4">
               {(() => {
                 // Custom Interleaved Sorting Logic (Matching DJ View)
@@ -631,7 +631,7 @@ const ParticipantView: React.FC = () => {
 
                 if (approvedSinging.length === 0) return (
                   <div className="text-center py-16 opacity-30 border-2 border-dashed border-white/5 rounded-[2.5rem] bg-black/20">
-                    <p className="text-sm font-black uppercase tracking-[0.4em] font-righteous text-slate-600">SILENCE_DETECTED</p>
+                    <p className="text-sm font-black uppercase tracking-[0.4em] font-righteous text-slate-600">QUEUE EMPTY</p>
                   </div>
                 );
 
@@ -703,7 +703,7 @@ const ParticipantView: React.FC = () => {
             ))}
             {myRequests.length === 0 && (
               <div className="text-center py-20 bg-black/20 rounded-[3rem] border-2 border-dashed border-white/5">
-                <p className="text-base font-black uppercase tracking-[0.5em] font-righteous text-slate-700">NO_DATA_STREAM</p>
+                <p className="text-base font-black uppercase tracking-[0.5em] font-righteous text-slate-700">NO REQUESTS</p>
               </div>
             )}
           </section>

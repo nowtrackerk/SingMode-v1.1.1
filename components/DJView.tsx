@@ -623,19 +623,19 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
             </div>
             <div>
               <h1 className="text-8xl font-bold font-bungee text-white flex items-center gap-6 uppercase tracking-tight neon-glow-pink leading-none">
-                SINGMODE <span className="text-[var(--neon-blue)] neon-glow-cyan text-5xl font-righteous translate-y-2">MAX</span>
+                SINGMODE <span className="text-[var(--neon-blue)] neon-glow-cyan text-5xl font-righteous translate-y-2">beta</span>
               </h1>
               <div className="flex items-center gap-4 mt-4">
-                <span className="px-4 py-1.5 rounded-full bg-[var(--neon-pink)]/10 border border-[var(--neon-pink)]/30 text-[var(--neon-pink)] text-lg font-bold uppercase tracking-widest font-righteous">SYS_OP_01</span>
+                <span className="px-4 py-1.5 rounded-full bg-[var(--neon-pink)]/10 border border-[var(--neon-pink)]/30 text-[var(--neon-pink)] text-lg font-bold uppercase tracking-widest font-righteous">DJ CONSOLE</span>
                 <span className="text-[var(--neon-blue)]/30">||</span>
-                <span className="text-[var(--neon-blue)] text-lg font-bold uppercase tracking-widest font-righteous neon-glow-cyan">ACTIVE_NODES: {session.participants.length}</span>
+                <span className="text-[var(--neon-blue)] text-lg font-bold uppercase tracking-widest font-righteous neon-glow-cyan">SINGERS: {session.participants.length}</span>
               </div>
             </div>
           </div>
 
           <div className="flex gap-4">
             <div className="text-right">
-              <div className="text-base text-[var(--neon-yellow)] font-bold uppercase tracking-widest font-righteous mb-1">SYSTEM_STATUS</div>
+              <div className="text-base text-[var(--neon-yellow)] font-bold uppercase tracking-widest font-righteous mb-1">STATUS</div>
               <div className="text-4xl text-white font-bold uppercase tracking-widest font-bungee flex items-center justify-end gap-3">
                 ONLINE <div className="w-3 h-3 bg-[var(--neon-green)] rounded-full animate-pulse shadow-[0_0_10px_var(--neon-green)]"></div>
               </div>
@@ -649,14 +649,14 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
         <div className="glass-panel p-4 rounded-[2.5rem] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-wrap items-center gap-4 backdrop-blur-3xl">
           <div className="flex gap-3 p-2 bg-black/40 rounded-[2rem] border border-white/5">
             <button onClick={() => setIsAddingRequest(true)} className="px-8 py-4 bg-[var(--neon-pink)] text-black font-black hover:bg-white transition-all active:scale-95 rounded-[1.5rem] shadow-[0_0_25px_rgba(255,42,109,0.4)] text-lg uppercase tracking-[0.2em] font-righteous flex items-center gap-3 group">
-              <span className="text-3xl group-hover:rotate-90 transition-transform">＋</span> TRACK
+              <span className="text-3xl group-hover:rotate-90 transition-transform">＋</span> ADD SONG
             </button>
 
             <button
               onClick={() => { setShowRoundConfirm(true); refresh(); }}
               className="px-8 py-4 bg-[var(--neon-blue)] text-black font-black hover:bg-white transition-all uppercase tracking-[0.2em] text-lg active:scale-95 rounded-[1.5rem] shadow-[0_0_25px_rgba(5,217,232,0.4)] font-righteous flex items-center gap-3 group"
             >
-              <span className="text-3xl group-hover:animate-spin">↻</span> SEQUENCE
+              <span className="text-3xl group-hover:animate-spin">↻</span> NEXT ROUND
             </button>
           </div>
 
@@ -709,7 +709,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                   : 'text-slate-500 hover:text-white hover:bg-white/5'
                   }`}
               >
-                {tab === 'COMMAND' ? 'DECK' : tab}
+                {tab === 'COMMAND' ? 'CONTROLS' : tab === 'ROTATION' ? 'STAGE' : tab === 'PERFORMERS' ? 'SINGERS' : 'SONGBOOK'}
               </button>
             ))}
           </div>
@@ -726,10 +726,10 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                   <div className="relative bg-[#150030]/90 p-10 rounded-[2.8rem] backdrop-blur-xl border-2 border-[var(--neon-green)]/50">
                     <div className="flex justify-between items-center mb-8">
                       <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-green">
-                        <span className="text-6xl animate-pulse">▶</span> ACTIVE SEQUENCE
+                        <span className="text-6xl animate-pulse">▶</span> NOW PLAYING
                       </h2>
                       <button onClick={async () => { await finishRound(); await refresh(); }} className="px-8 py-3 bg-[var(--neon-pink)] text-black text-base font-bold uppercase hover:bg-white transition-all rounded-[1rem] tracking-widest font-righteous shadow-[0_0_20px_var(--neon-pink)] active:scale-95">
-                        FINISH_SET
+                        END ROUND
                       </button>
                     </div>
                     <div className="flex flex-col gap-3">
