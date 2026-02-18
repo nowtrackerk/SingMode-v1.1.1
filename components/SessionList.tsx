@@ -22,7 +22,7 @@ const SessionList: React.FC<SessionListProps> = ({ onJoin }) => {
     if (loading) {
         return (
             <div className="text-center py-20 animate-pulse">
-                <div className="text-[var(--neon-cyan)] text-xl font-black uppercase tracking-widest font-righteous">SCANNING_FREQUENCIES...</div>
+                <div className="text-[var(--neon-cyan)] text-xl font-black uppercase tracking-widest font-righteous">SEARCHING FOR STAGES...</div>
             </div>
         );
     }
@@ -30,8 +30,8 @@ const SessionList: React.FC<SessionListProps> = ({ onJoin }) => {
     if (sessions.length === 0) {
         return (
             <div className="text-center py-20 px-6 bg-black/20 rounded-[3rem] border-2 border-dashed border-white/5 mx-auto max-w-2xl">
-                <p className="text-[var(--neon-pink)] text-2xl font-black uppercase tracking-widest font-bungee mb-4">SILENCE_DETECTED</p>
-                <p className="text-slate-500 font-righteous uppercase tracking-wider text-sm">NO_ACTIVE_SIGNALS_FOUND_IN_SECTOR</p>
+                <p className="text-[var(--neon-pink)] text-2xl font-black uppercase tracking-widest font-bungee mb-4">NO STAGES FOUND</p>
+                <p className="text-slate-500 font-righteous uppercase tracking-wider text-sm">There are no active sessions nearby.</p>
             </div>
         );
     }
@@ -40,7 +40,7 @@ const SessionList: React.FC<SessionListProps> = ({ onJoin }) => {
         <div className="w-full max-w-4xl mx-auto p-4 space-y-6 animate-in fade-in slide-in-from-bottom-8 duration-700">
             <div className="flex items-center gap-4 mb-8">
                 <div className="w-3 h-3 bg-[var(--neon-green)] rounded-full animate-ping"></div>
-                <h2 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] font-righteous text-lg">AVAILABLE_NODES</h2>
+                <h2 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] font-righteous text-lg">LIVE STAGES</h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -54,12 +54,12 @@ const SessionList: React.FC<SessionListProps> = ({ onJoin }) => {
                                     🎵
                                 </div>
                                 <div className="px-3 py-1 bg-[var(--neon-green)]/10 text-[var(--neon-green)] border border-[var(--neon-green)]/20 rounded-lg text-[10px] font-black uppercase tracking-widest font-righteous">
-                                    SIGNAL_STRONG
+                                    ONLINE
                                 </div>
                             </div>
 
                             <h3 className="text-3xl font-bold text-white mb-2 font-bungee uppercase tracking-tight group-hover:text-[var(--neon-cyan)] transition-colors truncate">
-                                {session.venueName || "OPEN_LOUNGE"}
+                                {session.venueName || "OPEN MIC"}
                             </h3>
 
                             <div className="flex items-center gap-2 mb-8 text-slate-400 font-righteous uppercase tracking-wider text-xs">
@@ -70,7 +70,7 @@ const SessionList: React.FC<SessionListProps> = ({ onJoin }) => {
                                 onClick={() => onJoin(session.id)}
                                 className="w-full py-4 bg-white text-black font-black uppercase tracking-[0.2em] rounded-xl hover:bg-[var(--neon-cyan)] transition-all font-righteous hover:scale-[1.02] active:scale-95 shadow-lg"
                             >
-                                INITIATE_LINK
+                                JOIN STAGE
                             </button>
                         </div>
                     </div>

@@ -27,11 +27,11 @@ const FeatureCard: React.FC<{ title: string; icon: string; description: string; 
 
 const FeaturesView: React.FC<FeaturesViewProps> = ({ onBack, onAdminLogin }) => {
     const handleAdminAttempt = () => {
-        const pass = prompt('ENTER_ENCRYPTION_KEY:');
+        const pass = prompt('Enter Admin Password:');
         if (pass === 'Organized') {
             onAdminLogin();
         } else {
-            alert('PROTOCOL_DENIED: UNAUTHORIZED_ACCESS');
+            alert('Access Denied: Incorrect Password');
         }
     };
     return (
@@ -140,12 +140,12 @@ const FeaturesView: React.FC<FeaturesViewProps> = ({ onBack, onAdminLogin }) => 
                         ]}
                     />
                     <div className="md:col-span-2 lg:col-span-1 border-2 border-dashed border-white/10 rounded-[3.5rem] flex flex-col items-center justify-center p-10 group hover:border-[var(--neon-cyan)] transition-all">
-                        <p className="text-[10px] text-slate-700 font-black uppercase tracking-[0.4em] mb-6 font-righteous group-hover:text-[var(--neon-cyan)]">MANAGEMENT_INTERFACE</p>
+                        <p className="text-[10px] text-slate-700 font-black uppercase tracking-[0.4em] mb-6 font-righteous group-hover:text-[var(--neon-cyan)]">ADMIN LOGIN</p>
                         <button
                             onClick={handleAdminAttempt}
                             className="p-6 bg-black border border-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest font-righteous text-white/40 hover:text-white hover:border-white transition-all shadow-xl"
                         >
-                            🔐 AUTHORIZED_ACCESS
+                            🔐 ENTER ADMIN MODE
                         </button>
                     </div>
                 </div>
@@ -156,7 +156,7 @@ const FeaturesView: React.FC<FeaturesViewProps> = ({ onBack, onAdminLogin }) => 
                         onClick={onBack}
                         className="px-16 py-8 bg-[var(--neon-cyan)] hover:bg-white text-black rounded-[3rem] font-bold text-2xl uppercase tracking-widest font-righteous shadow-[0_0_50px_rgba(34,211,238,0.4)] hover:scale-105 transition-all"
                     >
-                        INITIATE SESSION
+                        START SINGING
                     </button>
                 </div>
             </div>

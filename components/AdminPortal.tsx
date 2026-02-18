@@ -66,10 +66,10 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onBack }) => {
                 <header className="flex justify-between items-center mb-20 animate-in fade-in slide-in-from-top-4 duration-700">
                     <div onClick={onBack} className="cursor-pointer group flex items-center gap-4">
                         <img src="IGK.jpeg" alt="Logo" className="w-12 h-12 rounded-full border-2 border-[var(--neon-pink)] group-hover:scale-110 transition-all" />
-                        <h1 className="text-3xl font-bungee tracking-tight">ADMIN_PORTAL</h1>
+                        <h1 className="text-3xl font-bungee tracking-tight">ADMIN SETTINGS</h1>
                     </div>
                     <div className="flex gap-4">
-                        <button onClick={onBack} className="px-6 py-3 bg-black border border-white/10 hover:border-white text-slate-500 hover:text-white rounded-xl text-[10px] uppercase tracking-widest transition-all">TERMINATE_ACCESS</button>
+                        <button onClick={onBack} className="px-6 py-3 bg-black border border-white/10 hover:border-white text-slate-500 hover:text-white rounded-xl text-[10px] uppercase tracking-widest transition-all">CLOSE MENU</button>
                         <button
                             onClick={async () => {
                                 if (confirm('Are you sure you want to sign out?')) {
@@ -80,7 +80,7 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onBack }) => {
                             className="px-6 py-3 bg-rose-500/10 border border-rose-500/30 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
                         >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                            SIGN_OUT
+                            LOG OUT
                         </button>
                     </div>
                 </header>
@@ -90,7 +90,7 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onBack }) => {
                     <section className="bg-black/40 border-2 border-white/5 rounded-[3rem] p-10 space-y-8 shadow-2xl">
                         <div>
                             <h2 className="text-2xl font-bungee text-[var(--neon-cyan)] mb-2 uppercase">Venue Settings</h2>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black opacity-60">BROADCAST_IDENTITY_OVERLAY</p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black opacity-60">VENUE DISPLAY</p>
                         </div>
 
                         <div className="space-y-6">
@@ -124,7 +124,7 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onBack }) => {
                     <section className="bg-black/40 border-2 border-white/5 rounded-[3rem] p-10 space-y-8 shadow-2xl">
                         <div>
                             <h2 className="text-2xl font-bungee text-[var(--neon-pink)] mb-2 uppercase">Theme Matrix</h2>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black opacity-60">VISUAL_ENGINE_STYLING</p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black opacity-60">THEME COLORS</p>
                         </div>
 
                         <div className="space-y-6">
@@ -151,7 +151,7 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onBack }) => {
                         onClick={handleSave}
                         className="px-16 py-6 bg-white text-black rounded-[2rem] font-bold text-xl uppercase tracking-widest font-bungee hover:bg-[var(--neon-cyan)] transition-all shadow-2xl hover:scale-105 active:scale-95"
                     >
-                        WRITE_TO_EPROM (SAVE)
+                        SAVE CHANGES
                     </button>
                 </div>
             </div>
