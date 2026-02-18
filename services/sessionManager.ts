@@ -1,7 +1,7 @@
 import { KaraokeSession, Participant, SongRequest, ParticipantStatus, RequestStatus, UserProfile, FavoriteSong, RequestType, ChatMessage, TickerMessage, RemoteAction, VerifiedSong, ActiveSession } from '../types';
 import { syncService } from './syncService';
 import { auth, db } from './firebaseConfig';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously } from "firebase/auth";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { collection, doc, setDoc, getDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDocs } from "firebase/firestore";
 
 const STORAGE_KEY = 'kstar_karaoke_session';
@@ -167,38 +167,13 @@ export const initializeSync = async (role: 'DJ' | 'PARTICIPANT', room?: string) 
     });
 
     const usersRef = collection(db, "users");
-    onSnapshot(usersRef, async (snapshot) => {
-      const dbUsers: UserProfile[] = [];
+    onSnapshot(usersRef, (snapshot) => {
+      const users: UserProfile[] = [];
       snapshot.forEach((doc) => {
-        dbUsers.push(doc.data() as UserProfile);
+        users.push(doc.data() as UserProfile);
       });
-
-      // Merge: Keep local users that are NOT in Firestore (e.g. legacy/local-only 'singer-' accounts)
-      const currentLocal = await storage.get(ACCOUNTS_KEY) || [];
-      const localOnly = currentLocal.filter((u: UserProfile) => !dbUsers.some(d => d.id === u.id));
-
-      // Dedup by ID just in case
-      const merged = [...dbUsers, ...localOnly];
-
-      // If we have lost our "Dinger/Singer" seeds and only have a few users, we might want to restore seeds?
-      // Check if we have "Singer" or "Dinger" accounts
-      const hasSeeds = merged.some(u => u.id.startsWith('singer-') || u.name.toLowerCase().includes('dinger'));
-
-      if (!hasSeeds && merged.length < 5) {
-        // Restore Seeds (renamed to Dinger as per user preference implied)
-        const seeds: UserProfile[] = Array.from({ length: 5 }, (_, i) => ({
-          id: `singer-${i + 1}`,
-          name: `DINGER${i + 1}`,
-          password: '123', // Default simple pass for seeds
-          favorites: [],
-          personalHistory: [],
-          createdAt: Date.now()
-        }));
-        merged.push(...seeds);
-      }
-
-      console.log("Synced users from Firestore:", dbUsers.length, "Local preserved:", localOnly.length, "Total:", merged.length);
-      storage.set(ACCOUNTS_KEY, merged);
+      console.log("Synced users from Firestore:", users.length);
+      storage.set(ACCOUNTS_KEY, users);
     });
   }
 };
@@ -459,62 +434,40 @@ export const registerUser = async (data: Partial<UserProfile>, autoLogin = false
         throw e;
       }
     } else if (isLocalUser) {
-      // Local User: Create synthetic email to satisfy Firebase Auth
-      const syntheticEmail = `${data.name?.replace(/\s+/g, '').toLowerCase()}@singmode.app`;
-      try {
-        const credential = await createUserWithEmailAndPassword(auth, syntheticEmail, data.password!);
-        uid = credential.user.uid;
-      } catch (e: any) {
-        if (e.code === 'auth/email-already-in-use') {
-          return { success: false, error: "Username already taken." };
-        }
-        throw e;
-      }
-    } else {
-      // Guest User: Rename potential duplicate and Sign In Anonymously
+      // Local/Firestore-only user (no email)
+      // Check for username uniqueness in our 'users' collection
       const accounts = await getAllAccounts();
       const existing = accounts.find(a => a.name.toLowerCase() === data.name?.trim().toLowerCase());
-
       if (existing) {
-        try {
-          const date = new Date(existing.createdAt || Date.now());
-          const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
-          const newName = `${existing.name} (${dateStr})`;
-
-          // Update local cache for OLD user
-          existing.name = newName;
-          await storage.set(ACCOUNTS_KEY, accounts);
-        } catch (err) {
-          console.warn("Failed to rename existing user locally:", err);
-        }
+        return { success: false, error: "Username already taken." };
       }
-
-      // Anonymous Auth for Guest
-      try {
-        const credential = await signInAnonymously(auth);
-        uid = credential.user.uid;
-      } catch (e: any) {
-        console.error("Anon Auth Error:", e);
-        return { success: false, error: "Guest login failed." };
-      }
+      // Generate ID
+      uid = activeId() || `user-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+    } else {
+      // Guest user (no password)
+      uid = data.id || activeId() || `guest-${Math.random().toString(36).substr(2, 9)}`;
     }
 
     const profile: UserProfile = {
       id: uid!,
       name: data.name?.trim() || 'Guest',
       email: data.email || undefined,
+      // Store password for local users only
       password: isLocalUser ? data.password : undefined,
+      isGuest: !isFirebaseUser && !isLocalUser,
       favorites: data.favorites || [],
       personalHistory: data.personalHistory || [],
       createdAt: Date.now()
     };
 
+    // Remove undefined fields
     const profileData = JSON.parse(JSON.stringify(profile));
 
-    // Save profile to Firestore
+    // Save profile to Firestore (both Auth users and Local users lives here)
     await setDoc(doc(db, "users", uid!), profileData);
 
     const accounts = await getAllAccounts();
+    // Update local cache if not present
     if (!accounts.some(a => a.id === uid)) {
       accounts.push(profile);
       await storage.set(ACCOUNTS_KEY, accounts);
@@ -523,9 +476,7 @@ export const registerUser = async (data: Partial<UserProfile>, autoLogin = false
     if (autoLogin) {
       await storage.set(PROFILE_KEY, profile);
     } else if (!isRemoteClient) {
-      try {
-        syncService.broadcastAction({ type: 'SYNC_PROFILE', payload: profile, senderId: 'DJ' });
-      } catch (e) { }
+      syncService.broadcastAction({ type: 'SYNC_PROFILE', payload: profile, senderId: 'DJ' });
     }
     return { success: true, profile };
 
@@ -556,7 +507,24 @@ export const loginUser = async (name: string, password?: string): Promise<{ succ
 
   // Try to find user in local list first to see if they exist
   const accounts = await getAllAccounts();
-  const found = accounts.find(a => a.name.toLowerCase() === name.toLowerCase());
+  let found = accounts.find(a => a.name.toLowerCase() === name.toLowerCase());
+
+  // If not found locally, check Firestore (Crucial for Local Users on new devices)
+  if (!found) {
+    try {
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("name", "==", name));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        found = querySnapshot.docs[0].data() as UserProfile;
+        // Cache for future use
+        accounts.push(found);
+        await storage.set(ACCOUNTS_KEY, accounts);
+      }
+    } catch (e) {
+      console.warn("Error checking remote user:", e);
+    }
+  }
 
   if (!found && !password) {
     // Guest login attempt

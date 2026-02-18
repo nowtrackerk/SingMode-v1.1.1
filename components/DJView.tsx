@@ -20,7 +20,7 @@ interface DJViewProps {
   onAdminAccess?: () => void;
 }
 
-type DJTab = 'COMMAND' | 'ROTATION' | 'PERFORMERS' | 'DIRECTORY' | 'LIBRARY';
+type DJTab = 'COMMAND' | 'ROTATION' | 'PERFORMERS' | 'LIBRARY';
 
 const QUICK_SET_POOL = [
   { songName: "Bohemian Rhapsody", artist: "Queen" },
@@ -622,16 +622,13 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
               </div>
             </div>
             <div>
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-4">
-                  <span className="px-4 py-1.5 rounded-full bg-[var(--neon-pink)]/10 border border-[var(--neon-pink)]/30 text-[var(--neon-pink)] text-lg font-bold uppercase tracking-widest font-righteous">SYS_OP_01</span>
-                  <span className="text-[var(--neon-blue)]/30">||</span>
-                  <span className="text-[var(--neon-blue)] text-lg font-bold uppercase tracking-widest font-righteous neon-glow-cyan">ACTIVE_NODES: {session.participants.length}</span>
-                </div>
-                <button onClick={() => setShowQrModal(true)} className="w-48 h-10 flex items-center justify-center text-[var(--neon-yellow)] border border-[var(--neon-yellow)]/30 bg-[var(--neon-yellow)]/5 hover:bg-[var(--neon-yellow)] hover:text-black transition-all rounded-[1rem] shadow-[0_0_15px_rgba(255,200,87,0.1)] group gap-3">
-                  <span className="text-xl group-hover:scale-110 transition-transform">📱</span>
-                  <span className="text-[10px] font-black uppercase tracking-widest font-righteous">QR CODE TO SHARE</span>
-                </button>
+              <h1 className="text-8xl font-bold font-bungee text-white flex items-center gap-6 uppercase tracking-tight neon-glow-pink leading-none">
+                SINGMODE <span className="text-[var(--neon-blue)] neon-glow-cyan text-5xl font-righteous translate-y-2">MAX</span>
+              </h1>
+              <div className="flex items-center gap-4 mt-4">
+                <span className="px-4 py-1.5 rounded-full bg-[var(--neon-pink)]/10 border border-[var(--neon-pink)]/30 text-[var(--neon-pink)] text-lg font-bold uppercase tracking-widest font-righteous">SYS_OP_01</span>
+                <span className="text-[var(--neon-blue)]/30">||</span>
+                <span className="text-[var(--neon-blue)] text-lg font-bold uppercase tracking-widest font-righteous neon-glow-cyan">ACTIVE_NODES: {session.participants.length}</span>
               </div>
             </div>
           </div>
@@ -666,7 +663,13 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
           <div className="w-[1px] h-12 bg-white/10 mx-2"></div>
 
           <div className="flex gap-2">
+            <button onClick={() => setShowQrModal(true)} className="w-14 h-14 flex items-center justify-center text-[var(--neon-yellow)] border border-[var(--neon-yellow)]/30 bg-[var(--neon-yellow)]/5 hover:bg-[var(--neon-yellow)] hover:text-black transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(255,200,87,0.1)] group">
+              <span className="text-4xl group-hover:scale-110 transition-transform">📱</span>
+            </button>
 
+            <button onClick={() => setShowUserManager(true)} className="w-14 h-14 flex items-center justify-center text-[var(--neon-blue)] border border-[var(--neon-blue)]/30 bg-[var(--neon-blue)]/5 hover:bg-[var(--neon-blue)] hover:text-black transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(5,217,232,0.1)] group">
+              <span className="text-4xl group-hover:scale-110 transition-transform">👥</span>
+            </button>
 
             <button onClick={() => setShowResetConfirm(true)} className="w-14 h-14 flex items-center justify-center text-rose-500 border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500 hover:text-white transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(244,63,94,0.1)] group">
               <span className="text-4xl group-hover:rotate-12 transition-transform">☢️</span>
@@ -697,7 +700,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
           <div className="flex-1"></div>
 
           <div className="flex gap-2 p-2 bg-black/40 rounded-[2rem] border border-white/5 overflow-x-auto no-scrollbar">
-            {(['COMMAND', 'ROTATION', 'PERFORMERS', 'DIRECTORY', 'LIBRARY'] as DJTab[]).map((tab) => (
+            {(['COMMAND', 'ROTATION', 'PERFORMERS', 'LIBRARY'] as DJTab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); }}
@@ -822,7 +825,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
               <section className="bg-[#10002B]/80 border-2 border-[var(--neon-blue)]/30 rounded-[3rem] p-10 shadow-[0_0_60px_rgba(5,217,232,0.1)] relative overflow-hidden backdrop-blur-md">
                 <div className="flex justify-between items-center mb-8 px-2">
                   <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-cyan">
-                    <span className="text-[var(--neon-blue)]">⟳</span> REQUESTS
+                    <span className="text-[var(--neon-blue)]">⟳</span> QUEUE VALIDATION
                   </h2>
                   <span className="px-6 py-2 bg-[var(--neon-blue)]/10 border border-[var(--neon-blue)]/30 rounded-full text-base text-[var(--neon-blue)] font-bold tracking-widest font-righteous">
                     {pendingRequests.length} PENDING
@@ -881,7 +884,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
               <div className="flex flex-col gap-10">
                 <section className="bg-[#10002B]/60 border-2 border-[var(--neon-yellow)]/20 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
                   <h3 className="text-5xl font-bold font-bungee text-white uppercase mb-8 px-2 neon-glow-yellow flex items-center gap-4">
-                    <span className="text-[var(--neon-yellow)] animate-pulse">★</span> APPROVED SONGS
+                    <span className="text-[var(--neon-yellow)] animate-pulse">★</span> READY NODES
                   </h3>
                   <div className="flex flex-col gap-3">
                     {approvedSinging.map((req, i) => (
@@ -1125,7 +1128,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                 <section className="glass-panel border-4 rounded-[4rem] p-12 shadow-[0_0_100px_rgba(0,255,157,0.3)] relative overflow-hidden neon-sign-border-green">
                   <div className="flex items-center gap-8 mb-12">
                     <div className="w-8 h-8 bg-[var(--neon-green)] rounded-full animate-ping shadow-[0_0_25px_var(--neon-green)]"></div>
-                    <h3 className="text-6xl font-black text-white uppercase tracking-tighter font-righteous neon-glow-green">ROTATION</h3>
+                    <h3 className="text-6xl font-black text-white uppercase tracking-tighter font-righteous neon-glow-green">CURRENT_ROTATION</h3>
                   </div>
                   <div className="flex flex-col gap-4">
                     {session.currentRound.map((song, i) => {
@@ -1216,7 +1219,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
               <section className="bg-[#050510] border-4 border-[var(--neon-cyan)]/30 rounded-[3rem] p-10 shadow-[0_0_80px_rgba(0,229,255,0.15)] relative overflow-hidden backdrop-blur-md">
                 <div className="flex items-center gap-6 mb-10">
                   <div className="w-4 h-4 bg-[var(--neon-cyan)] shadow-[0_0_20px_var(--neon-cyan)] rounded-full animate-pulse"></div>
-                  <h3 className="text-4xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-cyan">READY FOR THE STAGE</h3>
+                  <h3 className="text-4xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-cyan">UPCOMING NODES</h3>
                 </div>
                 <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
                   {approvedSinging.map((req) => (
@@ -1378,282 +1381,6 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
         }
 
         {
-          (showUserManager) && null // Deprecated modal
-        }   {
-          activeTab === 'DIRECTORY' && (
-            <section className="animate-in fade-in slide-in-from-bottom-2 space-y-6 pb-32">
-              <div className="flex justify-between items-center mb-6 bg-black/40 p-6 rounded-[2rem] border border-white/5 backdrop-blur-xl">
-                <div>
-                  <h2 className="text-4xl font-black text-white font-bungee uppercase tracking-tight neon-glow-purple">User Directory</h2>
-                  <p className="text-sm text-[var(--neon-cyan)] uppercase font-black tracking-[0.3em] font-righteous opacity-80 mt-1">Authenticated Identities & Signal History</p>
-                </div>
-                <div className="flex gap-3">
-                  {managedProfile && (
-                    <button onClick={() => setManagedProfile(null)} className="px-6 py-3 bg-black border border-white/10 text-white rounded-xl text-sm font-black uppercase tracking-widest font-righteous hover:bg-white/10 transition-all">← ALL ACCOUNTS</button>
-                  )}
-                  <button
-                    onClick={() => setIsCreatingProfile(true)}
-                    className="px-6 py-3 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all hover:scale-105"
-                  >
-                    + NEW ACCOUNT
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-1 rounded-[2.5rem] bg-gradient-to-r from-[var(--neon-pink)]/20 via-[var(--neon-purple)]/20 to-[var(--neon-cyan)]/20">
-                <div className="bg-[#050510] rounded-[2.4rem] p-6 relative group">
-                  <input
-                    type="text"
-                    placeholder="SCANNING DIRECTORY RECORDS..."
-                    value={directorySearch}
-                    onChange={(e) => setDirectorySearch(e.target.value)}
-                    className="w-full bg-black/50 border-2 border-white/10 rounded-2xl px-12 py-4 text-white font-black uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all shadow-inner placeholder:text-slate-700 text-xl"
-                  />
-                  <span className="absolute left-10 top-1/2 -translate-y-1/2 text-slate-700 pointer-events-none">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-[#0a0a0a] border-4 border-white/5 rounded-[3rem] p-8 min-h-[500px] shadow-2xl relative overflow-hidden">
-                {managedProfile ? (
-                  <div className="animate-in slide-in-from-right-4 duration-500 grid lg:grid-cols-12 gap-8">
-                    <div className="lg:col-span-4 space-y-6">
-                      <div className="bg-[#101015] border-2 border-white/5 rounded-[3rem] p-8 shadow-2xl relative overflow-hidden group hover:border-[var(--neon-purple)] transition-all">
-                        <div className="absolute top-0 right-0 w-48 h-48 bg-[var(--neon-purple)]/10 blur-[60px] rounded-full -mr-24 -mt-24 group-hover:bg-[var(--neon-purple)]/20 transition-all" />
-                        <div className="relative z-10 flex flex-col items-center text-center">
-                          <div className="scale-125 mb-4">
-                            <UserAvatar name={managedProfile.name} isActive={session.participants.some(p => p.id === managedProfile.id)} />
-                          </div>
-                          <div className="mt-4">
-                            <div className="text-sm font-bold text-[var(--neon-cyan)] uppercase tracking-widest mb-2 font-righteous">AUTHENTICATED IDENTITY</div>
-                            <h3 className="text-5xl font-bold text-white uppercase tracking-tight leading-none font-bungee break-words">{managedProfile.name}</h3>
-                          </div>
-
-                          <div className="w-full mt-8 space-y-3 pt-6 border-t border-white/5">
-                            <div className="flex justify-between items-center text-sm uppercase font-black font-righteous tracking-widest">
-                              <span className="text-slate-600">ID SIGNATURE</span>
-                              <span className="text-[var(--neon-pink)] font-mono opacity-80">{managedProfile.id.slice(0, 8)}...</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm uppercase font-black font-righteous tracking-widest">
-                              <span className="text-slate-600">ENCRYPTION</span>
-                              <span className={`px-2 py-0.5 rounded-full ${managedProfile.password ? 'bg-[var(--neon-pink)]/10 text-[var(--neon-pink)]' : 'bg-slate-900 text-slate-600'}`}>
-                                {managedProfile.password ? 'SECURE PIN' : 'OPEN LINK'}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="w-full mt-10 space-y-3">
-                            <button onClick={() => startEditProfile(managedProfile)} className="w-full py-3 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous">MODIFY SECURITY</button>
-                            <button onClick={async () => { await joinSession(managedProfile.id); await refresh(); }} className="w-full py-3 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)] font-righteous hover:bg-white">FORCE RE-JOIN</button>
-                            <div className="pt-2 border-t border-white/5 mt-2 space-y-2">
-                              {session.bannedUsers?.some(b => b.id === managedProfile.id) ? (
-                                <button
-                                  onClick={async () => { await banUser(managedProfile.id, managedProfile.name, 'unban'); await refresh(); }}
-                                  className="w-full py-3 bg-[var(--neon-green)]/10 hover:bg-[var(--neon-green)] text-[var(--neon-green)] hover:text-black rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous border border-[var(--neon-green)]/30"
-                                >
-                                  LIFT_BAN_IDENTITY
-                                </button>
-                              ) : (
-                                <>
-                                  <input
-                                    type="text"
-                                    placeholder="JUSTIFICATION REQUIRED..."
-                                    value={banReason}
-                                    onChange={(e) => setBanReason(e.target.value)}
-                                    className="w-full bg-black/60 border border-white/10 rounded-xl px-4 py-2 text-base text-white font-bold uppercase tracking-widest font-righteous outline-none focus:border-rose-500 transition-all mb-1"
-                                  />
-                                  <button
-                                    onClick={async () => {
-                                      if (!banReason) return alert('Provide a reason for the ban sequence.');
-                                      await banUser(managedProfile.id, managedProfile.name, banReason);
-                                      setBanReason('');
-                                      setManagedProfile(null);
-                                      await refresh();
-                                    }}
-                                    className="w-full py-3 bg-rose-500/10 hover:bg-rose-500 text-rose-500 rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous border border-rose-500/30"
-                                  >
-                                    TERMINATE_SIGNAL (BAN)
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                            <button onClick={async () => { if (confirm('Permanently delete this account?')) { await deleteAccount(managedProfile.id); setManagedProfile(null); await refresh(); } }} className="w-full py-3 bg-rose-500/5 hover:bg-rose-500 text-rose-500/40 hover:text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all border border-transparent hover:border-rose-500/30 font-righteous mt-2">TERMINATE ACCOUNT</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="lg:col-span-8 space-y-6">
-                      <div className="grid md:grid-cols-2 gap-6">
-                        <div className="bg-[#101015] border-2 border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden">
-                          <h4 className="text-sm font-black text-[var(--neon-pink)] uppercase tracking-[0.3em] mb-6 font-righteous">LIBRARY STARS ({managedProfile.favorites.length})</h4>
-                          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                            {managedProfile.favorites.map(fav => (
-                              <div key={fav.id} className="bg-black/40 border border-white/5 p-4 rounded-xl flex justify-between items-center group hover:border-[var(--neon-pink)] transition-all">
-                                <div className="min-w-0 pr-4">
-                                  <div className="text-xl font-black text-white truncate uppercase tracking-tight font-righteous group-hover:text-[var(--neon-pink)] transition-colors">{fav.songName}</div>
-                                  <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-0.5 font-righteous opacity-60">{fav.artist}</div>
-                                </div>
-                                <div className="flex gap-2 shrink-0">
-                                  <button onClick={async () => { await addRequest({ participantId: managedProfile!.id, participantName: managedProfile!.name, songName: fav.songName, artist: fav.artist, youtubeUrl: fav.youtubeUrl, type: fav.type }); await refresh(); }} className="px-3 py-1.5 bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] rounded-lg text-xs font-black uppercase font-righteous hover:bg-[var(--neon-cyan)] hover:text-black transition-all">ADD</button>
-                                  <button onClick={() => setProfileItemToEdit({ type: 'favorite', itemId: fav.id })} className="p-1.5 text-slate-700 hover:text-white transition-colors">✏️</button>
-                                  <button onClick={async () => { await removeUserFavorite(managedProfile!.id, fav.id); await refresh(); }} className="p-1.5 text-rose-500/30 hover:text-rose-500 transition-colors">✕</button>
-                                </div>
-                              </div>
-                            ))}
-                            {managedProfile.favorites.length === 0 && <div className="flex flex-col items-center py-20 opacity-20"><span className="text-4xl mb-3 grayscale">⭐</span><p className="text-sm font-black uppercase tracking-[0.3em] font-righteous text-slate-600">Catalog is empty</p></div>}
-                          </div>
-                        </div>
-
-                        <div className="bg-[#101015] border-2 border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden">
-                          <h4 className="text-sm font-black text-[var(--neon-cyan)] uppercase tracking-[0.3em] mb-6 font-righteous">PERFORMANCE LOG ({managedProfile.personalHistory.length})</h4>
-                          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                            {managedProfile.personalHistory.map((h, i) => (
-                              <div key={i} className="bg-black/40 border border-white/5 p-4 rounded-xl group hover:border-[var(--neon-cyan)] transition-all">
-                                <div className="flex justify-between items-start">
-                                  <div className="min-w-0 pr-4">
-                                    <div className="text-xl font-bold text-white truncate uppercase tracking-tight font-righteous group-hover:text-[var(--neon-cyan)] transition-colors">{h.songName}</div>
-                                    <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-0.5 font-righteous opacity-60">{h.artist}</div>
-                                  </div>
-                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                                    <button onClick={() => setProfileItemToEdit({ type: 'history', itemId: h.id })} className="p-1.5 text-slate-700 hover:text-white transition-colors">✏️</button>
-                                    <button onClick={async () => { await removeUserHistoryItem(managedProfile!.id, h.id); await refresh(); }} className="p-1.5 text-rose-500/30 hover:text-rose-500 transition-colors">✕</button>
-                                  </div>
-                                </div>
-                                <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5">
-                                  <span className="text-xs text-slate-700 font-black uppercase font-righteous tracking-widest">{new Date(h.createdAt).toLocaleDateString()}</span>
-                                  <button
-                                    onClick={async () => { await reAddFromHistory(h, true); await refresh(); }}
-                                    className="px-3 py-1.5 bg-[var(--neon-pink)]/10 border border-[var(--neon-pink)]/30 text-[var(--neon-pink)] rounded-lg text-xs font-black uppercase font-righteous hover:bg-[var(--neon-pink)] hover:text-black transition-all"
-                                  >
-                                    RE-QUEUE
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                            {managedProfile.personalHistory.length === 0 && <div className="flex flex-col items-center py-20 opacity-20"><span className="text-4xl mb-3 grayscale">🎤</span><p className="text-sm font-black uppercase tracking-[0.3em] font-righteous text-slate-600">No transmissions recorded</p></div>}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : isCreatingProfile ? (
-                  <form onSubmit={handleProfileFormSubmit} className="max-w-xl mx-auto bg-[#101015] border-2 border-white/10 p-10 rounded-[3rem] space-y-6 shadow-[0_0_60px_rgba(255,0,127,0.1)] animate-in fade-in zoom-in-95 duration-500">
-                    <h3 className="text-5xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-pink mb-2 text-center">{editingProfile ? 'Modify Profile' : 'New User Account'}</h3>
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-sm font-bold text-slate-500 uppercase mb-2 ml-4 tracking-widest font-righteous">IDENTITY HANDLE</label>
-                        <input required type="text" value={profileForm.name} onChange={e => { setProfileForm({ ...profileForm, name: e.target.value }); setProfileError(''); }} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-bold uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" />
-                      </div>
-
-                      {profileError && (
-                        <div className="mb-4 animate-pulse">
-                          <p className="text-[var(--neon-pink)] font-bold uppercase text-sm tracking-widest flex items-center gap-2">
-                            <span className="text-lg">⚠️</span> {profileError}
-                          </p>
-                        </div>
-                      )}
-                      <div>
-                        <label className="block text-sm font-bold text-slate-500 uppercase mb-2 ml-4 tracking-widest font-righteous">ENCRYPTION PIN (OPTIONAL)</label>
-                        <input type="password" value={profileForm.password} onChange={e => setProfileForm({ ...profileForm, password: e.target.value })} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-bold uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" />
-                      </div>
-                    </div>
-                    <div className="flex gap-4 pt-4">
-                      <button type="button" onClick={() => { setIsCreatingProfile(false); setEditingProfile(null); }} className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-sm font-bold uppercase tracking-widest font-righteous hover:bg-white/5">ABORT</button>
-                      <button type="submit" className="flex-[2] py-4 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-bold uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white">AUTHORIZE ACCOUNT</button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className="space-y-16">
-                    {(() => {
-                      const connectedGuests = accounts.filter(user =>
-                        !user.password &&
-                        session.participants.some(p => p.id === user.id) &&
-                        (user.name.toLowerCase().includes(directorySearch.toLowerCase()) || user.id.toLowerCase().includes(directorySearch.toLowerCase()))
-                      );
-                      const others = accounts.filter(user =>
-                        (user.password || !session.participants.some(p => p.id === user.id)) &&
-                        (user.name.toLowerCase().includes(directorySearch.toLowerCase()) || user.id.toLowerCase().includes(directorySearch.toLowerCase()))
-                      );
-
-                      return (
-                        <>
-                          {connectedGuests.length > 0 && (
-                            <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-                              <div className="flex items-center gap-6">
-                                <h3 className="text-base font-black text-[var(--neon-green)] uppercase tracking-[0.5em] font-righteous whitespace-nowrap">ACTIVE SIGNALS</h3>
-                                <div className="h-[2px] w-full bg-gradient-to-r from-[var(--neon-green)]/30 to-transparent"></div>
-                              </div>
-                              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {connectedGuests.map(user => (
-                                  <div key={user.id} className="bg-[#151520] border-2 border-white/5 rounded-[2rem] p-4 flex items-center justify-between hover:border-[var(--neon-green)] transition-all shadow-lg group relative overflow-hidden">
-                                    <div className="flex items-center gap-6 min-w-0 pr-4">
-                                      <UserAvatar name={user.name} isActive={true} />
-                                      <div className="min-w-0">
-                                        <button
-                                          onClick={() => setManagedProfile(user)}
-                                          className="text-white font-bold text-3xl uppercase truncate tracking-tight text-left block hover:text-[var(--neon-green)] transition-colors font-bungee"
-                                        >
-                                          {user.name}
-                                        </button>
-                                        <div className="flex items-center gap-3 mt-1">
-                                          <span className="text-[10px] bg-[var(--neon-green)] text-black px-2 py-0.5 rounded-full font-black uppercase tracking-widest font-righteous shrink-0">LIVE</span>
-                                          <span className="text-sm text-slate-600 uppercase font-black font-righteous tracking-widest truncate">{user.favorites.length} ★ • {user.personalHistory.length} TX</span>
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 shrink-0">
-                                      <button onClick={() => setManagedProfile(user)} className="p-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-all">✏️</button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="space-y-6 animate-in slide-in-from-bottom-8 duration-500 delay-100">
-                            <div className="flex items-center gap-6">
-                              <h3 className="text-base font-black text-slate-600 uppercase tracking-[0.5em] font-righteous whitespace-nowrap">OFFLINE / ARCHIVED</h3>
-                              <div className="h-[2px] w-full bg-white/5"></div>
-                            </div>
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                              {others.map(user => (
-                                <div key={user.id} className="bg-[#101015]/50 border-2 border-white/5 rounded-[2rem] p-4 flex items-center justify-between hover:border-white/20 transition-all group">
-                                  <div className="flex items-center gap-5 min-w-0 pr-4">
-                                    <div className="grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all">
-                                      <UserAvatar name={user.name} isActive={false} />
-                                    </div>
-                                    <div className="min-w-0">
-                                      <button
-                                        onClick={() => setManagedProfile(user)}
-                                        className="text-slate-500 group-hover:text-white font-bold text-2xl uppercase truncate tracking-tight text-left block transition-colors font-bungee"
-                                      >
-                                        {user.name}
-                                      </button>
-                                      <div className="flex items-center gap-3 mt-1">
-                                        <span className="text-sm text-slate-700 uppercase font-black font-righteous tracking-widest truncate">{user.favorites.length} ★ • {user.personalHistory.length} TX</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <button onClick={() => setManagedProfile(user)} className="opacity-0 group-hover:opacity-100 transition-all text-2xl grayscale hover:grayscale-0">⚙️</button>
-                                </div>
-                              ))}
-                              {others.length === 0 && <div className="col-span-full text-center py-10 opacity-30 italic font-mono">NO RECORDS FOUND</div>}
-                            </div>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                )}
-              </div>
-            </section>
-          )
-        }
-
-        {
           activeTab === 'LIBRARY' && (
             <section className="animate-in fade-in slide-in-from-bottom-2 space-y-10 pb-32">
               <div className="sticky top-0 z-40 pt-4 -mt-4">
@@ -1705,7 +1432,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                   }
 
                   return combined.map((song, idx) => (
-                    <div key={idx} className="bg-[#101015] border-2 border-white/5 p-4 rounded-[2rem] flex items-center justify-between group hover:border-[var(--neon-cyan)] transition-all relative shadow-lg">
+                    <div key={idx} className="bg-[#101015] border-2 border-white/5 p-4 rounded-[2rem] flex items-center justify-between group hover:border-[var(--neon-cyan)] transition-all relative overflow-hidden shadow-lg">
                       <div className="flex items-center gap-6 flex-1 min-w-0">
                         <div className="w-12 h-12 flex items-center justify-center bg-black rounded-lg border border-white/10 text-[var(--neon-cyan)] text-2xl">💿</div>
                         <div className="min-w-0 pr-4">

@@ -12,6 +12,7 @@ import SongRequestForm from './SongRequestForm';
 import { syncService } from '../services/syncService';
 import { getNetworkUrl } from '../services/networkUtils';
 import SessionList from './SessionList';
+import VocalFxPanel from './VocalFxPanel';
 
 
 type Tab = 'ROTATION' | 'REQUESTS' | 'FAVORITES' | 'HISTORY' | 'VOCALS';
@@ -239,6 +240,27 @@ const ParticipantView: React.FC = () => {
 
   const closeModals = () => { setShowRequestForm(false); setEditingRequest(null); setPrefillData(null); };
 
+  const handleGuestSingNow = async () => {
+    setAuthError('');
+    try {
+      const guestName = `Guest-${Math.floor(Math.random() * 10000)}`;
+      const result = await registerUser({ name: guestName }, true); // Auto-login true
+      if (result.success && result.profile) {
+        const newPart = await joinSession(result.profile.id);
+        setParticipant(newPart);
+        setUserProfile(result.profile);
+        setPrefillData(null);
+        setShowRequestForm(true);
+        // Auto-set status to READY upon entry?
+        await updateParticipantStatus(result.profile.id, ParticipantStatus.READY);
+      } else {
+        setAuthError(result.error || "Guest initialization failed.");
+      }
+    } catch (err: any) {
+      setAuthError(err.message || "An unexpected error occurred.");
+    }
+  };
+
   if (!participant) {
     return (
       <div className="max-w-2xl mx-auto p-8 flex flex-col items-center justify-center min-h-[90vh] text-center animate-in fade-in duration-1000 relative">
@@ -258,8 +280,28 @@ const ParticipantView: React.FC = () => {
         </h1>
         <p className="text-[var(--neon-cyan)] font-righteous mb-16 uppercase tracking-[0.6em] text-lg font-black neon-glow-cyan">AUTHORIZED_ACCESS_REQUIRED</p>
 
+        <div className="w-full max-w-lg mb-12 relative z-20">
+          <button
+            onClick={handleGuestSingNow}
+            className="w-full py-8 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-blue)] text-white rounded-[2.5rem] font-black text-4xl shadow-[0_0_60px_rgba(255,0,127,0.4)] uppercase tracking-[0.1em] active:scale-95 transition-all font-bungee hover:brightness-110 border-4 border-white/10 animate-pulse"
+          >
+            SING NOW
+          </button>
+          <p className="text-slate-500 font-righteous uppercase tracking-widest text-xs mt-4">INSTANT_GUEST_ACCESS</p>
+        </div>
+
+        <div className="relative w-full max-w-lg">
+          <div className="absolute inset-0 flex items-center mb-8">
+            <div className="w-full border-t border-white/10"></div>
+          </div>
+          <div className="relative flex justify-center mb-8">
+            <span className="bg-black px-4 text-slate-500 font-righteous uppercase tracking-widest text-sm">OR AUTHENTICATE</span>
+          </div>
+        </div>
+
         <form onSubmit={handleAuth} className="w-full space-y-8 bg-[#050510] p-10 md:p-14 rounded-[4rem] border-4 border-white/5 shadow-[0_0_100px_rgba(0,0,0,0.8)] relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)]"></div>
+
 
           {authError && <div className="bg-rose-500/10 border border-rose-500/30 text-rose-500 text-base py-4 px-6 rounded-2xl font-black uppercase tracking-widest animate-pulse font-righteous">{authError}</div>}
 
@@ -427,7 +469,7 @@ const ParticipantView: React.FC = () => {
         <section className="animate-in fade-in slide-in-from-top-4">
           <div className="flex items-center gap-3 mb-4 px-4">
             <div className="w-2 h-2 bg-[var(--neon-green)] rounded-full animate-blink"></div>
-            <h3 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] text-base font-righteous">LIVE LINEUP</h3>
+            <h3 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] text-base font-righteous">CURRENT_WAVEFORM</h3>
           </div>
           <div className="flex flex-col gap-3">
             {session.currentRound.map((song, i) => (
@@ -553,7 +595,7 @@ const ParticipantView: React.FC = () => {
       <main className="min-h-[300px] pb-32">
         {activeTab === 'ROTATION' && (
           <section className="animate-in slide-in-from-bottom-8 duration-500 space-y-6">
-            <h3 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] text-sm px-4 font-righteous opacity-80">UPCOMING LINEUP</h3>
+            <h3 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] text-sm px-4 font-righteous opacity-80">UPCOMING_WAVEFORM</h3>
             <div className="space-y-4">
               {(() => {
                 // Custom Interleaved Sorting Logic (Matching DJ View)
@@ -799,7 +841,7 @@ const ParticipantView: React.FC = () => {
           onClick={() => setShowSessionScanner(true)}
           className="flex-1 bg-[#101015] border-2 border-[var(--neon-green)]/30 p-4 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl hover:bg-[var(--neon-green)] hover:text-black hover:border-[var(--neon-green)] transition-all group"
         >
-          <span className="text-sm font-black uppercase tracking-[0.3em] font-righteous group-hover:text-black text-[var(--neon-green)]">JOIN ACTIVE SERVER</span>
+          <span className="text-sm font-black uppercase tracking-[0.3em] font-righteous group-hover:text-black text-[var(--neon-green)]">SCAN_NODES</span>
           <span className="text-2xl group-hover:scale-125 transition-transform">📡</span>
         </button>
 

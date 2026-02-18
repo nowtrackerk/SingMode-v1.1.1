@@ -41,6 +41,7 @@ export interface UserProfile {
   favorites: FavoriteSong[];
   personalHistory: SongRequest[];
   createdAt: number;
+  isGuest?: boolean; // Metadata for guest users
   vocalRange?: 'Soprano' | 'Alto' | 'Tenor' | 'Baritone' | 'Bass' | 'Unknown'; // Metadata for A.5
 }
 
