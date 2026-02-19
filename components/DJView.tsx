@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { KaraokeSession, RequestStatus, ParticipantStatus, SongRequest, Participant, RequestType, UserProfile, FavoriteSong, VerifiedSong } from '../types';
+import QRCode from "react-qr-code";
+import { KaraokeSession, RequestStatus, ParticipantStatus, SongRequest, Participant, RequestType, UserProfile, FavoriteSong, VerifiedSong, QueueStrategy } from '../types';
 import {
   getSession, approveRequest, promoteToStage, deleteRequest, reorderRequest,
   generateRound, finishRound, addRequest, updateRequest,
@@ -10,7 +11,8 @@ import {
   resetSession, removeUserHistoryItem, updateUserHistoryItem,
   addVerifiedSong, updateVerifiedSong, deleteVerifiedSong,
   reorderCurrentRound, reorderRequests, reorderPendingRequests,
-  banUser, setMaxRequestsPerUser, markRequestAsDone, logoutUser
+  banUser, setMaxRequestsPerUser, markRequestAsDone, logoutUser,
+  assignUserToDevice, removeDevice, setQueueStrategy, unregisterSession, subscribeToSessions
 } from '../services/sessionManager';
 import SongRequestForm from './SongRequestForm';
 import { syncService } from '../services/syncService';
@@ -20,7 +22,7 @@ interface DJViewProps {
   onAdminAccess?: () => void;
 }
 
-type DJTab = 'COMMAND' | 'ROTATION' | 'PERFORMERS' | 'LIBRARY';
+type DJTab = 'COMMAND' | 'ROTATION' | 'PERFORMERS' | 'LIBRARY' | 'NETWORK' | 'ADMIN';
 
 const QUICK_SET_POOL = [
   { songName: "Bohemian Rhapsody", artist: "Queen" },
@@ -166,6 +168,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
   const [pickingSongForUser, setPickingSongForUser] = useState<Participant | UserProfile | null>(null);
   const [activeTab, setActiveTab] = useState<DJTab>('COMMAND');
   const [pickerSearch, setPickerSearch] = useState('');
+  const [qrTargetUser, setQrTargetUser] = useState<UserProfile | null>(null); // For User SINC QR
   const [librarySearchQuery, setLibrarySearchQuery] = useState('');
 
   // Audio Refs for Monitoring
@@ -184,6 +187,21 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
   // Password Change State
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState('');
+
+  // Verified Songs State
+  // const [isAddingVerifiedSong, setIsAddingVerifiedSong] = useState(false); // Already present?
+  // const [verifiedSongToEdit, setVerifiedSongToEdit] = useState<VerifiedSong | null>(null); // Already present?
+
+  // Password Change State
+  // Admin Session Management
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToSessions((sessions) => {
+      setActiveSessions(sessions);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const refresh = useCallback(async () => {
     const currentSession = await getSession();
@@ -483,6 +501,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
     setPasswordForm('');
     setIsChangingPassword(true);
     setProfileError('');
+    setManagedProfile(null); // Temporarily hide profile view to show modal
   };
 
   const handleChangePasswordSubmit = async (e: React.FormEvent) => {
@@ -491,6 +510,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
 
     const result = await updateAccount(editingProfile.id, { password: passwordForm });
     if (result.success) {
+      setManagedProfile(editingProfile); // Restore profile view
       setEditingProfile(null);
       setIsChangingPassword(false);
       setPasswordForm('');
@@ -520,6 +540,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
     setIsAddingVerifiedSong(false);
     setVerifiedSongToEdit(null);
     setPickingSongForUser(null);
+    setQrTargetUser(null);
   };
 
   const handleSaveNetworkIp = () => {
@@ -636,6 +657,36 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
     );
   };
 
+
+  // Helper for Verified Songs
+  const filteredVerifiedSongs = verifiedSongs.filter(s =>
+    s.songName.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+    s.artist.toLowerCase().includes(pickerSearch.toLowerCase())
+  );
+
+  const handleSelectVerifiedSong = async (song: VerifiedSong) => {
+    if (pickingSongForUser) {
+      const newRequest = await addRequest({
+        participantId: pickingSongForUser.id,
+        participantName: pickingSongForUser.name,
+        songName: song.songName,
+        artist: song.artist,
+        youtubeUrl: song.youtubeUrl || '',
+        type: song.type
+      });
+      if (newRequest) {
+        await approveRequest(newRequest.id);
+      }
+      setPickingSongForUser(null);
+      setPickerSearch('');
+      await refresh();
+    }
+  };
+
+  const startEditVerifiedSong = (song: VerifiedSong) => {
+    setVerifiedSongToEdit(song);
+  };
+
   return (
     <div className="max-w-[1600px] mx-auto p-4 lg:p-8 space-y-12 relative font-inter text-slate-300">
       {/* Tropical Header */}
@@ -728,7 +779,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
           <div className="flex-1"></div>
 
           <div className="flex gap-2 p-2 bg-black/40 rounded-[2rem] border border-white/5 overflow-x-auto no-scrollbar">
-            {(['COMMAND', 'ROTATION', 'PERFORMERS', 'LIBRARY'] as DJTab[]).map((tab) => (
+            {(['COMMAND', 'ROTATION', 'PERFORMERS', 'LIBRARY', 'NETWORK'] as DJTab[]).map((tab) => (
               <button
                 key={tab}
                 onClick={() => { setActiveTab(tab); }}
@@ -737,7 +788,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                   : 'text-slate-500 hover:text-white hover:bg-white/5'
                   }`}
               >
-                {tab === 'COMMAND' ? 'CONTROLS' : tab === 'ROTATION' ? 'STAGE' : tab === 'PERFORMERS' ? 'SINGERS' : 'SONGBOOK'}
+                {tab === 'COMMAND' ? 'CONTROLS' : tab === 'ROTATION' ? 'STAGE' : tab === 'PERFORMERS' ? 'SINGERS' : tab === 'LIBRARY' ? 'SONGBOOK' : 'NETWORK'}
               </button>
             ))}
           </div>
@@ -964,6 +1015,38 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                     {approvedSinging.length === 0 && (
                       <div className="flex-1 py-12 flex items-center justify-center border-2 border-dashed border-white/5 rounded-[2rem] opacity-30 w-full">
                         <p className="text-xl font-black font-righteous uppercase tracking-[0.3em] text-slate-500">QUEUE EMPTY</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="bg-[#10002B]/60 border-2 border-[var(--neon-blue)]/20 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
+                  <h3 className="text-3xl font-bold font-bungee text-white uppercase mb-8 px-2 neon-glow-blue flex items-center gap-4">
+                    <span className="text-[var(--neon-blue)] animate-pulse">🎧</span> TO HEAR ({approvedListening.length})
+                  </h3>
+
+                  <div className="flex flex-col gap-3">
+                    {approvedListening.map((req, i) => (
+                      <div key={req.id} className="bg-black/40 border border-white/5 p-4 rounded-[2rem] flex items-center gap-6 group hover:border-[var(--neon-blue)] transition-all relative">
+                        <div className="w-12 h-12 flex items-center justify-center bg-black/40 rounded-2xl border border-white/5 text-[var(--neon-blue)] font-bungee text-xl shrink-0">
+                          {i + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-4 mb-0.5">
+                            <div className="text-xl font-bold text-white truncate uppercase tracking-tight font-bungee group-hover:text-[var(--neon-blue)] transition-colors">{req.songName}</div>
+                            <div className="text-sm text-slate-500 uppercase tracking-widest font-righteous">/ {req.artist}</div>
+                          </div>
+                          <div className="text-xs font-black text-[var(--neon-pink)] uppercase tracking-[0.2em] font-righteous">@{req.participantName}</div>
+                        </div>
+
+                        <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="px-4 py-2 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all font-black text-xs uppercase tracking-widest font-righteous">REMOVE</button>
+                        </div>
+                      </div>
+                    ))}
+                    {approvedListening.length === 0 && (
+                      <div className="flex-1 py-8 flex items-center justify-center border-2 border-dashed border-white/5 rounded-[2rem] opacity-30 w-full">
+                        <p className="text-base font-black font-righteous uppercase tracking-[0.3em] text-slate-500">NO LISTENING TRACKS</p>
                       </div>
                     )}
                   </div>
@@ -1335,21 +1418,23 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                   {session.history.length > 0 && <button onClick={async () => { await clearHistory(); await refresh(); }} className="text-sm font-black text-rose-500/40 hover:text-rose-500 uppercase tracking-[0.3em] font-righteous transition-all">CLEAR ALL</button>}
                 </div>
                 <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                  {session.history.map((item, i) => (
-                    <div key={i} className="bg-black/40 p-5 rounded-[1.5rem] border border-white/5 group hover:border-[var(--neon-purple)] transition-all">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="min-w-0 pr-4">
-                          <div className="text-2xl font-black text-white uppercase truncate font-bungee tracking-tight group-hover:text-[var(--neon-purple)] transition-colors">{item.songName}</div>
-                          <div className="text-sm text-slate-600 font-bold uppercase truncate font-righteous tracking-widest mt-1">{item.artist}</div>
+                  {session.history
+                    .filter(item => (item.playedAt || 0) >= (session.startedAt || 0))
+                    .map((item, i) => (
+                      <div key={i} className="bg-black/40 p-5 rounded-[1.5rem] border border-white/5 group hover:border-[var(--neon-purple)] transition-all">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="min-w-0 pr-4">
+                            <div className="text-2xl font-black text-white uppercase truncate font-bungee tracking-tight group-hover:text-[var(--neon-purple)] transition-colors">{item.songName}</div>
+                            <div className="text-sm text-slate-600 font-bold uppercase truncate font-righteous tracking-widest mt-1">{item.artist}</div>
+                          </div>
+                          <VideoLink url={item.youtubeUrl} />
                         </div>
-                        <VideoLink url={item.youtubeUrl} />
+                        <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-1">
+                          <button onClick={() => viewPerformerProfile(item.participantId)} className="text-sm font-black text-[var(--neon-pink)] uppercase truncate hover:text-white font-righteous tracking-widest transition-colors mb-0">@{item.participantName}</button>
+                          <button onClick={async () => { await reAddFromHistory(item, true); await refresh(); }} className="opacity-0 group-hover:opacity-100 text-xs font-black text-[var(--neon-cyan)] hover:text-white transition-all font-righteous tracking-widest uppercase ml-auto">RELOAD</button>
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-1">
-                        <button onClick={() => viewPerformerProfile(item.participantId)} className="text-sm font-black text-[var(--neon-pink)] uppercase truncate hover:text-white font-righteous tracking-widest transition-colors mb-0">@{item.participantName}</button>
-                        <button onClick={async () => { await reAddFromHistory(item, true); await refresh(); }} className="opacity-0 group-hover:opacity-100 text-xs font-black text-[var(--neon-cyan)] hover:text-white transition-all font-righteous tracking-widest uppercase ml-auto">RELOAD</button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                   {session.history.length === 0 && <div className="text-center py-20 opacity-20"><p className="text-lg italic font-righteous uppercase tracking-widest text-slate-700">EMPTY</p></div>}
                 </div>
               </section>
@@ -1363,11 +1448,13 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                 <div className="grid gap-12">
                   {(() => {
                     const rounds: Record<number, SongRequest[]> = {};
-                    session.history.forEach(song => {
-                      const time = song.playedAt || 0;
-                      if (!rounds[time]) rounds[time] = [];
-                      rounds[time].push(song);
-                    });
+                    session.history
+                      .filter(song => (song.playedAt || 0) >= (session.startedAt || 0))
+                      .forEach(song => {
+                        const time = song.playedAt || 0;
+                        if (!rounds[time]) rounds[time] = [];
+                        rounds[time].push(song);
+                      });
 
                     const sortedTimestamps = Object.keys(rounds).map(Number).sort((a, b) => b - a);
 
@@ -1454,13 +1541,13 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                     return (
                       <div className="col-span-full text-center py-40 opacity-30 border-4 border-dashed border-white/5 rounded-[4rem]">
                         <div className="text-8xl mb-6 opacity-50 grayscale animate-pulse">{librarySearchQuery ? '🚫' : '📡'}</div>
-                        <p className="text-5xl font-black uppercase tracking-[0.5em] font-righteous text-slate-600">{librarySearchQuery ? 'NO MATCH FOUND' : 'DATABASE OFFLINE'}</p>
+                        <p className="text-5xl font-black uppercase tracking-[0.5em] font-righteous text-slate-600">{librarySearchQuery ? 'NO MATCH FOUND' : 'SONGBOOK EMPTY'}</p>
                       </div>
                     );
                   }
 
                   return combined.map((song, idx) => (
-                    <div key={idx} className="bg-[#101015] border-2 border-white/5 p-4 rounded-[2rem] flex items-center justify-between group hover:border-[var(--neon-cyan)] transition-all relative overflow-hidden shadow-lg">
+                    <div key={idx} className="bg-[#101015] border-2 border-white/5 p-4 rounded-[2rem] flex items-center justify-between group hover:border-[var(--neon-cyan)] transition-all relative hover:z-50 shadow-lg">
                       <div className="flex items-center gap-6 flex-1 min-w-0">
                         <div className="w-12 h-12 flex items-center justify-center bg-black rounded-lg border border-white/10 text-[var(--neon-cyan)] text-2xl">💿</div>
                         <div className="min-w-0 pr-4">
@@ -1550,60 +1637,97 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
             <div className="mb-8 text-lg text-[var(--neon-cyan)] font-bold uppercase tracking-widest font-righteous opacity-80 decoration-dotted underline underline-offset-4">OPERATIONAL READY CHECK</div>
 
             <div className="space-y-4 mb-10 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
-              {session.participants
-                .filter(p => session.requests?.some(r => r.participantId === p.id && r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING && !r.isInRound))
-                .sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0))
-                .map(p => {
-                  const isReady = p.status === ParticipantStatus.READY;
-                  const song = session.requests?.find(r =>
-                    r.participantId === p.id &&
-                    r.status === RequestStatus.APPROVED &&
-                    r.type === RequestType.SINGING &&
-                    !r.isInRound
-                  );
+              {(() => {
+                const singingParticipants = session.participants
+                  .filter(p => session.requests?.some(r => r.participantId === p.id && r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING && !r.isInRound))
+                  .sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0)); // Visual sort, actual sort happens in generateRound
+
+                // If we have singers, show them
+                if (singingParticipants.length > 0) {
+                  return singingParticipants.map(p => {
+                    const isReady = p.status === ParticipantStatus.READY;
+                    const song = session.requests?.find(r =>
+                      r.participantId === p.id &&
+                      r.status === RequestStatus.APPROVED &&
+                      r.type === RequestType.SINGING &&
+                      !r.isInRound
+                    );
+
+                    return (
+                      <div key={p.id} className={`flex items-center justify-between p-4 rounded-[1.5rem] border-2 transition-all duration-300 ${isReady ? 'bg-[#150030] border-[var(--neon-green)] shadow-[0_0_20px_rgba(57,255,20,0.15)]' : 'bg-black/40 border-white/5 opacity-50'}`}>
+                        <div className="flex items-center gap-4 min-w-0">
+                          <button
+                            onClick={async () => { await updateParticipantStatus(p.id, isReady ? ParticipantStatus.STANDBY : ParticipantStatus.READY); await refresh(); }}
+                            className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center transition-all border-2 ${isReady ? 'bg-[var(--neon-green)] border-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-slate-900 border-white/10 hover:border-slate-600'}`}
+                          >
+                            {isReady && <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>}
+                          </button>
+                          <div className="min-w-0">
+                            <div className={`font-bold uppercase text-2xl truncate tracking-tight font-bungee ${isReady ? 'text-white' : 'text-slate-600'}`}>{p.name}</div>
+                            {isReady ? (
+                              song ? (
+                                <div className="text-[var(--neon-cyan)] text-base font-black uppercase tracking-[0.2em] font-righteous mt-0.5 opacity-90">
+                                  {song.songName}
+                                </div>
+                              ) : (
+                                <div className="text-rose-500 text-sm font-black uppercase tracking-[0.1em] font-righteous mt-0.5">⚠️ NO SIGNAL</div>
+                              )
+                            ) : (
+                              <div className="text-slate-700 text-sm font-black uppercase tracking-[0.2em] font-righteous mt-0.5">STANDBY</div>
+                            )}
+                          </div>
+                        </div>
+                        {isReady && song && <div className="shrink-0 text-sm bg-[var(--neon-cyan)] text-black px-4 py-1.5 rounded-full font-black uppercase tracking-widest font-righteous shadow-[0_0_10px_var(--neon-cyan)] animate-in fade-in zoom-in">READY</div>}
+                      </div>
+                    );
+                  });
+                } else {
+                  // Show Listening Requests Fallback
+                  const listening = session.requests?.filter(r =>
+                    r.status === RequestStatus.APPROVED && r.type === RequestType.LISTENING && !r.isInRound
+                  ).sort((a, b) => a.createdAt - b.createdAt).slice(0, 5) || [];
+
+                  if (listening.length > 0) {
+                    return (
+                      <div className="space-y-4">
+                        <div className="p-4 bg-white/5 rounded-xl border border-dashed border-white/10 text-center">
+                          <p className="text-[var(--neon-blue)] font-black uppercase tracking-widest font-righteous">FALLBACK: LISTENING MODE</p>
+                        </div>
+                        {listening.map(song => (
+                          <div key={song.id} className="flex items-center justify-between p-4 rounded-[1.5rem] border-2 bg-[#0a0a20] border-[var(--neon-blue)]/30">
+                            <div className="min-w-0">
+                              <div className="text-[var(--neon-blue)] text-xl font-black uppercase tracking-tight font-bungee">{song.songName}</div>
+                              <div className="text-slate-500 text-sm font-bold uppercase tracking-widest font-righteous">{song.artist}</div>
+                            </div>
+                            <div className="text-xs font-black uppercase tracking-widest text-[var(--neon-pink)] font-righteous">@{song.participantName}</div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  }
 
                   return (
-                    <div key={p.id} className={`flex items-center justify-between p-4 rounded-[1.5rem] border-2 transition-all duration-300 ${isReady ? 'bg-[#150030] border-[var(--neon-green)] shadow-[0_0_20px_rgba(57,255,20,0.15)]' : 'bg-black/40 border-white/5 opacity-50'}`}>
-                      <div className="flex items-center gap-4 min-w-0">
-                        <button
-                          onClick={async () => { await updateParticipantStatus(p.id, isReady ? ParticipantStatus.STANDBY : ParticipantStatus.READY); await refresh(); }}
-                          className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center transition-all border-2 ${isReady ? 'bg-[var(--neon-green)] border-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-slate-900 border-white/10 hover:border-slate-600'}`}
-                        >
-                          {isReady && <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>}
-                        </button>
-                        <div className="min-w-0">
-                          <div className={`font-bold uppercase text-2xl truncate tracking-tight font-bungee ${isReady ? 'text-white' : 'text-slate-600'}`}>{p.name}</div>
-                          {isReady ? (
-                            song ? (
-                              <div className="text-[var(--neon-cyan)] text-base font-black uppercase tracking-[0.2em] font-righteous mt-0.5 opacity-90">
-                                {song.songName}
-                              </div>
-                            ) : (
-                              <div className="text-rose-500 text-sm font-black uppercase tracking-[0.1em] font-righteous mt-0.5">⚠️ NO SIGNAL</div>
-                            )
-                          ) : (
-                            <div className="text-slate-700 text-sm font-black uppercase tracking-[0.2em] font-righteous mt-0.5">STANDBY</div>
-                          )}
-                        </div>
-                      </div>
-                      {isReady && song && <div className="shrink-0 text-sm bg-[var(--neon-cyan)] text-black px-4 py-1.5 rounded-full font-black uppercase tracking-widest font-righteous shadow-[0_0_10px_var(--neon-cyan)] animate-in fade-in zoom-in">READY</div>}
+                    <div className="text-center py-24 bg-black/20 rounded-[2.5rem] border-4 border-dashed border-white/5 animate-in fade-in duration-700">
+                      <p className="text-slate-700 text-2xl font-black uppercase tracking-[0.4em] font-righteous">NO DATA</p>
                     </div>
                   );
-                })}
-
-              {session.participants.length === 0 && (
-                <div className="text-center py-24 bg-black/20 rounded-[2.5rem] border-4 border-dashed border-white/5 animate-in fade-in duration-700">
-                  <p className="text-slate-700 text-2xl font-black uppercase tracking-[0.4em] font-righteous">NO DATA</p>
-                </div>
-              )}
+                }
+              })()}
             </div>
 
             <div className="flex gap-4">
               <button onClick={() => setShowRoundConfirm(false)} className="flex-1 py-4 bg-black hover:bg-white hover:text-black text-white border border-white/10 rounded-xl font-black uppercase text-base tracking-widest transition-all font-righteous">CANCEL</button>
               {(() => {
-                const eligibleCount = session.participants.filter(p =>
+                const singingEligible = session.participants.filter(p =>
                   session.requests?.some(r => r.participantId === p.id && r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING && !r.isInRound)
                 ).length;
+
+                const listeningEligible = session.requests?.filter(r =>
+                  r.status === RequestStatus.APPROVED && r.type === RequestType.LISTENING && !r.isInRound
+                ).length || 0;
+
+                const eligibleCount = singingEligible > 0 ? singingEligible : listeningEligible;
+                const modeLabel = singingEligible > 0 ? 'ACTIVATE ROUND' : 'ACTIVATE LISTENING';
 
                 return (
                   <button
@@ -1614,12 +1738,47 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                     {eligibleCount > 0 ? (
                       <>
                         <div className="w-1.5 h-1.5 bg-current rounded-full animate-ping"></div>
-                        ACTIVATE ROUND ({eligibleCount})
+                        {modeLabel} ({eligibleCount})
                       </>
                     ) : 'IDLE'}
                   </button>
                 );
               })()}
+            </div>
+            {/* Queue Strategy Selector */}
+            <div className="bg-[#151520] p-6 rounded-[2rem] border border-white/5 mt-8">
+              <h3 className="text-xl font-black text-white uppercase tracking-widest font-righteous mb-4 flex items-center gap-3">
+                <span className="text-[var(--neon-purple)]">⚖️</span> Priority Protocol
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {Object.values(QueueStrategy).map((strat) => (
+                  <button
+                    key={strat}
+                    onClick={() => {
+                      setQueueStrategy(strat);
+                      // refresh(); // Optimistic update usually handled by listener, but refresh good to sync
+                    }}
+                    className={`p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden group ${session.queueStrategy === strat
+                      ? 'bg-[var(--neon-purple)]/20 border-[var(--neon-purple)] text-white shadow-[0_0_15px_var(--neon-purple)]'
+                      : 'bg-black/40 border-white/5 text-slate-500 hover:border-white/20 hover:text-slate-300'
+                      }`}
+                  >
+                    <div className="font-bold font-righteous uppercase tracking-wider relative z-10">
+                      {strat.replace('_', ' ')}
+                    </div>
+                    <div className="text-[10px] uppercase font-mono mt-1 opacity-60 relative z-10">
+                      {strat === 'FRESH_MEAT' && "New Singers First"}
+                      {strat === 'FAIR_ROTATION' && "Fewest Songs + Oldest Wait"}
+                      {strat === 'FIFO' && "Strict First In First Out"}
+                      {strat === 'OLDEST_MEMBER' && "Oldest Singers First"}
+                      {strat === 'RANDOM' && "Chaotic Shuffle"}
+                    </div>
+                    {session.queueStrategy === strat && (
+                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[var(--neon-green)] animate-pulse"></div>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -1829,7 +1988,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                       )}
                     </div>
                     <div className="flex gap-4 pt-4">
-                      <button type="button" onClick={() => { setIsChangingPassword(false); setEditingProfile(null); }} className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-sm font-bold uppercase tracking-widest font-righteous hover:bg-white/5">ABORT</button>
+                      <button type="button" onClick={() => { setIsChangingPassword(false); setManagedProfile(editingProfile); setEditingProfile(null); }} className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-sm font-bold uppercase tracking-widest font-righteous hover:bg-white/5">ABORT</button>
                       <button type="submit" className="flex-[2] py-4 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-bold uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white">UPDATE KEY</button>
                     </div>
                   </form>
@@ -1934,21 +2093,47 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                                 const isActive = session.participants.some(p => p.id === user.id);
                                 return (
                                   <div key={user.id} className={`bg-[#101015] border-2 ${isActive ? 'border-[var(--neon-cyan)] shadow-[0_0_20px_rgba(0,229,255,0.1)]' : 'border-white/5'} rounded-[2.5rem] p-6 flex flex-col justify-between hover:border-[var(--neon-purple)] transition-all group`}>
-                                    <div className="flex items-start gap-4 mb-6">
-                                      <UserAvatar name={user.name} isActive={isActive} />
-                                      <div className="min-w-0">
-                                        <div className="flex justify-between items-start gap-2">
-                                          <button
-                                            onClick={() => setManagedProfile(user)}
-                                            className="text-white font-bold text-2xl uppercase truncate tracking-tight text-left block hover:text-[var(--neon-purple)] transition-colors font-bungee"
-                                          >
-                                            {user.name}
-                                          </button>
+                                    <div className="flex justify-between items-start gap-4 mb-3">
+                                      <div className="flex items-center gap-4 min-w-0">
+                                        <div className="relative">
+                                          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black border-2 ${user.password ? 'bg-indigo-900/50 border-[var(--neon-purple)] text-white shadow-[0_0_15px_rgba(167,139,250,0.3)]' : 'bg-slate-800 border-white/10 text-slate-500'}`}>
+                                            {user.name.charAt(0).toUpperCase()}
+                                          </div>
+                                          {user.isAdmin && <div className="absolute -top-2 -right-2 bg-[var(--neon-pink)] text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg border border-white/20">ADMIN</div>}
                                         </div>
-                                        <p className="text-xs text-slate-500 uppercase font-black tracking-[0.2em] mt-1 font-righteous">
-                                          {user.password ? '🔐 AUTHENTICATED' : 'GUEST ID'} • {user.favorites.length} ★
-                                        </p>
+                                        <div className="min-w-0">
+                                          <div className="flex justify-between items-start gap-2">
+                                            <button
+                                              onClick={() => setManagedProfile(user)}
+                                              className="text-white font-bold text-2xl uppercase truncate tracking-tight text-left block hover:text-[var(--neon-purple)] transition-colors font-bungee"
+                                            >
+                                              {user.name}
+                                            </button>
+                                          </div>
+                                          <p className="text-xs text-slate-500 uppercase font-black tracking-[0.2em] mt-1 font-righteous">
+                                            {user.password ? '🔐 AUTHENTICATED' : 'GUEST ID'} • {user.favorites.length} ★
+                                          </p>
+                                        </div>
                                       </div>
+                                      <button
+                                        onClick={() => setQrTargetUser(user)}
+                                        className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-[var(--neon-cyan)]/20 hover:border-[var(--neon-cyan)] hover:text-[var(--neon-cyan)] transition-all group/qr"
+                                        title="Generate SINC QR"
+                                      >
+                                        <div className="w-6 h-6 flex flex-col justify-between items-center p-0.5">
+                                          <div className="w-full h-[2px] bg-current"></div>
+                                          <div className="w-full flex justify-between">
+                                            <div className="w-[2px] h-[2px] bg-current"></div>
+                                            <div className="w-[2px] h-[2px] bg-current"></div>
+                                          </div>
+                                          <div className="w-full h-[2px] bg-current"></div>
+                                          <div className="w-full flex justify-between">
+                                            <div className="w-[2px] h-[2px] bg-current"></div>
+                                            <div className="w-[2px] h-[2px] bg-current"></div>
+                                          </div>
+                                          <div className="w-full h-[2px] bg-current"></div>
+                                        </div>
+                                      </button>
                                     </div>
 
                                     <div className="grid grid-cols-1 gap-2">
@@ -2053,50 +2238,57 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
         )
       }
 
+
+
+
       {
-        showQrModal && (
-          <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[100] backdrop-blur-3xl animate-in fade-in duration-300">
-            <div className="w-full max-w-md bg-[#050510] border-4 border-white/10 rounded-[3rem] p-10 shadow-[0_0_80px_rgba(255,0,255,0.2)] text-center relative overflow-hidden animate-in zoom-in-95 duration-300">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
-              <h3 className="text-5xl font-black text-white uppercase mb-4 tracking-tight font-bungee neon-glow-pink">Access Entry</h3>
 
-              {(roomJoinUrl.includes('localhost') || roomJoinUrl.includes('127.0.0.1')) && (
-                <div className="mb-6 p-4 bg-amber-500/10 border-2 border-amber-500/50 rounded-2xl animate-pulse">
-                  <div className="text-amber-500 font-black uppercase text-lg mb-2 flex items-center justify-center gap-2">
-                    <span className="text-2xl">⚠️</span> LOCALHOST DETECTED
-                  </div>
-                  <p className="text-amber-200/80 text-xs font-bold uppercase tracking-wider mb-3">
-                    External devices cannot connect to "localhost". Configure your computer's Wi-Fi IP.
-                  </p>
-                  <button
-                    onClick={() => { setShowQrModal(false); setShowNetworkConfig(true); }}
-                    className="px-4 py-2 bg-amber-500 text-black rounded-lg text-xs font-black uppercase tracking-widest hover:bg-white transition-all"
-                  >
-                    CONFIGURE NETWORK IP
-                  </button>
+        (showQrModal || qrTargetUser) && (
+          <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-500">
+            <div className="w-full max-w-sm bg-[#0a0a0a] border-4 border-white/10 rounded-[3rem] p-8 relative overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-500">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-cyan)] via-[var(--neon-purple)] to-[var(--neon-pink)] animate-gradient-x"></div>
+
+              <div className="flex justify-between items-start mb-8">
+                <div>
+                  <h2 className="text-3xl font-black text-white uppercase tracking-tight font-bungee neon-glow-white">
+                    {qrTargetUser ? 'USER SINC' : 'JOIN ROOM'}
+                  </h2>
+                  {qrTargetUser && <p className="text-[var(--neon-cyan)] text-xs font-black uppercase tracking-widest font-righteous mt-1">TARGET: {qrTargetUser.name}</p>}
                 </div>
-              )}
+                <button onClick={() => { setShowQrModal(false); setQrTargetUser(null); }} className="text-slate-600 hover:text-white p-2 font-black text-3xl transition-colors">✕</button>
+              </div>
 
-              <p className="text-base text-[var(--neon-cyan)] font-black uppercase tracking-[0.4em] mb-10 font-righteous opacity-80">Point Guest cameras at the code below</p>
-              <div className="bg-white p-6 rounded-[2rem] inline-block shadow-[0_0_30px_rgba(255,255,255,0.1)] mb-10 relative group">
-                <div className="absolute -inset-4 bg-gradient-to-tr from-[var(--neon-pink)]/20 to-[var(--neon-cyan)]/20 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(roomJoinUrl)}&bgcolor=ffffff`} alt="Room QR" className="w-48 h-48 relative z-10" />
+              <div className="bg-white p-4 rounded-3xl mb-8 transform hover:scale-105 transition-transform duration-500 hover:rotate-1 shadow-[0_0_50px_rgba(255,255,255,0.1)]">
+                <QRCode
+                  value={(() => {
+                    // Always use network URL for QR codes to ensure phone connectivity
+                    const baseUrl = getNetworkUrl();
+                    if (qrTargetUser) {
+                      return `${baseUrl}?userId=${qrTargetUser.id}&room=${roomId || ''}`;
+                    }
+                    return `${baseUrl}?room=${roomId || ''}`;
+                  })()}
+                  size={400} // Increased size
+                  style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                  viewBox={`0 0 256 256`}
+                />
               </div>
-              <div className="text-base text-white/40 font-mono break-all mb-10 font-black lowercase opacity-40 px-8 leading-relaxed select-all cursor-pointer hover:opacity-100 hover:text-[var(--neon-pink)] transition-all">{roomJoinUrl}</div>
-              <div className="flex flex-col gap-4">
-                <button
-                  onClick={() => { setShowQrModal(false); setShowNetworkConfig(true); }}
-                  className="w-full py-4 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous"
-                >
-                  ⚙️ CONFIGURE SIGNAL ORIGIN
-                </button>
-                <button onClick={closeModals} className="w-full py-4 bg-black border border-white/10 text-slate-500 hover:text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous">DISMISS PANEL</button>
+
+              <div className="text-center space-y-4">
+                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs font-righteous">
+                  {qrTargetUser ? 'SCAN TO LINK DEVICE TO PROFILE' : 'SCAN TO JOIN SESSION'}
+                </p>
+                <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+                  <p className="text-[var(--neon-cyan)] font-black uppercase tracking-widest text-sm font-righteous break-all">
+                    {qrTargetUser ? 'AUTO-LOGIN ENABLED' : `ROOM ID: ${roomId}`}
+                  </p>
+                </div>
               </div>
+
             </div>
           </div>
         )
       }
-
       {
         showNetworkConfig && (
           <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-300">
@@ -2145,6 +2337,8 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                   </button>
                 </div>
               </div>
+
+
             </div>
           </div>
         )
@@ -2177,46 +2371,248 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-8 custom-scrollbar space-y-4 bg-black/20">
-                {verifiedSongs
-                  .filter(s =>
-                    s.songName.toLowerCase().includes(pickerSearch.toLowerCase()) ||
-                    s.artist.toLowerCase().includes(pickerSearch.toLowerCase())
-                  )
-                  .map(v => (
-                    <button
-                      key={v.id}
-                      onClick={async () => {
-                        const newRequest = await addRequest({
-                          participantId: pickingSongForUser.id,
-                          participantName: pickingSongForUser.name,
-                          songName: v.songName,
-                          artist: v.artist,
-                          youtubeUrl: v.youtubeUrl,
-                          type: v.type
-                        });
-                        if (newRequest) {
-                          await approveRequest(newRequest.id);
-                        }
-                        setPickingSongForUser(null);
-                        setPickerSearch('');
-                        await refresh();
-                      }}
-                      className="w-full flex justify-between items-center p-6 bg-[#101015]/60 hover:bg-[#151520] border-2 border-white/5 hover:border-[var(--neon-pink)] rounded-[2rem] transition-all group text-left relative overflow-hidden"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-pink)]/0 to-[var(--neon-pink)]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                      <div className="min-w-0 pr-6 relative z-10">
-                        <div className="text-3xl font-black text-white uppercase truncate font-bungee group-hover:text-[var(--neon-pink)] transition-colors tracking-tight">{v.songName}</div>
-                        <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-1 font-righteous opacity-60">{v.artist}</div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                {pickerSearch && filteredVerifiedSongs.length === 0 && (
+                  <div className="text-center py-20 opacity-50">
+                    <p className="text-xl font-black uppercase tracking-widest text-slate-600 font-righteous">NO MATCHING TRANSMISSIONS</p>
+                  </div>
+                )}
+                {!pickerSearch && verifiedSongs.length === 0 && (
+                  <div className="text-center py-20 opacity-50">
+                    <p className="text-xl font-black uppercase tracking-widest text-slate-600 font-righteous">NO VERIFIED SONGS IN LIBRARY</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {(pickerSearch ? filteredVerifiedSongs : verifiedSongs).map((song) => (
+                    <div key={song.id} className="bg-black/40 border-2 border-white/5 rounded-2xl p-4 relative overflow-hidden group hover:border-[var(--neon-pink)] transition-all">
+                      <h3 className="text-lg font-black text-white uppercase truncate font-righteous">{song.songName}</h3>
+                      <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-4 font-righteous">{song.artist}</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleSelectVerifiedSong(song)}
+                          className="flex-1 py-2 bg-[var(--neon-pink)]/20 text-[var(--neon-pink)] hover:text-black rounded-lg text-xs font-black uppercase transition-all font-righteous hover:bg-[var(--neon-pink)]"
+                        >
+                          SELECT
+                        </button>
+                        <button
+                          onClick={() => startEditVerifiedSong(song)}
+                          className="flex-1 py-2 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-white rounded-lg text-xs font-black uppercase transition-all font-righteous"
+                        >
+                          EDIT
+                        </button>
                       </div>
-                      <div className="text-sm font-black text-[var(--neon-cyan)] bg-[var(--neon-cyan)]/10 px-4 py-2 rounded-xl uppercase border border-[var(--neon-cyan)]/20 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0 font-righteous relative z-10">
-                        AUTHORIZE SIGNAL
-                      </div>
-                    </button>
+                    </div>
                   ))}
-                {verifiedSongs.length === 0 && (
-                  <div className="text-center py-32 bg-black/10 rounded-[3rem] border-2 border-dashed border-white/5">
-                    <p className="text-[11px] font-black uppercase tracking-[0.5em] text-slate-800 font-righteous">NO VERIFIED RECORDS DETECTED</p>
+                </div>
+              </div>
+
+              <div className="p-6 border-t-2 border-white/5 flex justify-end bg-black/40 backdrop-blur-xl">
+                <button
+                  onClick={() => setIsAddingVerifiedSong(true)}
+                  className="py-3 px-6 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all hover:scale-105"
+                >
+                  ADD NEW VERIFIED SONG
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      <style>{`
+        @keyframes gradient-x {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        .animate-gradient-x {
+          background-size: 200% 200%;
+          animation: gradient-x 3s ease infinite;
+        }
+        .neon-glow-pink {
+          text-shadow: 0 0 10px rgba(255, 0, 255, 0.5), 0 0 20px rgba(255, 0, 255, 0.3);
+        }
+        .neon-glow-cyan {
+          text-shadow: 0 0 10px rgba(0, 229, 255, 0.5), 0 0 20px rgba(0, 229, 255, 0.3);
+        }
+        .neon-glow-purple {
+          text-shadow: 0 0 10px rgba(167, 139, 250, 0.5), 0 0 20px rgba(167, 139, 250, 0.3);
+        }
+        .neon-glow-green {
+           text-shadow: 0 0 10px rgba(0, 255, 157, 0.5), 0 0 20px rgba(0, 255, 157, 0.3);
+        }
+        .neon-glow-white {
+           text-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+      `}</style>
+      {activeTab === 'ADMIN' && (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/5 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-green)]/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+
+            <div className="flex justify-between items-center mb-10 relative z-10">
+              <div>
+                <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-green">
+                  <span className="text-5xl">🛡️</span> SESSION CONTROL
+                </h2>
+                <p className="text-slate-500 font-bold uppercase tracking-widest mt-2 font-righteous">MANAGE ACTIVE INSTANCES</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {activeSessions.map((s) => (
+                <div key={s.id} className="bg-black/40 border-2 border-white/5 rounded-[2rem] p-6 relative overflow-hidden group hover:border-[var(--neon-green)] transition-all">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-12 h-12 bg-black rounded-xl border border-white/10 flex items-center justify-center text-2xl">
+                      {s.id === session?.id ? '📍' : '🌐'}
+                    </div>
+                    <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${s.id === session?.id ? 'bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] border-[var(--neon-cyan)]' : 'bg-slate-800 text-slate-400 border-white/10'}`}>
+                      {s.id === session?.id ? 'CURRENT' : 'REMOTE'}
+                    </div>
+                  </div>
+                  <h3 className="text-xl font-black text-white uppercase truncate font-bungee mb-1">{s.venueName || 'Unknown Venue'}</h3>
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-6 font-righteous">HOST: {s.hostName} • ID: {s.id}</p>
+
+                  <button
+                    onClick={async () => {
+                      if (confirm(`Force close session "${s.venueName}"? This cannot be undone.`)) {
+                        await unregisterSession(s.id);
+                      }
+                    }}
+                    className="w-full py-3 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/30 rounded-xl font-black uppercase tracking-widest text-xs transition-all font-righteous"
+                  >
+                    FORCE CLOSE
+                  </button>
+                </div>
+              ))}
+              {activeSessions.length === 0 && (
+                <div className="col-span-full text-center py-20 opacity-50">
+                  <p className="text-xl font-black uppercase tracking-widest text-slate-600 font-righteous">NO ACTIVE SESSIONS FOUND</p>
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {
+        activeTab === 'NETWORK' && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/5 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-purple)]/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+
+              <div className="flex justify-between items-center mb-10 relative z-10">
+                <div>
+                  <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-purple">
+                    <span className="text-5xl">📡</span> NETWORK ACTIVITY
+                  </h2>
+                  <p className="text-slate-400 mt-2 font-mono">
+                    Monitor all connected devices and manage sessions.
+                  </p>
+                </div>
+                <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
+                  <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Total Connections</span>
+                  <span className="text-2xl font-black text-white">{session.deviceConnections?.length || 0}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {session.deviceConnections?.map((device) => {
+                  const isConnected = device.status === 'connected';
+                  const assignedUser = device.userId ? accounts.find(a => a.id === device.userId) : null;
+                  const isGuest = device.isGuest || assignedUser?.isGuest;
+
+                  return (
+
+                    <div key={device.id} className={`p-6 rounded-[2rem] border transition-all relative overflow-hidden group ${isConnected
+                      ? 'bg-[#151520] border-[var(--neon-purple)]/30 hover:border-[var(--neon-purple)]'
+                      : 'bg-[#05050A] border-white/5 opacity-60'
+                      }`}>
+                      {/* Status Dot */}
+                      <div className={`absolute top-6 right-6 w-3 h-3 rounded-full ${isConnected ? 'bg-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-rose-500'}`}></div>
+
+                      <div className="flex items-start gap-4 mb-6">
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg ${assignedUser
+                          ? (isGuest ? 'bg-[var(--neon-orange)]/20 text-[var(--neon-orange)]' : 'bg-[var(--neon-blue)]/20 text-[var(--neon-blue)]')
+                          : 'bg-white/5 text-slate-500'
+                          }`}>
+                          {assignedUser ? (isGuest ? '👽' : '👤') : '📱'}
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-white font-righteous tracking-wide">
+                            {device.id}
+                          </h3>
+                          <div className="text-xs font-mono text-slate-500 mt-1 truncate max-w-[150px]" title={device.peerId}>
+                            {device.peerId}
+                          </div>
+                          <div className={`mt-2 text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded inline-block ${isConnected ? 'bg-[var(--neon-green)]/10 text-[var(--neon-green)]' : 'bg-rose-500/10 text-rose-500'
+                            }`}>
+                            {device.status}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="p-4 bg-black/40 rounded-xl border border-white/5">
+                          <div className="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-1">
+                            Assigned Session
+                          </div>
+                          <div className="text-white font-medium truncate">
+                            {assignedUser ? assignedUser.name : <span className="text-slate-600 italic">Unassigned</span>}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              const userName = prompt("Enter User Name to link (must exist in Directory):");
+                              if (userName) {
+                                const user = accounts.find(a => a.name.toLowerCase() === userName.toLowerCase());
+                                if (user) {
+                                  assignUserToDevice(device.id, user.id, user.isGuest);
+                                  refresh();
+                                } else {
+                                  alert("User not found!");
+                                }
+                              }
+                            }}
+                            className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-sm font-bold text-white transition-all"
+                          >
+                            {assignedUser ? 'CHANGE' : 'LINK USER'}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (confirm("Forget this device?")) {
+                                await removeDevice(device.id);
+                                refresh();
+                              }
+                            }}
+                            className="px-4 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 transition-all"
+                          >
+                            Forget
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {(!session.deviceConnections || session.deviceConnections.length === 0) && (
+                  <div className="col-span-full py-20 text-center text-slate-500 font-mono">
+                    No devices detected yet. Scan the QR code to connect.
                   </div>
                 )}
               </div>
@@ -2224,6 +2620,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
           </div>
         )
       }
+
     </div >
   );
 };

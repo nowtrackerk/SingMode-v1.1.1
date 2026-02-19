@@ -42,6 +42,7 @@ export interface UserProfile {
   personalHistory: SongRequest[];
   createdAt: number;
   isGuest?: boolean; // Metadata for guest users
+  isAdmin?: boolean; // Metadata for Admin users
   vocalRange?: 'Soprano' | 'Alto' | 'Tenor' | 'Baritone' | 'Bass' | 'Unknown'; // Metadata for A.5
 }
 
@@ -100,6 +101,25 @@ export interface TickerMessage {
   isActive: boolean;
 }
 
+export interface DeviceConnection {
+  id: string; // Readable Device ID (e.g. "D-8291")
+  peerId: string; // Internal Network ID
+  connectedAt: number;
+  lastSeen: number;
+  status: 'connected' | 'disconnected';
+  userId?: string; // Link to enrolled user/guest
+  isGuest?: boolean; // Derived from linked user or explicitly set
+  userAgent?: string;
+}
+
+export enum QueueStrategy {
+  FRESH_MEAT = 'FRESH_MEAT',
+  FAIR_ROTATION = 'FAIR_ROTATION',
+  FIFO = 'FIFO',
+  OLDEST_MEMBER = 'OLDEST_MEMBER',
+  RANDOM = 'RANDOM'
+}
+
 export interface KaraokeSession {
   id: string;
   participants: Participant[];
@@ -109,6 +129,9 @@ export interface KaraokeSession {
   messages: ChatMessage[];
   tickerMessages: TickerMessage[];
   verifiedSongbook: VerifiedSong[];
+  deviceConnections: DeviceConnection[]; // Added for Device Tracking
+  queueStrategy?: QueueStrategy; // Queue Management
+  startedAt?: number; // Session Start Timestamp
   isPlayingVideo?: boolean;
   nextRequestNumber: number;
   maxRequestsPerUser?: number; // Metadata for A.7.1 / C.11

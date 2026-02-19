@@ -1,0 +1,2599 @@
+Line    1 | Depth:  0 | import React, { useState, useEffect, useCallback, useRef } from 'react';
+Line    2 | Depth:  0 | import QRCode from "react-qr-code";
+Line    3 | Depth:  0 | import { KaraokeSession, RequestStatus, ParticipantStatus, SongRequest, Participant, RequestType, UserProfile, FavoriteSong, VerifiedSong, QueueStrategy } from '../types';
+Line    4 | Depth:  0 | import {
+Line    5 | Depth:  0 | getSession, approveRequest, promoteToStage, deleteRequest, reorderRequest,
+Line    6 | Depth:  0 | generateRound, finishRound, addRequest, updateRequest,
+Line    7 | Depth:  0 | updateParticipantStatus, updateParticipantMic, removeParticipant,
+Line    8 | Depth:  0 | reAddFromHistory, clearHistory, getAllAccounts, updateAccount,
+Line    9 | Depth:  0 | deleteAccount, registerUser, joinSession, removeUserFavorite, updateUserFavorite,
+Line   10 | Depth:  0 | addUserFavorite, getUserProfile, setStageVideoPlaying, rotateStageSong, completeStageSong,
+Line   11 | Depth:  0 | resetSession, removeUserHistoryItem, updateUserHistoryItem,
+Line   12 | Depth:  0 | addVerifiedSong, updateVerifiedSong, deleteVerifiedSong,
+Line   13 | Depth:  0 | reorderCurrentRound, reorderRequests, reorderPendingRequests,
+Line   14 | Depth:  0 | banUser, setMaxRequestsPerUser, markRequestAsDone, logoutUser,
+Line   15 | Depth:  0 | assignUserToDevice, removeDevice, setQueueStrategy, unregisterSession, subscribeToSessions
+Line   16 | Depth:  0 | } from '../services/sessionManager';
+Line   17 | Depth:  0 | import SongRequestForm from './SongRequestForm';
+Line   18 | Depth:  0 | import { syncService } from '../services/syncService';
+Line   19 | Depth:  0 | import { getNetworkUrl, setNetworkIp, getStoredNetworkIp } from '../services/networkUtils';
+Line   20 | Depth:  0 | 
+Line   21 | Depth:  0 | interface DJViewProps {
+Line   22 | Depth:  0 | onAdminAccess?: () => void;
+Line   23 | Depth:  0 | }
+Line   24 | Depth:  0 | 
+Line   25 | Depth:  0 | type DJTab = 'COMMAND' | 'ROTATION' | 'PERFORMERS' | 'LIBRARY' | 'NETWORK' | 'ADMIN';
+Line   26 | Depth:  0 | 
+Line   27 | Depth:  0 | const QUICK_SET_POOL = [
+Line   28 | Depth:  0 | { songName: "Bohemian Rhapsody", artist: "Queen" },
+Line   29 | Depth:  0 | { songName: "Toxic", artist: "Britney Spears" },
+Line   30 | Depth:  0 | { songName: "Someone Like You", artist: "Adele" },
+Line   31 | Depth:  0 | { songName: "Sweet Caroline", artist: "Neil Diamond" },
+Line   32 | Depth:  0 | { songName: "Wonderwall", artist: "Oasis" },
+Line   33 | Depth:  0 | { songName: "Dancing Queen", artist: "ABBA" },
+Line   34 | Depth:  0 | { songName: "I Will Survive", artist: "Gloria Gaynor" },
+Line   35 | Depth:  0 | { songName: "Don't Stop Believin'", artist: "Journey" },
+Line   36 | Depth:  0 | { songName: "Livin' on a Prayer", artist: "Bon Jovi" },
+Line   37 | Depth:  0 | { songName: "My Way", artist: "Frank Sinatra" }
+Line   38 | Depth:  0 | ];
+Line   39 | Depth:  0 | 
+Line   40 | Depth:  0 | const VideoLink: React.FC<{ url?: string }> = ({ url }) => {
+Line   41 | Depth:  0 | if (!url) return null;
+Line   42 | Depth:  0 | return (
+Line   43 | Depth:  0 | <a
+Line   44 | Depth:  0 | href={url}
+Line   45 | Depth:  0 | target="_blank"
+Line   46 | Depth:  0 | rel="noopener noreferrer"
+Line   47 | Depth:  0 | title="Open Video Link"
+Line   48 | Depth:  0 | className="p-3 rounded-2xl text-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)]/20 border-2 border-[var(--neon-cyan)]/10 transition-all shadow-xl"
+Line   49 | Depth:  0 | >
+Line   50 | Depth:  0 | <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+Line   51 | Depth:  0 | </a>
+Line   52 | Depth:  0 | );
+Line   53 | Depth:  0 | };
+Line   54 | Depth:  0 | 
+Line   55 | Depth:  0 | const CopyUrlButton: React.FC<{ url?: string }> = ({ url }) => {
+Line   56 | Depth:  0 | const [copied, setCopied] = useState(false);
+Line   57 | Depth:  0 | if (!url) return null;
+Line   58 | Depth:  0 | 
+Line   59 | Depth:  0 | const handleCopy = () => {
+Line   60 | Depth:  0 | navigator.clipboard.writeText(url).then(() => {
+Line   61 | Depth:  0 | setCopied(true);
+Line   62 | Depth:  0 | setTimeout(() => setCopied(false), 2000);
+Line   63 | Depth:  0 | });
+Line   64 | Depth:  0 | };
+Line   65 | Depth:  0 | 
+Line   66 | Depth:  0 | return (
+Line   67 | Depth:  0 | <button
+Line   68 | Depth:  0 | onClick={handleCopy}
+Line   69 | Depth:  0 | title="Copy Video URL"
+Line   70 | Depth:  0 | className={`p-3 rounded-2xl transition-all border-2 ${copied ? 'bg-[var(--neon-cyan)] text-black border-[var(--neon-cyan)] shadow-[0_0_20px_var(--neon-cyan)]' : 'text-slate-400 hover:text-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)]/10 border-white/5 shadow-xl'}`}
+Line   71 | Depth:  0 | >
+Line   72 | Depth:  0 | {copied ? (
+Line   73 | Depth:  0 | <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+Line   74 | Depth:  0 | ) : (
+Line   75 | Depth:  0 | <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+Line   76 | Depth:  0 | <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+Line   77 | Depth:  0 | <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1-2-2h9a2 2 0 0 1 2 2v1"></path>
+Line   78 | Depth:  0 | </svg>
+Line   79 | Depth:  0 | )}
+Line   80 | Depth:  0 | </button>
+Line   81 | Depth:  0 | );
+Line   82 | Depth:  0 | };
+Line   83 | Depth:  0 | 
+Line   84 | Depth:  0 | const CopyButton: React.FC<{ request: SongRequest | VerifiedSong }> = ({ request }) => {
+Line   85 | Depth:  0 | const [copied, setCopied] = useState(false);
+Line   86 | Depth:  0 | 
+Line   87 | Depth:  0 | const songName = (request as SongRequest).songName || (request as VerifiedSong).songName;
+Line   88 | Depth:  0 | 
+Line   89 | Depth:  0 | const handleCopy = () => {
+Line   90 | Depth:  0 | const type = (request as SongRequest).type || (request as VerifiedSong).type || RequestType.SINGING;
+Line   91 | Depth:  0 | const suffix = type === RequestType.SINGING ? ' Karaoke' : ' Lyric';
+Line   92 | Depth:  0 | const text = `${songName} ${request.artist}${suffix}`;
+Line   93 | Depth:  0 | navigator.clipboard.writeText(text).then(() => {
+Line   94 | Depth:  0 | setCopied(true);
+Line   95 | Depth:  0 | setTimeout(() => setCopied(false), 2000);
+Line   96 | Depth:  0 | });
+Line   97 | Depth:  0 | };
+Line   98 | Depth:  0 | 
+Line   99 | Depth:  0 | return (
+Line  100 | Depth:  0 | <button
+Line  101 | Depth:  0 | onClick={handleCopy}
+Line  102 | Depth:  0 | title="Copy Command String"
+Line  103 | Depth:  0 | className={`p-3 rounded-2xl transition-all border-2 ${copied ? 'bg-[var(--neon-green)] text-black border-[var(--neon-green)] shadow-[0_0_20px_rgba(0,255,157,0.4)]' : 'text-slate-400 hover:text-[var(--neon-green)] hover:bg-[var(--neon-green)]/10 border-white/5 shadow-xl'}`}
+Line  104 | Depth:  0 | >
+Line  105 | Depth:  0 | {copied ? (
+Line  106 | Depth:  0 | <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+Line  107 | Depth:  0 | ) : (
+Line  108 | Depth:  0 | <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+Line  109 | Depth:  0 | <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+Line  110 | Depth:  0 | <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+Line  111 | Depth:  0 | </svg>
+Line  112 | Depth:  0 | )}
+Line  113 | Depth:  0 | </button>
+Line  114 | Depth:  0 | );
+Line  115 | Depth:  0 | };
+Line  116 | Depth:  0 | 
+Line  117 | Depth:  0 | const YouTubeSearchButton: React.FC<{ request: SongRequest | VerifiedSong }> = ({ request }) => {
+Line  118 | Depth:  0 | const songName = (request as SongRequest).songName || (request as VerifiedSong).songName;
+Line  119 | Depth:  0 | const handleSearch = () => {
+Line  120 | Depth:  0 | const type = (request as SongRequest).type || (request as VerifiedSong).type || RequestType.SINGING;
+Line  121 | Depth:  0 | const suffix = type === RequestType.SINGING ? ' Karaoke' : ' Lyric';
+Line  122 | Depth:  0 | const query = encodeURIComponent(`${songName} ${request.artist}${suffix}`);
+Line  123 | Depth:  0 | window.open(`https://www.youtube.com/results?search_query=${query}`, '_blank');
+Line  124 | Depth:  0 | };
+Line  125 | Depth:  0 | 
+Line  126 | Depth:  0 | return (
+Line  127 | Depth:  0 | <button
+Line  128 | Depth:  0 | onClick={handleSearch}
+Line  129 | Depth:  0 | title="Search on YouTube"
+Line  130 | Depth:  0 | className="p-3 rounded-2xl transition-all border-2 text-rose-500 hover:text-white hover:bg-rose-500 border-white/5 shadow-xl"
+Line  131 | Depth:  0 | >
+Line  132 | Depth:  0 | <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+Line  133 | Depth:  0 | <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+Line  134 | Depth:  0 | </svg>
+Line  135 | Depth:  0 | </button>
+Line  136 | Depth:  0 | );
+Line  137 | Depth:  0 | };
+Line  138 | Depth:  0 | 
+Line  139 | Depth:  0 | const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
+Line  140 | Depth:  0 | const [session, setSession] = useState<KaraokeSession | null>(null);
+Line  141 | Depth:  0 | const [accounts, setAccounts] = useState<UserProfile[]>([]);
+Line  142 | Depth:  0 | const [isAddingRequest, setIsAddingRequest] = useState(false);
+Line  143 | Depth:  0 | 
+Line  144 | Depth:  0 | 
+Line  145 | Depth:  0 | const [isAddingVerifiedSong, setIsAddingVerifiedSong] = useState(false);
+Line  146 | Depth:  0 | const [verifiedSongToEdit, setVerifiedSongToEdit] = useState<VerifiedSong | null>(null);
+Line  147 | Depth:  0 | const [showQrModal, setShowQrModal] = useState(false);
+Line  148 | Depth:  0 | const [showRoundConfirm, setShowRoundConfirm] = useState(false);
+Line  149 | Depth:  0 | const [showUserManager, setShowUserManager] = useState(false);
+Line  150 | Depth:  0 | const [showLibrary, setShowLibrary] = useState(false);
+Line  151 | Depth:  0 | const [showResetConfirm, setShowResetConfirm] = useState(false);
+Line  152 | Depth:  0 | const [previewSongs, setPreviewSongs] = useState<SongRequest[]>([]);
+Line  153 | Depth:  0 | const [requestToEdit, setRequestToEdit] = useState<SongRequest | null>(null);
+Line  154 | Depth:  0 | const [profileItemToEdit, setProfileItemToEdit] = useState<{ type: 'favorite' | 'history', itemId: string } | null>(null);
+Line  155 | Depth:  0 | const [prefilledSinger, setPrefilledSinger] = useState<Participant | null>(null);
+Line  156 | Depth:  0 | 
+Line  157 | Depth:  0 | const [intro, setIntro] = useState<{ [key: string]: string }>({});
+Line  158 | Depth:  0 | const [showNetworkConfig, setShowNetworkConfig] = useState(false);
+Line  159 | Depth:  0 | const [networkIpInput, setNetworkIpInput] = useState(getStoredNetworkIp() || '');
+Line  160 | Depth:  0 | const [directorySearch, setDirectorySearch] = useState('');
+Line  161 | Depth:  0 | const [micActive, setMicActive] = useState(false);
+Line  162 | Depth:  0 | const [micVolume, setMicVolume] = useState(0);
+Line  163 | Depth:  0 | const [lastDoneId, setLastDoneId] = useState<string | null>(null);
+Line  164 | Depth:  0 | const [doneRequests, setDoneRequests] = useState<Set<string>>(new Set());
+Line  165 | Depth:  0 | const [banReason, setBanReason] = useState('');
+Line  166 | Depth:  0 | 
+Line  167 | Depth:  0 | // Smart Library State - AI features removed
+Line  168 | Depth:  0 | const [pickingSongForUser, setPickingSongForUser] = useState<Participant | UserProfile | null>(null);
+Line  169 | Depth:  0 | const [activeTab, setActiveTab] = useState<DJTab>('COMMAND');
+Line  170 | Depth:  0 | const [pickerSearch, setPickerSearch] = useState('');
+Line  171 | Depth:  0 | const [qrTargetUser, setQrTargetUser] = useState<UserProfile | null>(null); // For User SINC QR
+Line  172 | Depth:  0 | const [librarySearchQuery, setLibrarySearchQuery] = useState('');
+Line  173 | Depth:  0 | 
+Line  174 | Depth:  0 | // Audio Refs for Monitoring
+Line  175 | Depth:  0 | const audioContextRef = useRef<AudioContext | null>(null);
+Line  176 | Depth:  0 | const analyserRef = useRef<AnalyserNode | null>(null);
+Line  177 | Depth:  0 | const micStreamRef = useRef<MediaStream | null>(null);
+Line  178 | Depth:  0 | const animationFrameRef = useRef<number | null>(null);
+Line  179 | Depth:  0 | 
+Line  180 | Depth:  0 | // User Manager States
+Line  181 | Depth:  0 | const [editingProfile, setEditingProfile] = useState<UserProfile | null>(null);
+Line  182 | Depth:  0 | const [managedProfile, setManagedProfile] = useState<UserProfile | null>(null);
+Line  183 | Depth:  0 | const [isCreatingProfile, setIsCreatingProfile] = useState(false);
+Line  184 | Depth:  0 | const [profileForm, setProfileForm] = useState({ name: '', password: '' });
+Line  185 | Depth:  0 | const [profileError, setProfileError] = useState('');
+Line  186 | Depth:  0 | 
+Line  187 | Depth:  0 | // Password Change State
+Line  188 | Depth:  0 | const [isChangingPassword, setIsChangingPassword] = useState(false);
+Line  189 | Depth:  0 | const [passwordForm, setPasswordForm] = useState('');
+Line  190 | Depth:  0 | 
+Line  191 | Depth:  0 | // Verified Songs State
+Line  192 | Depth:  0 | // const [isAddingVerifiedSong, setIsAddingVerifiedSong] = useState(false); // Already present?
+Line  193 | Depth:  0 | // const [verifiedSongToEdit, setVerifiedSongToEdit] = useState<VerifiedSong | null>(null); // Already present?
+Line  194 | Depth:  0 | 
+Line  195 | Depth:  0 | // Password Change State
+Line  196 | Depth:  0 | // Admin Session Management
+Line  197 | Depth:  0 | const [activeSessions, setActiveSessions] = useState<any[]>([]);
+Line  198 | Depth:  0 | 
+Line  199 | Depth:  0 | useEffect(() => {
+Line  200 | Depth:  0 | const unsubscribe = subscribeToSessions((sessions) => {
+Line  201 | Depth:  0 | setActiveSessions(sessions);
+Line  202 | Depth:  0 | });
+Line  203 | Depth:  0 | return () => unsubscribe();
+Line  204 | Depth:  0 | }, []);
+Line  205 | Depth:  0 | 
+Line  206 | Depth:  0 | const refresh = useCallback(async () => {
+Line  207 | Depth:  0 | const currentSession = await getSession();
+Line  208 | Depth:  0 | setSession(currentSession);
+Line  209 | Depth:  0 | const allAccounts = await getAllAccounts();
+Line  210 | Depth:  0 | setAccounts(allAccounts);
+Line  211 | Depth:  0 | }, []);
+Line  212 | Depth:  0 | 
+Line  213 | Depth:  0 | useEffect(() => {
+Line  214 | Depth:  0 | if (managedProfile && accounts.length > 0) {
+Line  215 | Depth:  0 | const updated = accounts.find(a => a.id === managedProfile.id);
+Line  216 | Depth:  0 | if (updated && JSON.stringify(updated) !== JSON.stringify(managedProfile)) {
+Line  217 | Depth:  0 | setManagedProfile(updated);
+Line  218 | Depth:  0 | }
+Line  219 | Depth:  0 | }
+Line  220 | Depth:  0 | }, [accounts, managedProfile]);
+Line  221 | Depth:  0 | 
+Line  222 | Depth:  0 | useEffect(() => {
+Line  223 | Depth:  0 | refresh();
+Line  224 | Depth:  0 | window.addEventListener('kstar_sync', refresh);
+Line  225 | Depth:  0 | window.addEventListener('storage', refresh);
+Line  226 | Depth:  0 | return () => {
+Line  227 | Depth:  0 | window.removeEventListener('kstar_sync', refresh);
+Line  228 | Depth:  0 | window.removeEventListener('storage', refresh);
+Line  229 | Depth:  0 | stopMicMonitoring();
+Line  230 | Depth:  0 | };
+Line  231 | Depth:  0 | }, [refresh]);
+Line  232 | Depth:  0 | 
+Line  233 | Depth:  0 | // Reset doneRequests when a new round starts
+Line  234 | Depth:  0 | useEffect(() => {
+Line  235 | Depth:  0 | if (!session?.currentRound || session.currentRound.length === 0) {
+Line  236 | Depth:  0 | setDoneRequests(new Set());
+Line  237 | Depth:  0 | }
+Line  238 | Depth:  0 | }, [session?.currentRound]);
+Line  239 | Depth:  0 | 
+Line  240 | Depth:  0 | const stopMicMonitoring = () => {
+Line  241 | Depth:  0 | if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+Line  242 | Depth:  0 | if (micStreamRef.current) {
+Line  243 | Depth:  0 | micStreamRef.current.getTracks().forEach(track => track.stop());
+Line  244 | Depth:  0 | micStreamRef.current = null;
+Line  245 | Depth:  0 | }
+Line  246 | Depth:  0 | if (audioContextRef.current) {
+Line  247 | Depth:  0 | audioContextRef.current.close();
+Line  248 | Depth:  0 | audioContextRef.current = null;
+Line  249 | Depth:  0 | }
+Line  250 | Depth:  0 | setMicActive(false);
+Line  251 | Depth:  0 | setMicVolume(0);
+Line  252 | Depth:  0 | };
+Line  253 | Depth:  0 | 
+Line  254 | Depth:  0 | const startMicMonitoring = async (stream: MediaStream) => {
+Line  255 | Depth:  0 | const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+Line  256 | Depth:  0 | const analyser = audioContext.createAnalyser();
+Line  257 | Depth:  0 | const source = audioContext.createMediaStreamSource(stream);
+Line  258 | Depth:  0 | 
+Line  259 | Depth:  0 | analyser.fftSize = 256;
+Line  260 | Depth:  0 | source.connect(analyser);
+Line  261 | Depth:  0 | 
+Line  262 | Depth:  0 | audioContextRef.current = audioContext;
+Line  263 | Depth:  0 | analyserRef.current = analyser;
+Line  264 | Depth:  0 | micStreamRef.current = stream;
+Line  265 | Depth:  0 | 
+Line  266 | Depth:  0 | const bufferLength = analyser.frequencyBinCount;
+Line  267 | Depth:  0 | const dataArray = new Uint8Array(bufferLength);
+Line  268 | Depth:  0 | 
+Line  269 | Depth:  0 | const updateVolume = () => {
+Line  270 | Depth:  0 | if (!analyserRef.current) return;
+Line  271 | Depth:  0 | analyserRef.current.getByteFrequencyData(dataArray);
+Line  272 | Depth:  0 | let sum = 0;
+Line  273 | Depth:  0 | for (let i = 0; i < bufferLength; i++) {
+Line  274 | Depth:  0 | sum += dataArray[i];
+Line  275 | Depth:  0 | }
+Line  276 | Depth:  0 | const average = sum / bufferLength;
+Line  277 | Depth:  0 | const normalized = Math.min(1, (average / 128) * 1.5);
+Line  278 | Depth:  0 | setMicVolume(normalized);
+Line  279 | Depth:  0 | animationFrameRef.current = requestAnimationFrame(updateVolume);
+Line  280 | Depth:  0 | };
+Line  281 | Depth:  0 | 
+Line  282 | Depth:  0 | updateVolume();
+Line  283 | Depth:  0 | };
+Line  284 | Depth:  0 | 
+Line  285 | Depth:  0 | 
+Line  286 | Depth:  0 | const handleGenerateIntro = async (singer: string, song: string, id: string) => {
+Line  287 | Depth:  0 | const result = `Taking the stage now, it's ${singer} with "${song}"!`;
+Line  288 | Depth:  0 | await updateRequest(id, { aiIntro: result });
+Line  289 | Depth:  0 | setIntro(prev => ({ ...prev, [id]: result }));
+Line  290 | Depth:  0 | await refresh();
+Line  291 | Depth:  0 | };
+Line  292 | Depth:  0 | 
+Line  293 | Depth:  0 | const handleManualRequestSubmit = async (data: any) => {
+Line  294 | Depth:  0 | if (profileItemToEdit && managedProfile) {
+Line  295 | Depth:  0 | if (profileItemToEdit.type === 'favorite') {
+Line  296 | Depth:  0 | await updateUserFavorite(managedProfile.id, profileItemToEdit.itemId, {
+Line  297 | Depth:  0 | songName: data.songName,
+Line  298 | Depth:  0 | artist: data.artist,
+Line  299 | Depth:  0 | youtubeUrl: data.youtubeUrl,
+Line  300 | Depth:  0 | type: data.type
+Line  301 | Depth:  0 | });
+Line  302 | Depth:  0 | } else {
+Line  303 | Depth:  0 | await updateUserHistoryItem(managedProfile.id, profileItemToEdit.itemId, {
+Line  304 | Depth:  0 | songName: data.songName,
+Line  305 | Depth:  0 | artist: data.artist,
+Line  306 | Depth:  0 | youtubeUrl: data.youtubeUrl,
+Line  307 | Depth:  0 | type: data.type,
+Line  308 | Depth:  0 | message: data.message
+Line  309 | Depth:  0 | });
+Line  310 | Depth:  0 | }
+Line  311 | Depth:  0 | setProfileItemToEdit(null);
+Line  312 | Depth:  0 | } else if (requestToEdit) {
+Line  313 | Depth:  0 | await updateRequest(requestToEdit.id, {
+Line  314 | Depth:  0 | participantName: data.singerName || requestToEdit.participantName,
+Line  315 | Depth:  0 | songName: data.songName,
+Line  316 | Depth:  0 | artist: data.artist,
+Line  317 | Depth:  0 | youtubeUrl: data.youtubeUrl,
+Line  318 | Depth:  0 | type: data.type,
+Line  319 | Depth:  0 | message: data.message
+Line  320 | Depth:  0 | });
+Line  321 | Depth:  0 | setRequestToEdit(null);
+Line  322 | Depth:  0 | } else if (verifiedSongToEdit) {
+Line  323 | Depth:  0 | await updateVerifiedSong(verifiedSongToEdit.id, {
+Line  324 | Depth:  0 | songName: data.songName,
+Line  325 | Depth:  0 | artist: data.artist,
+Line  326 | Depth:  0 | youtubeUrl: data.youtubeUrl,
+Line  327 | Depth:  0 | type: data.type
+Line  328 | Depth:  0 | });
+Line  329 | Depth:  0 | setVerifiedSongToEdit(null);
+Line  330 | Depth:  0 | } else if (isAddingVerifiedSong) {
+Line  331 | Depth:  0 | await addVerifiedSong({
+Line  332 | Depth:  0 | songName: data.songName,
+Line  333 | Depth:  0 | artist: data.artist,
+Line  334 | Depth:  0 | youtubeUrl: data.youtubeUrl,
+Line  335 | Depth:  0 | type: data.type
+Line  336 | Depth:  0 | });
+Line  337 | Depth:  0 | setIsAddingVerifiedSong(false);
+Line  338 | Depth:  0 | } else {
+Line  339 | Depth:  0 | let participantId = prefilledSinger?.id || 'DJ-MANUAL';
+Line  340 | Depth:  0 | let participantName = data.singerName || prefilledSinger?.name || 'Guest';
+Line  341 | Depth:  0 | 
+Line  342 | Depth:  0 | if (!prefilledSinger && data.singerName) {
+Line  343 | Depth:  0 | // Register a guest user for the manually entered name
+Line  344 | Depth:  0 | const result = await registerUser({ name: data.singerName });
+Line  345 | Depth:  0 | if (result.success && result.profile) {
+Line  346 | Depth:  0 | participantId = result.profile.id;
+Line  347 | Depth:  0 | participantName = result.profile.name;
+Line  348 | Depth:  0 | // Also join the session so they appear in the participants list
+Line  349 | Depth:  0 | await joinSession(participantId);
+Line  350 | Depth:  0 | }
+Line  351 | Depth:  0 | }
+Line  352 | Depth:  0 | 
+Line  353 | Depth:  0 | await addRequest({
+Line  354 | Depth:  0 | participantId,
+Line  355 | Depth:  0 | participantName,
+Line  356 | Depth:  0 | songName: data.songName,
+Line  357 | Depth:  0 | artist: data.artist,
+Line  358 | Depth:  0 | youtubeUrl: data.youtubeUrl,
+Line  359 | Depth:  0 | type: data.type,
+Line  360 | Depth:  0 | message: data.message
+Line  361 | Depth:  0 | });
+Line  362 | Depth:  0 | setIsAddingRequest(false);
+Line  363 | Depth:  0 | setPrefilledSinger(null);
+Line  364 | Depth:  0 | }
+Line  365 | Depth:  0 | await refresh();
+Line  366 | Depth:  0 | };
+Line  367 | Depth:  0 | 
+Line  368 | Depth:  0 | const handleQuickSet = async (user: UserProfile) => {
+Line  369 | Depth:  0 | await joinSession(user.id);
+Line  370 | Depth:  0 | const pool = [...QUICK_SET_POOL];
+Line  371 | Depth:  0 | for (let i = 0; i < 3; i++) {
+Line  372 | Depth:  0 | if (pool.length === 0) break;
+Line  373 | Depth:  0 | const randIdx = Math.floor(Math.random() * pool.length);
+Line  374 | Depth:  0 | const song = pool.splice(randIdx, 1)[0];
+Line  375 | Depth:  0 | const newRequest = await addRequest({
+Line  376 | Depth:  0 | participantId: user.id,
+Line  377 | Depth:  0 | participantName: user.name,
+Line  378 | Depth:  0 | songName: song.songName,
+Line  379 | Depth:  0 | artist: song.artist,
+Line  380 | Depth:  0 | type: RequestType.SINGING
+Line  381 | Depth:  0 | });
+Line  382 | Depth:  0 | if (newRequest) {
+Line  383 | Depth:  0 | await approveRequest(newRequest.id);
+Line  384 | Depth:  0 | }
+Line  385 | Depth:  0 | }
+Line  386 | Depth:  0 | await updateParticipantStatus(user.id, ParticipantStatus.READY);
+Line  387 | Depth:  0 | await refresh();
+Line  388 | Depth:  0 | };
+Line  389 | Depth:  0 | 
+Line  390 | Depth:  0 | // AI library generation removed
+Line  391 | Depth:  0 | 
+Line  392 | Depth:  0 | const handleSongSearch = (songName: string, artist: string, type: RequestType) => {
+Line  393 | Depth:  0 | const query = type === RequestType.SINGING
+Line  394 | Depth:  0 | ? `${songName} ${artist} karaoke`
+Line  395 | Depth:  0 | : `${songName} ${artist} Lyrics Letra`;
+Line  396 | Depth:  0 | const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+Line  397 | Depth:  0 | window.open(url, '_blank');
+Line  398 | Depth:  0 | };
+Line  399 | Depth:  0 | 
+Line  400 | Depth:  0 | const handlePromoteToStage = async (requestId: string) => {
+Line  401 | Depth:  0 | await promoteToStage(requestId);
+Line  402 | Depth:  0 | await refresh();
+Line  403 | Depth:  0 | // Auto-generate simple intro when promoting to stage
+Line  404 | Depth:  0 | const currentSession = await getSession();
+Line  405 | Depth:  0 | const song = currentSession.currentRound?.find(r => r.id === requestId);
+Line  406 | Depth:  0 | if (song) {
+Line  407 | Depth:  0 | handleGenerateIntro(song.participantName, song.songName, song.id);
+Line  408 | Depth:  0 | }
+Line  409 | Depth:  0 | };
+Line  410 | Depth:  0 | 
+Line  411 | Depth:  0 | const handlePlayOnStage = (song: SongRequest) => {
+Line  412 | Depth:  0 | if (song.youtubeUrl) {
+Line  413 | Depth:  0 | window.open(song.youtubeUrl, '_blank');
+Line  414 | Depth:  0 | } else {
+Line  415 | Depth:  0 | handleSongSearch(song.songName, song.artist, song.type);
+Line  416 | Depth:  0 | }
+Line  417 | Depth:  0 | };
+Line  418 | Depth:  0 | 
+Line  419 | Depth:  0 | 
+Line  420 | Depth:  0 | 
+Line  421 | Depth:  0 | const handleProfileFormSubmit = async (e: React.FormEvent) => {
+Line  422 | Depth:  0 | e.preventDefault();
+Line  423 | Depth:  0 | setProfileError('');
+Line  424 | Depth:  0 | const data = {
+Line  425 | Depth:  0 | name: profileForm.name,
+Line  426 | Depth:  0 | password: profileForm.password || undefined,
+Line  427 | Depth:  0 | };
+Line  428 | Depth:  0 | 
+Line  429 | Depth:  0 | let result;
+Line  430 | Depth:  0 | if (editingProfile) {
+Line  431 | Depth:  0 | result = await updateAccount(editingProfile.id, data);
+Line  432 | Depth:  0 | } else {
+Line  433 | Depth:  0 | result = await registerUser(data);
+Line  434 | Depth:  0 | }
+Line  435 | Depth:  0 | 
+Line  436 | Depth:  0 | if (result.success) {
+Line  437 | Depth:  0 | setEditingProfile(null);
+Line  438 | Depth:  0 | setIsCreatingProfile(false);
+Line  439 | Depth:  0 | setProfileForm({ name: '', password: '' });
+Line  440 | Depth:  0 | setProfileError('');
+Line  441 | Depth:  0 | await refresh();
+Line  442 | Depth:  0 | } else {
+Line  443 | Depth:  0 | setProfileError(result.error || "Action failed.");
+Line  444 | Depth:  0 | }
+Line  445 | Depth:  0 | };
+Line  446 | Depth:  0 | 
+Line  447 | Depth:  0 | const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
+Line  448 | Depth:  0 | const [draggedListType, setDraggedListType] = useState<'ROUND' | 'QUEUE' | 'PENDING' | null>(null);
+Line  449 | Depth:  0 | 
+Line  450 | Depth:  0 | const handleDragStart = (e: React.DragEvent, index: number, type: 'ROUND' | 'QUEUE' | 'PENDING') => {
+Line  451 | Depth:  0 | setDraggedItemIndex(index);
+Line  452 | Depth:  0 | setDraggedListType(type);
+Line  453 | Depth:  0 | e.dataTransfer.effectAllowed = 'move';
+Line  454 | Depth:  0 | };
+Line  455 | Depth:  0 | 
+Line  456 | Depth:  0 | const handleDragOver = (e: React.DragEvent) => {
+Line  457 | Depth:  0 | e.preventDefault();
+Line  458 | Depth:  0 | e.dataTransfer.dropEffect = 'move';
+Line  459 | Depth:  0 | };
+Line  460 | Depth:  0 | 
+Line  461 | Depth:  0 | const handleDrop = async (e: React.DragEvent, targetIndexUI: number, type: 'ROUND' | 'QUEUE' | 'PENDING') => {
+Line  462 | Depth:  0 | e.preventDefault();
+Line  463 | Depth:  0 | if (draggedItemIndex === null || draggedListType !== type) return;
+Line  464 | Depth:  0 | 
+Line  465 | Depth:  0 | if (type === 'ROUND' && session?.currentRound) {
+Line  466 | Depth:  0 | const items = Array.from(session.currentRound);
+Line  467 | Depth:  0 | const [reorderedItem] = items.splice(draggedItemIndex, 1);
+Line  468 | Depth:  0 | items.splice(targetIndexUI, 0, reorderedItem);
+Line  469 | Depth:  0 | await reorderCurrentRound(items);
+Line  470 | Depth:  0 | } else if (type === 'QUEUE') {
+Line  471 | Depth:  0 | const list = approvedSinging;
+Line  472 | Depth:  0 | const items = Array.from(list);
+Line  473 | Depth:  0 | const [reorderedItem] = items.splice(draggedItemIndex, 1);
+Line  474 | Depth:  0 | items.splice(targetIndexUI, 0, reorderedItem);
+Line  475 | Depth:  0 | await reorderRequests(items);
+Line  476 | Depth:  0 | } else if (type === 'PENDING') {
+Line  477 | Depth:  0 | const list = pendingRequests;
+Line  478 | Depth:  0 | const items = Array.from(list);
+Line  479 | Depth:  0 | const [reorderedItem] = items.splice(draggedItemIndex, 1);
+Line  480 | Depth:  0 | items.splice(targetIndexUI, 0, reorderedItem);
+Line  481 | Depth:  0 | await reorderPendingRequests(items);
+Line  482 | Depth:  0 | }
+Line  483 | Depth:  0 | 
+Line  484 | Depth:  0 | setDraggedItemIndex(null);
+Line  485 | Depth:  0 | setDraggedListType(null);
+Line  486 | Depth:  0 | await refresh();
+Line  487 | Depth:  0 | };
+Line  488 | Depth:  0 | 
+Line  489 | Depth:  0 | 
+Line  490 | Depth:  0 | const startEditProfile = (user: UserProfile) => {
+Line  491 | Depth:  0 | setEditingProfile(user);
+Line  492 | Depth:  0 | setIsCreatingProfile(true);
+Line  493 | Depth:  0 | setProfileForm({
+Line  494 | Depth:  0 | name: user.name,
+Line  495 | Depth:  0 | password: user.password || '',
+Line  496 | Depth:  0 | });
+Line  497 | Depth:  0 | };
+Line  498 | Depth:  0 | 
+Line  499 | Depth:  0 | const startChangePassword = (user: UserProfile) => {
+Line  500 | Depth:  0 | setEditingProfile(user);
+Line  501 | Depth:  0 | setPasswordForm('');
+Line  502 | Depth:  0 | setIsChangingPassword(true);
+Line  503 | Depth:  0 | setProfileError('');
+Line  504 | Depth:  0 | setManagedProfile(null); // Temporarily hide profile view to show modal
+Line  505 | Depth:  0 | };
+Line  506 | Depth:  0 | 
+Line  507 | Depth:  0 | const handleChangePasswordSubmit = async (e: React.FormEvent) => {
+Line  508 | Depth:  0 | e.preventDefault();
+Line  509 | Depth:  0 | if (!editingProfile) return;
+Line  510 | Depth:  0 | 
+Line  511 | Depth:  0 | const result = await updateAccount(editingProfile.id, { password: passwordForm });
+Line  512 | Depth:  0 | if (result.success) {
+Line  513 | Depth:  0 | setManagedProfile(editingProfile); // Restore profile view
+Line  514 | Depth:  0 | setEditingProfile(null);
+Line  515 | Depth:  0 | setIsChangingPassword(false);
+Line  516 | Depth:  0 | setPasswordForm('');
+Line  517 | Depth:  0 | setProfileError('');
+Line  518 | Depth:  0 | await refresh();
+Line  519 | Depth:  0 | } else {
+Line  520 | Depth:  0 | setProfileError(result.error || "Update failed.");
+Line  521 | Depth:  0 | }
+Line  522 | Depth:  0 | };
+Line  523 | Depth:  0 | 
+Line  524 | Depth:  0 | const closeModals = () => {
+Line  525 | Depth:  0 | setIsAddingRequest(false);
+Line  526 | Depth:  0 | 
+Line  527 | Depth:  0 | setRequestToEdit(null);
+Line  528 | Depth:  0 | setProfileItemToEdit(null);
+Line  529 | Depth:  0 | setPrefilledSinger(null);
+Line  530 | Depth:  0 | setShowQrModal(false);
+Line  531 | Depth:  0 | setShowRoundConfirm(false);
+Line  532 | Depth:  0 | setShowUserManager(false);
+Line  533 | Depth:  0 | setShowLibrary(false);
+Line  534 | Depth:  0 | setShowResetConfirm(false);
+Line  535 | Depth:  0 | setIsCreatingProfile(false);
+Line  536 | Depth:  0 | setIsChangingPassword(false);
+Line  537 | Depth:  0 | setEditingProfile(null);
+Line  538 | Depth:  0 | setManagedProfile(null);
+Line  539 | Depth:  0 | setShowNetworkConfig(false);
+Line  540 | Depth:  0 | setIsAddingVerifiedSong(false);
+Line  541 | Depth:  0 | setVerifiedSongToEdit(null);
+Line  542 | Depth:  0 | setPickingSongForUser(null);
+Line  543 | Depth:  0 | setQrTargetUser(null);
+Line  544 | Depth:  0 | };
+Line  545 | Depth:  0 | 
+Line  546 | Depth:  0 | const handleSaveNetworkIp = () => {
+Line  547 | Depth:  0 | setNetworkIp(networkIpInput);
+Line  548 | Depth:  0 | setShowNetworkConfig(false);
+Line  549 | Depth:  0 | refresh();
+Line  550 | Depth:  0 | };
+Line  551 | Depth:  0 | 
+Line  552 | Depth:  0 | const handleConfirmRound = async () => {
+Line  553 | Depth:  0 | await generateRound();
+Line  554 | Depth:  0 | setShowRoundConfirm(false);
+Line  555 | Depth:  0 | await refresh();
+Line  556 | Depth:  0 | 
+Line  557 | Depth:  0 | const updatedSession = await getSession();
+Line  558 | Depth:  0 | if (updatedSession.currentRound) {
+Line  559 | Depth:  0 | updatedSession.currentRound.forEach(song => {
+Line  560 | Depth:  0 | if (!song.aiIntro) {
+Line  561 | Depth:  0 | handleGenerateIntro(song.participantName, song.songName, song.id);
+Line  562 | Depth:  0 | }
+Line  563 | Depth:  0 | });
+Line  564 | Depth:  0 | }
+Line  565 | Depth:  0 | };
+Line  566 | Depth:  0 | 
+Line  567 | Depth:  0 | const handleConfirmReset = async () => {
+Line  568 | Depth:  0 | await resetSession();
+Line  569 | Depth:  0 | setShowResetConfirm(false);
+Line  570 | Depth:  0 | await refresh();
+Line  571 | Depth:  0 | };
+Line  572 | Depth:  0 | 
+Line  573 | Depth:  0 | const viewPerformerProfile = (userId: string) => {
+Line  574 | Depth:  0 | const user = accounts.find(a => a.id === userId);
+Line  575 | Depth:  0 | if (user) {
+Line  576 | Depth:  0 | setManagedProfile(user);
+Line  577 | Depth:  0 | setShowUserManager(true);
+Line  578 | Depth:  0 | }
+Line  579 | Depth:  0 | };
+Line  580 | Depth:  0 | 
+Line  581 | Depth:  0 | const handleRotateSong = async (requestId: string) => {
+Line  582 | Depth:  0 | setDoneRequests(prev => new Set(prev).add(requestId));
+Line  583 | Depth:  0 | setLastDoneId(requestId);
+Line  584 | Depth:  0 | await completeStageSong(requestId);
+Line  585 | Depth:  0 | await refresh();
+Line  586 | Depth:  0 | setTimeout(() => {
+Line  587 | Depth:  0 | setLastDoneId(null);
+Line  588 | Depth:  0 | }, 4000);
+Line  589 | Depth:  0 | };
+Line  590 | Depth:  0 | 
+Line  591 | Depth:  0 | if (!session) return (
+Line  592 | Depth:  1 | <div className="flex items-center justify-center p-20 min-h-screen">
+Line  593 | Depth:  1 | <div className="w-12 h-12 border-4 border-teal-400 border-t-transparent rounded-full animate-spin"></div>
+Line  594 | Depth:  0 | </div>
+Line  595 | Depth:  0 | );
+Line  596 | Depth:  0 | 
+Line  597 | Depth:  0 | const pendingRequests = session.requests.filter(r => r.status === RequestStatus.PENDING && !r.isInRound);
+Line  598 | Depth:  0 | 
+Line  599 | Depth:  0 | // Custom Interleaved Sorting Logic for Ready Nodes
+Line  600 | Depth:  0 | const approvedSingingRaw = session.requests.filter(r => r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING && !r.isInRound);
+Line  601 | Depth:  0 | const participantsWithSongs = session.participants.filter(p => approvedSingingRaw.some(r => r.participantId === p.id))
+Line  602 | Depth:  0 | .sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0)); // Rank by Newest First
+Line  603 | Depth:  0 | 
+Line  604 | Depth:  0 | const requestsByParticipant: { [key: string]: SongRequest[] } = {};
+Line  605 | Depth:  0 | approvedSingingRaw.forEach(r => {
+Line  606 | Depth:  0 | if (!requestsByParticipant[r.participantId]) requestsByParticipant[r.participantId] = [];
+Line  607 | Depth:  0 | requestsByParticipant[r.participantId].push(r);
+Line  608 | Depth:  0 | });
+Line  609 | Depth:  0 | // Sort each user's requests by creation time
+Line  610 | Depth:  0 | Object.keys(requestsByParticipant).forEach(pid => {
+Line  611 | Depth:  0 | requestsByParticipant[pid].sort((a, b) => a.createdAt - b.createdAt);
+Line  612 | Depth:  0 | });
+Line  613 | Depth:  0 | 
+Line  614 | Depth:  0 | const approvedSinging: SongRequest[] = [];
+Line  615 | Depth:  0 | let round = 0;
+Line  616 | Depth:  0 | let hasMore = true;
+Line  617 | Depth:  0 | while (hasMore) {
+Line  618 | Depth:  0 | hasMore = false;
+Line  619 | Depth:  0 | participantsWithSongs.forEach(p => {
+Line  620 | Depth:  0 | if (requestsByParticipant[p.id] && requestsByParticipant[p.id][round]) {
+Line  621 | Depth:  0 | approvedSinging.push(requestsByParticipant[p.id][round]);
+Line  622 | Depth:  0 | hasMore = true;
+Line  623 | Depth:  0 | }
+Line  624 | Depth:  0 | });
+Line  625 | Depth:  0 | round++;
+Line  626 | Depth:  0 | }
+Line  627 | Depth:  0 | 
+Line  628 | Depth:  0 | const approvedListening = session.requests.filter(r => r.status === RequestStatus.APPROVED && r.type === RequestType.LISTENING && !r.isInRound);
+Line  629 | Depth:  0 | const liveMicCount = session.participants.filter(p => p.status === ParticipantStatus.READY).length;
+Line  630 | Depth:  0 | const verifiedSongs = session.verifiedSongbook || [];
+Line  631 | Depth:  0 | 
+Line  632 | Depth:  0 | const roomId = syncService.getRoomId();
+Line  633 | Depth:  0 | const roomJoinUrl = getNetworkUrl() + (roomId ? `?room=${roomId}` : '');
+Line  634 | Depth:  0 | 
+Line  635 | Depth:  0 | const UserAvatar = ({ name, isActive }: { name: string, isActive?: boolean }) => {
+Line  636 | Depth:  0 | const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+Line  637 | Depth:  0 | const colors = [
+Line  638 | Depth:  0 | 'from-teal-400 to-indigo-500',
+Line  639 | Depth:  0 | 'from-rose-400 to-orange-500',
+Line  640 | Depth:  0 | 'from-amber-400 to-rose-500',
+Line  641 | Depth:  0 | 'from-indigo-400 to-purple-500',
+Line  642 | Depth:  0 | 'from-emerald-400 to-teal-500'
+Line  643 | Depth:  0 | ];
+Line  644 | Depth:  0 | const colorIndex = name.length % colors.length;
+Line  645 | Depth:  0 | 
+Line  646 | Depth:  0 | return (
+Line  647 | Depth:  1 | <div className="relative">
+Line  648 | Depth:  2 | <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${colors[colorIndex]} p-[2px] shadow-lg shadow-black/20`}>
+Line  649 | Depth:  3 | <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
+Line  650 | Depth:  3 | <span className="text-xl font-black text-white tracking-widest">{initials}</span>
+Line  651 | Depth:  2 | </div>
+Line  652 | Depth:  1 | </div>
+Line  653 | Depth:  1 | {isActive && (
+Line  654 | Depth:  1 | <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-[var(--neon-green)] rounded-full border-4 border-slate-950 animate-pulse" />
+Line  655 | Depth:  1 | )}
+Line  656 | Depth:  0 | </div>
+Line  657 | Depth:  0 | );
+Line  658 | Depth:  0 | };
+Line  659 | Depth:  0 | 
+Line  660 | Depth:  0 | 
+Line  661 | Depth:  0 | // Helper for Verified Songs
+Line  662 | Depth:  0 | const filteredVerifiedSongs = verifiedSongs.filter(s =>
+Line  663 | Depth:  0 | s.songName.toLowerCase().includes(pickerSearch.toLowerCase()) ||
+Line  664 | Depth:  0 | s.artist.toLowerCase().includes(pickerSearch.toLowerCase())
+Line  665 | Depth:  0 | );
+Line  666 | Depth:  0 | 
+Line  667 | Depth:  0 | const handleSelectVerifiedSong = async (song: VerifiedSong) => {
+Line  668 | Depth:  0 | if (pickingSongForUser) {
+Line  669 | Depth:  0 | const newRequest = await addRequest({
+Line  670 | Depth:  0 | participantId: pickingSongForUser.id,
+Line  671 | Depth:  0 | participantName: pickingSongForUser.name,
+Line  672 | Depth:  0 | songName: song.songName,
+Line  673 | Depth:  0 | artist: song.artist,
+Line  674 | Depth:  0 | youtubeUrl: song.youtubeUrl || '',
+Line  675 | Depth:  0 | type: song.type
+Line  676 | Depth:  0 | });
+Line  677 | Depth:  0 | if (newRequest) {
+Line  678 | Depth:  0 | await approveRequest(newRequest.id);
+Line  679 | Depth:  0 | }
+Line  680 | Depth:  0 | setPickingSongForUser(null);
+Line  681 | Depth:  0 | setPickerSearch('');
+Line  682 | Depth:  0 | await refresh();
+Line  683 | Depth:  0 | }
+Line  684 | Depth:  0 | };
+Line  685 | Depth:  0 | 
+Line  686 | Depth:  0 | const startEditVerifiedSong = (song: VerifiedSong) => {
+Line  687 | Depth:  0 | setVerifiedSongToEdit(song);
+Line  688 | Depth:  0 | };
+Line  689 | Depth:  0 | 
+Line  690 | Depth:  0 | return (
+Line  691 | Depth:  1 | <div className="max-w-[1600px] mx-auto p-4 lg:p-8 space-y-12 relative font-inter text-slate-300">
+Line  692 | Depth:  1 | {/* Tropical Header */}
+Line  693 | Depth:  1 | <header className="relative rounded-[4rem] p-1 overflow-hidden shadow-3xl mb-12 group">
+Line  694 | Depth:  1 | <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-blue)] opacity-80 group-hover:opacity-100 transition-all duration-1000 animate-gradient-x"></div>
+Line  695 | Depth:  2 | <div className="relative glass-panel rounded-[3.9rem] p-10 flex flex-col md:flex-row justify-between items-center gap-12 border border-white/20 backdrop-blur-3xl">
+Line  696 | Depth:  3 | <div className="flex items-center gap-10">
+Line  697 | Depth:  4 | <div className="relative group/logo">
+Line  698 | Depth:  4 | <div className="absolute inset-0 bg-gradient-to-tr from-[var(--neon-yellow)] to-[var(--neon-pink)] rounded-full blur-xl opacity-60 group-hover/logo:opacity-100 transition-opacity duration-500"></div>
+Line  699 | Depth:  5 | <div className="relative p-1.5 rounded-full border-4 border-white/10 shadow-2xl bg-black/40">
+Line  700 | Depth:  5 | <img src="IGK.jpeg" alt="Island Groove" className="w-32 h-32 rounded-full transition-transform duration-700 group-hover/logo:rotate-[360deg]" />
+Line  701 | Depth:  4 | </div>
+Line  702 | Depth:  3 | </div>
+Line  703 | Depth:  4 | <div>
+Line  704 | Depth:  4 | <h1 className="text-8xl font-bold font-bungee text-white flex items-center gap-6 uppercase tracking-tight neon-glow-pink leading-none">
+Line  705 | Depth:  4 | SINGMODE <span className="text-[var(--neon-blue)] neon-glow-cyan text-5xl font-righteous translate-y-2">beta</span>
+Line  706 | Depth:  4 | </h1>
+Line  707 | Depth:  5 | <div className="flex items-center gap-4 mt-4">
+Line  708 | Depth:  5 | <span className="px-4 py-1.5 rounded-full bg-[var(--neon-pink)]/10 border border-[var(--neon-pink)]/30 text-[var(--neon-pink)] text-lg font-bold uppercase tracking-widest font-righteous">DJ CONSOLE</span>
+Line  709 | Depth:  5 | <span className="text-[var(--neon-blue)]/30">||</span>
+Line  710 | Depth:  5 | <span className="text-[var(--neon-blue)] text-lg font-bold uppercase tracking-widest font-righteous neon-glow-cyan">SINGERS: {session.participants.length}</span>
+Line  711 | Depth:  4 | </div>
+Line  712 | Depth:  3 | </div>
+Line  713 | Depth:  2 | </div>
+Line  714 | Depth:  2 | 
+Line  715 | Depth:  3 | <div className="flex gap-4">
+Line  716 | Depth:  4 | <div className="text-right">
+Line  717 | Depth:  4 | <div className="text-base text-[var(--neon-yellow)] font-bold uppercase tracking-widest font-righteous mb-1">STATUS</div>
+Line  718 | Depth:  5 | <div className="text-4xl text-white font-bold uppercase tracking-widest font-bungee flex items-center justify-end gap-3">
+Line  719 | Depth:  5 | ONLINE <div className="w-3 h-3 bg-[var(--neon-green)] rounded-full animate-pulse shadow-[0_0_10px_var(--neon-green)]"></div>
+Line  720 | Depth:  4 | </div>
+Line  721 | Depth:  3 | </div>
+Line  722 | Depth:  2 | </div>
+Line  723 | Depth:  1 | </div>
+Line  724 | Depth:  1 | </header>
+Line  725 | Depth:  1 | 
+Line  726 | Depth:  1 | {/* Retro Control Deck */}
+Line  727 | Depth:  2 | <div className="sticky top-4 z-50">
+Line  728 | Depth:  3 | <div className="glass-panel p-4 rounded-[2.5rem] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-wrap items-center gap-4 backdrop-blur-3xl">
+Line  729 | Depth:  4 | <div className="flex gap-3 p-2 bg-black/40 rounded-[2rem] border border-white/5">
+Line  730 | Depth:  4 | <button onClick={() => setIsAddingRequest(true)} className="px-8 py-4 bg-[var(--neon-pink)] text-black font-black hover:bg-white transition-all active:scale-95 rounded-[1.5rem] shadow-[0_0_25px_rgba(255,42,109,0.4)] text-lg uppercase tracking-[0.2em] font-righteous flex items-center gap-3 group">
+Line  731 | Depth:  4 | <span className="text-3xl group-hover:rotate-90 transition-transform">＋</span> ADD SONG
+Line  732 | Depth:  4 | </button>
+Line  733 | Depth:  4 | 
+Line  734 | Depth:  4 | <button
+Line  735 | Depth:  4 | onClick={() => { setShowRoundConfirm(true); refresh(); }}
+Line  736 | Depth:  4 | className="px-8 py-4 bg-[var(--neon-blue)] text-black font-black hover:bg-white transition-all uppercase tracking-[0.2em] text-lg active:scale-95 rounded-[1.5rem] shadow-[0_0_25px_rgba(5,217,232,0.4)] font-righteous flex items-center gap-3 group"
+Line  737 | Depth:  4 | >
+Line  738 | Depth:  4 | <span className="text-3xl group-hover:animate-spin">↻</span> NEXT ROUND
+Line  739 | Depth:  4 | </button>
+Line  740 | Depth:  3 | </div>
+Line  741 | Depth:  3 | 
+Line  742 | Depth:  3 | <div className="w-[1px] h-12 bg-white/10 mx-2"></div>
+Line  743 | Depth:  3 | 
+Line  744 | Depth:  4 | <div className="flex gap-2">
+Line  745 | Depth:  4 | <button onClick={() => setShowQrModal(true)} className="w-14 h-14 flex items-center justify-center text-[var(--neon-yellow)] border border-[var(--neon-yellow)]/30 bg-[var(--neon-yellow)]/5 hover:bg-[var(--neon-yellow)] hover:text-black transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(255,200,87,0.1)] group">
+Line  746 | Depth:  4 | <span className="text-4xl group-hover:scale-110 transition-transform">📱</span>
+Line  747 | Depth:  4 | </button>
+Line  748 | Depth:  4 | 
+Line  749 | Depth:  4 | <button onClick={() => setShowUserManager(true)} className="w-14 h-14 flex items-center justify-center text-[var(--neon-blue)] border border-[var(--neon-blue)]/30 bg-[var(--neon-blue)]/5 hover:bg-[var(--neon-blue)] hover:text-black transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(5,217,232,0.1)] group">
+Line  750 | Depth:  4 | <span className="text-4xl group-hover:scale-110 transition-transform">👥</span>
+Line  751 | Depth:  4 | </button>
+Line  752 | Depth:  4 | 
+Line  753 | Depth:  4 | <button onClick={() => setShowResetConfirm(true)} className="w-14 h-14 flex items-center justify-center text-rose-500 border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500 hover:text-white transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(244,63,94,0.1)] group">
+Line  754 | Depth:  4 | <span className="text-4xl group-hover:rotate-12 transition-transform">☢️</span>
+Line  755 | Depth:  4 | </button>
+Line  756 | Depth:  4 | 
+Line  757 | Depth:  4 | {onAdminAccess && (
+Line  758 | Depth:  4 | <button onClick={onAdminAccess} title="ADMIN PORTAL" className="w-14 h-14 flex items-center justify-center text-[var(--neon-purple)] border border-[var(--neon-purple)]/30 bg-[var(--neon-purple)]/5 hover:bg-[var(--neon-purple)] hover:text-black transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(147,51,234,0.1)] group ml-4 relative">
+Line  759 | Depth:  4 | <span className="text-4xl group-hover:scale-110 transition-transform">⚙️</span>
+Line  760 | Depth:  4 | <span className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--neon-pink)] rounded-full animate-pulse border-2 border-black"></span>
+Line  761 | Depth:  4 | </button>
+Line  762 | Depth:  4 | )}
+Line  763 | Depth:  4 | 
+Line  764 | Depth:  4 | <button
+Line  765 | Depth:  4 | onClick={async () => {
+Line  766 | Depth:  4 | if (confirm('Are you sure you want to sign out?')) {
+Line  767 | Depth:  4 | await logoutUser();
+Line  768 | Depth:  4 | window.location.reload();
+Line  769 | Depth:  4 | }
+Line  770 | Depth:  4 | }}
+Line  771 | Depth:  4 | title="SIGN OUT"
+Line  772 | Depth:  4 | className="px-6 h-14 flex items-center justify-center gap-3 text-rose-500 border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500 hover:text-white transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(244,63,94,0.1)] group ml-2"
+Line  773 | Depth:  4 | >
+Line  774 | Depth:  4 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+Line  775 | Depth:  4 | <span className="text-[10px] font-black uppercase tracking-widest font-righteous">SIGN_OUT</span>
+Line  776 | Depth:  4 | </button>
+Line  777 | Depth:  3 | </div>
+Line  778 | Depth:  3 | 
+Line  779 | Depth:  3 | <div className="flex-1"></div>
+Line  780 | Depth:  3 | 
+Line  781 | Depth:  4 | <div className="flex gap-2 p-2 bg-black/40 rounded-[2rem] border border-white/5 overflow-x-auto no-scrollbar">
+Line  782 | Depth:  4 | {(['COMMAND', 'ROTATION', 'PERFORMERS', 'LIBRARY', 'NETWORK'] as DJTab[]).map((tab) => (
+Line  783 | Depth:  4 | <button
+Line  784 | Depth:  4 | key={tab}
+Line  785 | Depth:  4 | onClick={() => { setActiveTab(tab); }}
+Line  786 | Depth:  4 | className={`px-8 py-3 text-base font-bold uppercase tracking-widest transition-all rounded-[1.2rem] font-righteous ${activeTab === tab
+Line  787 | Depth:  4 | ? 'bg-white text-black shadow-[0_0_30px_rgba(255,255,255,0.4)] scale-105'
+Line  788 | Depth:  4 | : 'text-slate-500 hover:text-white hover:bg-white/5'
+Line  789 | Depth:  4 | }`}
+Line  790 | Depth:  4 | >
+Line  791 | Depth:  4 | {tab === 'COMMAND' ? 'CONTROLS' : tab === 'ROTATION' ? 'STAGE' : tab === 'PERFORMERS' ? 'SINGERS' : tab === 'LIBRARY' ? 'SONGBOOK' : 'NETWORK'}
+Line  792 | Depth:  4 | </button>
+Line  793 | Depth:  4 | ))}
+Line  794 | Depth:  3 | </div>
+Line  795 | Depth:  2 | </div>
+Line  796 | Depth:  1 | </div>
+Line  797 | Depth:  1 | 
+Line  798 | Depth:  1 | <main className="min-h-[600px] animate-in fade-in duration-500">
+Line  799 | Depth:  1 | {activeTab === 'COMMAND' && (
+Line  800 | Depth:  2 | <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in slide-in-from-bottom-2">
+Line  801 | Depth:  3 | <div className="lg:col-span-8 space-y-10">
+Line  802 | Depth:  3 | {session.currentRound && (
+Line  803 | Depth:  3 | <section className="relative rounded-[3rem] p-1 overflow-hidden shadow-[0_0_100px_rgba(255,42,109,0.3)] zoom-in-95 duration-500">
+Line  804 | Depth:  3 | <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-orange)] opacity-20 animate-pulse"></div>
+Line  805 | Depth:  4 | <div className="relative bg-[#150030]/90 p-10 rounded-[2.8rem] backdrop-blur-xl border-2 border-[var(--neon-green)]/50">
+Line  806 | Depth:  5 | <div className="flex justify-between items-center mb-8">
+Line  807 | Depth:  5 | <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-green">
+Line  808 | Depth:  5 | <span className="text-6xl animate-pulse">▶</span> NOW PLAYING
+Line  809 | Depth:  5 | </h2>
+Line  810 | Depth:  5 | <button onClick={async () => { await finishRound(); await refresh(); }} className="px-8 py-3 bg-[var(--neon-pink)] text-black text-base font-bold uppercase hover:bg-white transition-all rounded-[1rem] tracking-widest font-righteous shadow-[0_0_20px_var(--neon-pink)] active:scale-95">
+Line  811 | Depth:  5 | END ROUND
+Line  812 | Depth:  5 | </button>
+Line  813 | Depth:  4 | </div>
+Line  814 | Depth:  5 | <div className="flex flex-col gap-3">
+Line  815 | Depth:  5 | {session.currentRound.map((song, i) => {
+Line  816 | Depth:  5 | const participant = session.participants.find(p => p.id === song.participantId);
+Line  817 | Depth:  5 | const isReady = participant?.status === ParticipantStatus.READY;
+Line  818 | Depth:  5 | // Find index of first non-done song
+Line  819 | Depth:  5 | const activeIndex = session.currentRound!.findIndex(s => s.status !== RequestStatus.DONE);
+Line  820 | Depth:  5 | const isActive = i === (activeIndex === -1 ? 0 : activeIndex);
+Line  821 | Depth:  5 | 
+Line  822 | Depth:  5 | return (
+Line  823 | Depth:  6 | <div
+Line  824 | Depth:  6 | key={song.id}
+Line  825 | Depth:  6 | className={`p-3 pl-6 pr-4 rounded-xl border-l-8 transition-all duration-300 flex items-center justify-between gap-4 w-full shadow-lg relative overflow-hidden group ${isActive
+Line  826 | Depth:  6 | ? 'bg-[#001005] border-l-[var(--neon-green)] border-y border-r border-[#1a3320] z-10 scale-[1.01]'
+Line  827 | Depth:  6 | : 'bg-[#0a0a10] border-l-slate-700 border-y border-r border-white/10 opacity-70 hover:opacity-100'
+Line  828 | Depth:  6 | }`}
+Line  829 | Depth:  6 | >
+Line  830 | Depth:  6 | {/* Strip Background Grid Lines */}
+Line  831 | Depth:  6 | <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_49%,rgba(255,255,255,0.03)_50%,transparent_51%)] bg-[length:50px_100%] pointer-events-none"></div>
+Line  832 | Depth:  6 | 
+Line  833 | Depth:  6 | {/* Left Side: Info Strip */}
+Line  834 | Depth:  7 | <div className="flex items-center gap-6 min-w-0 flex-1 z-10">
+Line  835 | Depth:  7 | {/* ID Box */}
+Line  836 | Depth:  8 | <div className="w-16 h-full flex flex-col justify-center items-center border-r border-white/10 pr-4 shrink-0">
+Line  837 | Depth:  8 | <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest hidden sm:block">SEQ_ID</span>
+Line  838 | Depth:  8 | <span className={`text-xl font-bold font-mono tracking-tighter ${isActive ? 'text-[var(--neon-green)]' : 'text-slate-400'}`}>
+Line  839 | Depth:  8 | {String(song.requestNumber).padStart(3, '0')}
+Line  840 | Depth:  8 | </span>
+Line  841 | Depth:  7 | </div>
+Line  842 | Depth:  7 | 
+Line  843 | Depth:  7 | {/* Main Info */}
+Line  844 | Depth:  8 | <div className="flex items-baseline gap-6 min-w-0 flex-1">
+Line  845 | Depth:  8 | <h3 className={`text-3xl font-black uppercase truncate font-righteous tracking-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>
+Line  846 | Depth:  8 | {song.songName}
+Line  847 | Depth:  8 | </h3>
+Line  848 | Depth:  9 | <div className="flex items-center gap-3 opacity-80 shrink-0">
+Line  849 | Depth:  9 | <span className="text-xl font-bold font-righteous text-[var(--neon-cyan)] uppercase tracking-wider">{song.artist}</span>
+Line  850 | Depth:  9 | <span className="text-slate-600 font-mono text-lg">/</span>
+Line  851 | Depth:  9 | <button onClick={() => viewPerformerProfile(song.participantId)} className="flex items-center gap-2 group/singer hover:underline">
+Line  852 | Depth:  9 | <div className={`w-2 h-2 rounded-full ${isReady ? 'bg-[var(--neon-green)] shadow-[0_0_5px_var(--neon-green)]' : 'bg-slate-700'}`}></div>
+Line  853 | Depth:  9 | <span className="text-xl font-bold font-righteous text-[var(--neon-pink)] uppercase tracking-wider">@{song.participantName}</span>
+Line  854 | Depth:  9 | </button>
+Line  855 | Depth:  8 | </div>
+Line  856 | Depth:  7 | </div>
+Line  857 | Depth:  6 | </div>
+Line  858 | Depth:  6 | 
+Line  859 | Depth:  6 | {/* Right Side: Control Cluster */}
+Line  860 | Depth:  7 | <div className="flex items-center gap-3 z-10 pl-4 border-l border-white/10 bg-gradient-to-l from-black/80 to-transparent">
+Line  861 | Depth:  7 | {isActive && (
+Line  862 | Depth:  8 | <div className="px-3 py-1 bg-[var(--neon-green)] text-black text-[10px] font-black uppercase tracking-[0.2em] rounded animate-pulse shadow-[0_0_10px_var(--neon-green)] mr-2 shrink-0">
+Line  863 | Depth:  8 | LIVE
+Line  864 | Depth:  7 | </div>
+Line  865 | Depth:  7 | )}
+Line  866 | Depth:  7 | 
+Line  867 | Depth:  7 | <CopyButton request={song} />
+Line  868 | Depth:  7 | 
+Line  869 | Depth:  7 | <button
+Line  870 | Depth:  7 | disabled={song.status === RequestStatus.DONE}
+Line  871 | Depth:  7 | onClick={async () => {
+Line  872 | Depth:  7 | await markRequestAsDone(song.id);
+Line  873 | Depth:  7 | await refresh();
+Line  874 | Depth:  7 | }}
+Line  875 | Depth:  7 | className={`h-8 px-4 rounded text-xs font-black uppercase tracking-wider font-righteous transition-all border ${song.status === RequestStatus.DONE
+Line  876 | Depth:  7 | ? 'bg-white/5 text-white/30 border-white/5 cursor-not-allowed'
+Line  877 | Depth:  7 | : 'bg-[var(--neon-cyan)]/10 text-[var(--neon-cyan)] border-[var(--neon-cyan)]/50 hover:bg-[var(--neon-cyan)] hover:text-black'
+Line  878 | Depth:  7 | }`}
+Line  879 | Depth:  7 | >
+Line  880 | Depth:  7 | {song.status === RequestStatus.DONE ? 'DONE' : 'MARK DONE'}
+Line  881 | Depth:  7 | </button>
+Line  882 | Depth:  7 | 
+Line  883 | Depth:  7 | <button
+Line  884 | Depth:  7 | onClick={async () => {
+Line  885 | Depth:  7 | if (confirm('Remove from active round?')) {
+Line  886 | Depth:  7 | await deleteRequest(song.id);
+Line  887 | Depth:  7 | await refresh();
+Line  888 | Depth:  7 | }
+Line  889 | Depth:  7 | }}
+Line  890 | Depth:  7 | className="w-8 h-8 flex items-center justify-center rounded bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all border border-rose-500/20"
+Line  891 | Depth:  7 | title="REMOVE"
+Line  892 | Depth:  7 | >
+Line  893 | Depth:  7 | ✕
+Line  894 | Depth:  7 | </button>
+Line  895 | Depth:  6 | </div>
+Line  896 | Depth:  5 | </div>
+Line  897 | Depth:  5 | );
+Line  898 | Depth:  5 | })}
+Line  899 | Depth:  4 | </div>
+Line  900 | Depth:  3 | </div>
+Line  901 | Depth:  3 | </section>
+Line  902 | Depth:  3 | )}
+Line  903 | Depth:  3 | 
+Line  904 | Depth:  3 | <section className="bg-[#10002B]/80 border-2 border-[var(--neon-blue)]/30 rounded-[3rem] p-10 shadow-[0_0_60px_rgba(5,217,232,0.1)] relative overflow-hidden backdrop-blur-md">
+Line  905 | Depth:  4 | <div className="flex justify-between items-center mb-8 px-2">
+Line  906 | Depth:  4 | <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-cyan">
+Line  907 | Depth:  4 | <span className="text-[var(--neon-blue)]">⟳</span> QUEUE VALIDATION
+Line  908 | Depth:  4 | </h2>
+Line  909 | Depth:  4 | <span className="px-6 py-2 bg-[var(--neon-blue)]/10 border border-[var(--neon-blue)]/30 rounded-full text-base text-[var(--neon-blue)] font-bold tracking-widest font-righteous">
+Line  910 | Depth:  4 | {pendingRequests.length} PENDING
+Line  911 | Depth:  4 | </span>
+Line  912 | Depth:  3 | </div>
+Line  913 | Depth:  4 | <div className="flex flex-col gap-4">
+Line  914 | Depth:  4 | {pendingRequests.map((req, i) => (
+Line  915 | Depth:  5 | <div
+Line  916 | Depth:  5 | key={req.id}
+Line  917 | Depth:  5 | draggable
+Line  918 | Depth:  5 | onDragStart={(e) => handleDragStart(e, i, 'PENDING')}
+Line  919 | Depth:  5 | onDragOver={handleDragOver}
+Line  920 | Depth:  5 | onDrop={(e) => handleDrop(e, i, 'PENDING')}
+Line  921 | Depth:  5 | className="bg-black/40 border border-white/5 p-4 rounded-3xl flex items-center gap-6 hover:border-[var(--neon-blue)] transition-all group cursor-move shadow-xl"
+Line  922 | Depth:  5 | >
+Line  923 | Depth:  6 | <div className="flex-1 min-w-0">
+Line  924 | Depth:  7 | <div className="flex items-center gap-4 mb-1">
+Line  925 | Depth:  8 | <div className="text-xs font-black font-righteous text-[var(--neon-pink)] uppercase tracking-[0.2em] bg-[var(--neon-pink)]/10 px-2 py-0.5 rounded-full border border-[var(--neon-pink)]/20 shrink-0">
+Line  926 | Depth:  8 | NEW_SIGNAL
+Line  927 | Depth:  7 | </div>
+Line  928 | Depth:  7 | <div className="text-3xl font-black text-white uppercase truncate tracking-tighter font-bungee group-hover:text-[var(--neon-blue)] transition-colors">{req.songName}</div>
+Line  929 | Depth:  7 | <div className="text-slate-500 text-base font-black uppercase tracking-[0.2em] font-righteous truncate">/ {req.artist}</div>
+Line  930 | Depth:  6 | </div>
+Line  931 | Depth:  7 | <div className="flex items-center gap-4">
+Line  932 | Depth:  7 | <button onClick={() => viewPerformerProfile(req.participantId)} className="text-base font-bold text-[var(--neon-pink)] uppercase truncate hover:text-white transition-colors font-righteous tracking-[0.2em]">@{req.participantName}</button>
+Line  933 | Depth:  7 | {req.message && (
+Line  934 | Depth:  8 | <div className="flex-1 max-w-md px-3 py-1 bg-black/40 border-l-2 border-[var(--neon-pink)] rounded-r-lg">
+Line  935 | Depth:  8 | <p className="text-base text-white/60 font-medium italic truncate">"{req.message}"</p>
+Line  936 | Depth:  7 | </div>
+Line  937 | Depth:  7 | )}
+Line  938 | Depth:  6 | </div>
+Line  939 | Depth:  5 | </div>
+Line  940 | Depth:  5 | 
+Line  941 | Depth:  6 | <div className="flex items-center gap-4 shrink-0">
+Line  942 | Depth:  7 | <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+Line  943 | Depth:  7 | <CopyButton request={req} />
+Line  944 | Depth:  7 | <YouTubeSearchButton request={req} />
+Line  945 | Depth:  7 | <VideoLink url={req.youtubeUrl} />
+Line  946 | Depth:  7 | <button onClick={() => setRequestToEdit(req)} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous text-white/50 hover:text-white border border-white/5">EDIT</button>
+Line  947 | Depth:  6 | </div>
+Line  948 | Depth:  7 | <div className="flex gap-2 bg-black/40 p-1 rounded-2xl border border-white/5">
+Line  949 | Depth:  7 | <button onClick={async () => { await approveRequest(req.id); await refresh(); }} className="px-6 py-3 bg-[var(--neon-blue)] text-black text-sm font-black uppercase hover:bg-white transition-all rounded-xl tracking-[0.1em] shadow-[0_0_20px_rgba(5,217,232,0.3)]">ACCEPT</button>
+Line  950 | Depth:  7 | <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="w-11 h-11 flex items-center justify-center text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all">✕</button>
+Line  951 | Depth:  6 | </div>
+Line  952 | Depth:  5 | </div>
+Line  953 | Depth:  4 | </div>
+Line  954 | Depth:  4 | ))}
+Line  955 | Depth:  4 | {pendingRequests.length === 0 && (
+Line  956 | Depth:  5 | <div className="col-span-full py-24 text-center border-4 border-dashed border-white/5 rounded-[2.5rem] opacity-30">
+Line  957 | Depth:  5 | <p className="text-4xl font-black font-righteous uppercase tracking-[0.4em] italic text-slate-500">NO SIGNAL DETECTED</p>
+Line  958 | Depth:  4 | </div>
+Line  959 | Depth:  4 | )}
+Line  960 | Depth:  3 | </div>
+Line  961 | Depth:  3 | </section>
+Line  962 | Depth:  3 | 
+Line  963 | Depth:  4 | <div className="flex flex-col gap-10">
+Line  964 | Depth:  4 | <section className="bg-[#10002B]/60 border-2 border-[var(--neon-yellow)]/20 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
+Line  965 | Depth:  4 | <h3 className="text-5xl font-bold font-bungee text-white uppercase mb-8 px-2 neon-glow-yellow flex items-center gap-4">
+Line  966 | Depth:  4 | <span className="text-[var(--neon-yellow)] animate-pulse">★</span> READY NODES
+Line  967 | Depth:  4 | </h3>
+Line  968 | Depth:  5 | <div className="flex flex-col gap-3">
+Line  969 | Depth:  5 | {approvedSinging.map((req, i) => (
+Line  970 | Depth:  6 | <div
+Line  971 | Depth:  6 | key={req.id}
+Line  972 | Depth:  6 | draggable
+Line  973 | Depth:  6 | onDragStart={(e) => handleDragStart(e, i, 'QUEUE')}
+Line  974 | Depth:  6 | onDragOver={handleDragOver}
+Line  975 | Depth:  6 | onDrop={(e) => handleDrop(e, i, 'QUEUE')}
+Line  976 | Depth:  6 | className="bg-black/40 border border-white/5 p-4 rounded-[2rem] flex items-center gap-6 group hover:border-[var(--neon-yellow)] transition-all cursor-move shadow-lg relative"
+Line  977 | Depth:  6 | >
+Line  978 | Depth:  7 | <div className="w-12 h-12 flex items-center justify-center bg-black/40 rounded-2xl border border-white/5 text-[var(--neon-yellow)] font-bungee text-3xl shrink-0 group-hover:scale-110 transition-transform">
+Line  979 | Depth:  7 | {i + 1}
+Line  980 | Depth:  6 | </div>
+Line  981 | Depth:  6 | 
+Line  982 | Depth:  7 | <div className="flex-1 min-w-0">
+Line  983 | Depth:  8 | <div className="flex items-center gap-4 mb-0.5">
+Line  984 | Depth:  8 | <div className="text-2xl font-bold text-white truncate uppercase tracking-tight font-bungee group-hover:text-[var(--neon-yellow)] transition-colors">{req.songName}</div>
+Line  985 | Depth:  8 | <div className="text-sm text-slate-500 uppercase tracking-widest font-righteous">/ {req.artist}</div>
+Line  986 | Depth:  7 | </div>
+Line  987 | Depth:  8 | <div className="flex items-center gap-4">
+Line  988 | Depth:  8 | <button onClick={(e) => { e.stopPropagation(); viewPerformerProfile(req.participantId); }} className="text-sm font-black text-[var(--neon-yellow)] uppercase tracking-[0.2em] font-righteous hover:text-white transition-colors">@{req.participantName}</button>
+Line  989 | Depth:  8 | {req.message && (
+Line  990 | Depth:  9 | <div className="flex-1 max-w-sm px-2 py-0.5 bg-[var(--neon-yellow)]/5 border-l border-[var(--neon-yellow)]/30 rounded-r text-xs text-[var(--neon-yellow)]/70 italic truncate">
+Line  991 | Depth:  9 | "{req.message}"
+Line  992 | Depth:  8 | </div>
+Line  993 | Depth:  8 | )}
+Line  994 | Depth:  7 | </div>
+Line  995 | Depth:  6 | </div>
+Line  996 | Depth:  6 | 
+Line  997 | Depth:  7 | <div className="flex items-center gap-4 shrink-0">
+Line  998 | Depth:  8 | <div className="flex flex-col gap-0.5 px-2">
+Line  999 | Depth:  8 | <button onClick={async () => { await reorderRequest(req.id, 'up'); await refresh(); }} className="text-slate-700 hover:text-white transition-colors p-1 text-base">▲</button>
+Line 1000 | Depth:  8 | <button onClick={async () => { await reorderRequest(req.id, 'down'); await refresh(); }} className="text-slate-700 hover:text-white transition-colors p-1 text-base">▼</button>
+Line 1001 | Depth:  7 | </div>
+Line 1002 | Depth:  8 | <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+Line 1003 | Depth:  8 | <CopyButton request={req} />
+Line 1004 | Depth:  8 | <YouTubeSearchButton request={req} />
+Line 1005 | Depth:  8 | <VideoLink url={req.youtubeUrl} />
+Line 1006 | Depth:  8 | <button onClick={() => setRequestToEdit(req)} className="p-2 text-slate-600 hover:text-white text-xs font-black uppercase tracking-widest font-righteous transition-colors border border-white/5 rounded-lg">EDIT</button>
+Line 1007 | Depth:  7 | </div>
+Line 1008 | Depth:  8 | <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5">
+Line 1009 | Depth:  8 | <button onClick={() => handlePromoteToStage(req.id)} className="px-4 py-2 bg-[var(--neon-yellow)] text-black text-sm font-black uppercase rounded-lg hover:bg-white transition-all shadow-[0_0_15px_rgba(255,200,87,0.3)] tracking-wider">STAGE</button>
+Line 1010 | Depth:  8 | <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="w-9 h-9 flex items-center justify-center text-rose-500/20 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all">✕</button>
+Line 1011 | Depth:  7 | </div>
+Line 1012 | Depth:  6 | </div>
+Line 1013 | Depth:  5 | </div>
+Line 1014 | Depth:  5 | ))}
+Line 1015 | Depth:  5 | {approvedSinging.length === 0 && (
+Line 1016 | Depth:  6 | <div className="flex-1 py-12 flex items-center justify-center border-2 border-dashed border-white/5 rounded-[2rem] opacity-30 w-full">
+Line 1017 | Depth:  6 | <p className="text-xl font-black font-righteous uppercase tracking-[0.3em] text-slate-500">QUEUE EMPTY</p>
+Line 1018 | Depth:  5 | </div>
+Line 1019 | Depth:  5 | )}
+Line 1020 | Depth:  4 | </div>
+Line 1021 | Depth:  4 | </section>
+Line 1022 | Depth:  4 | 
+Line 1023 | Depth:  4 | <section className="bg-[#10002B]/60 border-2 border-[var(--neon-blue)]/20 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
+Line 1024 | Depth:  4 | <h3 className="text-3xl font-bold font-bungee text-white uppercase mb-8 px-2 neon-glow-blue flex items-center gap-4">
+Line 1025 | Depth:  4 | <span className="text-[var(--neon-blue)] animate-pulse">🎧</span> TO HEAR ({approvedListening.length})
+Line 1026 | Depth:  4 | </h3>
+Line 1027 | Depth:  4 | 
+Line 1028 | Depth:  5 | <div className="flex flex-col gap-3">
+Line 1029 | Depth:  5 | {approvedListening.map((req, i) => (
+Line 1030 | Depth:  6 | <div key={req.id} className="bg-black/40 border border-white/5 p-4 rounded-[2rem] flex items-center gap-6 group hover:border-[var(--neon-blue)] transition-all relative">
+Line 1031 | Depth:  7 | <div className="w-12 h-12 flex items-center justify-center bg-black/40 rounded-2xl border border-white/5 text-[var(--neon-blue)] font-bungee text-xl shrink-0">
+Line 1032 | Depth:  7 | {i + 1}
+Line 1033 | Depth:  6 | </div>
+Line 1034 | Depth:  7 | <div className="flex-1 min-w-0">
+Line 1035 | Depth:  8 | <div className="flex items-center gap-4 mb-0.5">
+Line 1036 | Depth:  8 | <div className="text-xl font-bold text-white truncate uppercase tracking-tight font-bungee group-hover:text-[var(--neon-blue)] transition-colors">{req.songName}</div>
+Line 1037 | Depth:  8 | <div className="text-sm text-slate-500 uppercase tracking-widest font-righteous">/ {req.artist}</div>
+Line 1038 | Depth:  7 | </div>
+Line 1039 | Depth:  7 | <div className="text-xs font-black text-[var(--neon-pink)] uppercase tracking-[0.2em] font-righteous">@{req.participantName}</div>
+Line 1040 | Depth:  6 | </div>
+Line 1041 | Depth:  6 | 
+Line 1042 | Depth:  7 | <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
+Line 1043 | Depth:  7 | <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="px-4 py-2 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all font-black text-xs uppercase tracking-widest font-righteous">REMOVE</button>
+Line 1044 | Depth:  6 | </div>
+Line 1045 | Depth:  5 | </div>
+Line 1046 | Depth:  5 | ))}
+Line 1047 | Depth:  5 | {approvedListening.length === 0 && (
+Line 1048 | Depth:  6 | <div className="flex-1 py-8 flex items-center justify-center border-2 border-dashed border-white/5 rounded-[2rem] opacity-30 w-full">
+Line 1049 | Depth:  6 | <p className="text-base font-black font-righteous uppercase tracking-[0.3em] text-slate-500">NO LISTENING TRACKS</p>
+Line 1050 | Depth:  5 | </div>
+Line 1051 | Depth:  5 | )}
+Line 1052 | Depth:  4 | </div>
+Line 1053 | Depth:  4 | </section>
+Line 1054 | Depth:  4 | 
+Line 1055 | Depth:  4 | <section className="bg-[#10002B]/60 border-2 border-[var(--neon-green)]/20 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
+Line 1056 | Depth:  4 | <h3 className="text-3xl md:text-4xl font-bold font-bungee text-white uppercase mb-8 px-2 neon-glow-green flex items-center gap-4 flex-wrap">
+Line 1057 | Depth:  4 | <span className="text-[var(--neon-green)] animate-pulse">☢</span> ATMOSPHERE
+Line 1058 | Depth:  4 | </h3>
+Line 1059 | Depth:  4 | 
+Line 1060 | Depth:  5 | <div className="space-y-10">
+Line 1061 | Depth:  6 | <div className="p-6 bg-black/40 rounded-3xl border border-white/5 space-y-6">
+Line 1062 | Depth:  7 | <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+Line 1063 | Depth:  7 | <label className="text-sm md:text-base font-black text-[var(--neon-cyan)] uppercase tracking-[0.2em] font-righteous opacity-80 break-words">MAX_REQUESTS_PER_NODE</label>
+Line 1064 | Depth:  7 | <span className="text-4xl font-black text-white font-bungee neon-glow-cyan">{session.maxRequestsPerUser || 5}</span>
+Line 1065 | Depth:  6 | </div>
+Line 1066 | Depth:  6 | <input
+Line 1067 | Depth:  6 | type="range"
+Line 1068 | Depth:  6 | min="1"
+Line 1069 | Depth:  6 | max="20"
+Line 1070 | Depth:  6 | value={session.maxRequestsPerUser || 5}
+Line 1071 | Depth:  6 | onChange={async (e) => { await setMaxRequestsPerUser(parseInt(e.target.value)); await refresh(); }}
+Line 1072 | Depth:  6 | className="w-full accent-[var(--neon-cyan)] bg-white/5 rounded-lg appearance-none h-2 cursor-pointer transition-all"
+Line 1073 | Depth:  6 | />
+Line 1074 | Depth:  7 | <div className="flex justify-between text-xs font-black text-slate-600 font-righteous uppercase tracking-widest">
+Line 1075 | Depth:  7 | <span>STRICT (1)</span>
+Line 1076 | Depth:  7 | <span>UNLIMITED (20)</span>
+Line 1077 | Depth:  6 | </div>
+Line 1078 | Depth:  5 | </div>
+Line 1079 | Depth:  5 | 
+Line 1080 | Depth:  6 | <div>
+Line 1081 | Depth:  6 | <h4 className="text-base font-black text-[var(--neon-pink)] uppercase tracking-[0.4em] mb-4 flex items-center gap-4 font-righteous opacity-80">
+Line 1082 | Depth:  6 | BACKGROUND THREADS
+Line 1083 | Depth:  6 | </h4>
+Line 1084 | Depth:  7 | <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar custom-scrollbar-h">
+Line 1085 | Depth:  7 | {[...approvedListening].reverse().map((req) => (
+Line 1086 | Depth:  8 | <div key={req.id} className="bg-black/60 p-5 rounded-[2rem] border border-white/10 flex flex-col justify-between group hover:border-[var(--neon-pink)] transition-all shadow-lg min-w-[280px] max-w-[280px]">
+Line 1087 | Depth:  9 | <div className="min-w-0 mb-4 cursor-pointer" onClick={() => handleSongSearch(req.songName, req.artist, req.type)}>
+Line 1088 | Depth:  9 | <div className="text-2xl font-black text-white truncate uppercase tracking-tight font-bungee group-hover:text-[var(--neon-pink)] transition-all">{req.songName}</div>
+Line 1089 | Depth:  9 | <div className="text-base text-slate-500 uppercase tracking-widest mt-1 font-righteous opacity-60 truncate">{req.artist}</div>
+Line 1090 | Depth:  8 | </div>
+Line 1091 | Depth:  9 | <div className="flex items-center justify-between border-t border-white/5 pt-4">
+Line 1092 | Depth:  9 | <VideoLink url={req.youtubeUrl} />
+Line 1093 | Depth: 10 | <div className="flex gap-2">
+Line 1094 | Depth: 10 | <button onClick={() => handlePromoteToStage(req.id)} className="px-4 py-2 bg-[var(--neon-purple)] text-white text-sm font-black uppercase rounded-lg hover:bg-white hover:text-black transition-all shadow-[0_0_10px_var(--neon-purple)] tracking-[0.1em]">BOOST</button>
+Line 1095 | Depth: 10 | <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="text-rose-500/20 hover:text-rose-500 p-2 font-black">✕</button>
+Line 1096 | Depth:  9 | </div>
+Line 1097 | Depth:  8 | </div>
+Line 1098 | Depth:  7 | </div>
+Line 1099 | Depth:  7 | ))}
+Line 1100 | Depth:  7 | {approvedListening.length === 0 && <p className="text-base text-slate-700 italic px-4 font-righteous uppercase tracking-widest opacity-50">NO BACKGROUND TRACKS</p>}
+Line 1101 | Depth:  6 | </div>
+Line 1102 | Depth:  5 | </div>
+Line 1103 | Depth:  5 | 
+Line 1104 | Depth:  6 | <div className="pt-6 border-t border-white/5">
+Line 1105 | Depth:  6 | <h4 className="text-base font-black text-[var(--neon-cyan)] uppercase tracking-[0.4em] mb-6 flex justify-between items-center font-righteous opacity-80">
+Line 1106 | Depth:  6 | <span>VERIFIED_LINKS</span>
+Line 1107 | Depth:  6 | <button onClick={() => setIsAddingVerifiedSong(true)} className="text-[var(--neon-cyan)] hover:text-white transition-colors underline decoration-dotted">+ ADD NEW</button>
+Line 1108 | Depth:  6 | </h4>
+Line 1109 | Depth:  7 | <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar custom-scrollbar-h">
+Line 1110 | Depth:  7 | {[...verifiedSongs].reverse().map(v => (
+Line 1111 | Depth:  8 | <div key={v.id} className="bg-black/80 p-5 rounded-[2rem] border border-white/5 flex flex-col justify-between group hover:border-[var(--neon-cyan)] transition-all shadow-lg min-w-[280px] max-w-[280px]">
+Line 1112 | Depth:  9 | <div className="min-w-0 mb-4">
+Line 1113 | Depth:  9 | <div className="text-2xl font-bold text-white uppercase truncate tracking-tight group-hover:text-[var(--neon-cyan)] transition-colors font-bungee mb-1">{v.songName}</div>
+Line 1114 | Depth:  9 | <div className="text-sm text-slate-600 uppercase truncate tracking-widest font-righteous font-bold">{v.artist}</div>
+Line 1115 | Depth:  8 | </div>
+Line 1116 | Depth:  9 | <div className="flex items-center justify-between border-t border-white/5 pt-4">
+Line 1117 | Depth: 10 | <div className="flex gap-1">
+Line 1118 | Depth: 10 | <CopyUrlButton url={v.youtubeUrl} />
+Line 1119 | Depth: 10 | <button onClick={() => setVerifiedSongToEdit(v)} className="text-slate-600 hover:text-white p-2">✎</button>
+Line 1120 | Depth:  9 | </div>
+Line 1121 | Depth: 10 | <div className="flex gap-2 shrink-0">
+Line 1122 | Depth: 10 | <button
+Line 1123 | Depth: 10 | onClick={() => handleSongSearch(v.songName, v.artist, v.type)}
+Line 1124 | Depth: 10 | className="px-3 py-1 bg-black border border-[var(--neon-cyan)] text-[var(--neon-cyan)] text-sm font-black uppercase rounded-md hover:bg-[var(--neon-cyan)] hover:text-black transition-all tracking-widest"
+Line 1125 | Depth: 10 | >
+Line 1126 | Depth: 10 | RUN
+Line 1127 | Depth: 10 | </button>
+Line 1128 | Depth: 10 | <button
+Line 1129 | Depth: 10 | onClick={() => { setIsAddingRequest(true); }}
+Line 1130 | Depth: 10 | className="px-3 py-1 bg-[var(--neon-pink)] text-black text-sm font-black uppercase rounded-md hover:bg-white transition-all shadow-lg tracking-widest"
+Line 1131 | Depth: 10 | >
+Line 1132 | Depth: 10 | PUSH
+Line 1133 | Depth: 10 | </button>
+Line 1134 | Depth: 10 | <button onClick={async () => { if (confirm('Delete verified song?')) { await deleteVerifiedSong(v.id); await refresh(); } }} className="text-rose-500/20 hover:text-rose-500 px-1 font-black">✕</button>
+Line 1135 | Depth:  9 | </div>
+Line 1136 | Depth:  8 | </div>
+Line 1137 | Depth:  7 | </div>
+Line 1138 | Depth:  7 | ))}
+Line 1139 | Depth:  7 | {verifiedSongs.length === 0 && <p className="text-xl text-slate-800 italic px-4 font-righteous uppercase tracking-widest opacity-30">NO VERIFIED SONGS</p>}
+Line 1140 | Depth:  6 | </div>
+Line 1141 | Depth:  5 | </div>
+Line 1142 | Depth:  4 | </div>
+Line 1143 | Depth:  4 | </section>
+Line 1144 | Depth:  3 | </div>
+Line 1145 | Depth:  2 | </div>
+Line 1146 | Depth:  2 | 
+Line 1147 | Depth:  3 | <div className="lg:col-span-4 space-y-8">
+Line 1148 | Depth:  3 | <section className="bg-[#0a0a0a] border-4 border-white/5 rounded-[3rem] p-8 shadow-[0_0_40px_rgba(0,0,0,0.5)] relative overflow-hidden flex flex-col h-[600px]">
+Line 1149 | Depth:  4 | <div className="flex justify-between items-center mb-6 px-2">
+Line 1150 | Depth:  4 | <h2 className="text-4xl font-bold font-bungee text-white uppercase tracking-tight opacity-90">PERFORMERS</h2>
+Line 1151 | Depth:  5 | <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+Line 1152 | Depth:  5 | <div className="w-2 h-2 rounded-full bg-[var(--neon-cyan)] animate-pulse"></div>
+Line 1153 | Depth:  5 | <span className="text-sm text-[var(--neon-cyan)] font-bold uppercase tracking-widest">{liveMicCount} ONLINE</span>
+Line 1154 | Depth:  4 | </div>
+Line 1155 | Depth:  3 | </div>
+Line 1156 | Depth:  4 | <div className="space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
+Line 1157 | Depth:  4 | {session.participants.map(p => {
+Line 1158 | Depth:  4 | const isReady = p.status === ParticipantStatus.READY;
+Line 1159 | Depth:  4 | const requests = session.requests.filter(r => r.participantId === p.id);
+Line 1160 | Depth:  4 | const approvedCount = requests.filter(r => r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING).length;
+Line 1161 | Depth:  4 | 
+Line 1162 | Depth:  4 | return (
+Line 1163 | Depth:  5 | <div key={p.id} className={`flex items-center justify-between p-4 rounded-[1.5rem] transition-all border ${isReady ? 'bg-[#002a1a]/30 border-[var(--neon-green)] shadow-[0_0_15px_rgba(0,255,157,0.2)]' : 'bg-black/40 border-white/5 hover:bg-white/5'}`}>
+Line 1164 | Depth:  6 | <div className="min-w-0 flex items-center gap-4">
+Line 1165 | Depth:  6 | <button
+Line 1166 | Depth:  6 | onClick={async () => { await updateParticipantStatus(p.id, isReady ? ParticipantStatus.STANDBY : ParticipantStatus.READY); await refresh(); }}
+Line 1167 | Depth:  6 | className={`w-3 h-3 rounded-full shrink-0 transition-all ${isReady ? 'bg-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-slate-800'}`}
+Line 1168 | Depth:  6 | />
+Line 1169 | Depth:  7 | <div className="min-w-0">
+Line 1170 | Depth:  7 | <button
+Line 1171 | Depth:  7 | onClick={() => viewPerformerProfile(p.id)}
+Line 1172 | Depth:  7 | className={`text-xl font-black uppercase truncate text-left transition-colors font-righteous ${isReady ? 'text-white' : 'text-slate-500 hover:text-[var(--neon-green)]'}`}
+Line 1173 | Depth:  7 | >
+Line 1174 | Depth:  7 | {p.name}
+Line 1175 | Depth:  7 | </button>
+Line 1176 | Depth:  7 | {approvedCount > 0 && <span className="block text-xs text-[var(--neon-cyan)] font-black mt-0.5 tracking-[0.2em]">{approvedCount} REQUESTS</span>}
+Line 1177 | Depth:  6 | </div>
+Line 1178 | Depth:  5 | </div>
+Line 1179 | Depth:  6 | <div className="flex gap-1">
+Line 1180 | Depth:  6 | <button onClick={() => setPrefilledSinger(p)} className="p-2 hover:text-[var(--neon-cyan)] transition-colors text-slate-600">
+Line 1181 | Depth:  6 | +
+Line 1182 | Depth:  6 | </button>
+Line 1183 | Depth:  6 | <button onClick={async () => { if (confirm(`Remove ${p.name}?`)) { await removeParticipant(p.id); await refresh(); } }} className="p-2 text-rose-500/20 hover:text-rose-500 transition-colors">✕</button>
+Line 1184 | Depth:  5 | </div>
+Line 1185 | Depth:  4 | </div>
+Line 1186 | Depth:  4 | );
+Line 1187 | Depth:  4 | })}
+Line 1188 | Depth:  4 | {session.participants.length === 0 && <div className="text-center py-20 opacity-20"><p className="text-lg font-righteous uppercase tracking-widest">NO DATA</p></div>}
+Line 1189 | Depth:  3 | </div>
+Line 1190 | Depth:  3 | </section>
+Line 1191 | Depth:  3 | 
+Line 1192 | Depth:  3 | <section className="bg-[#0a0a0a] border-4 border-white/5 rounded-[3rem] p-8 shadow-[0_0_40px_rgba(0,0,0,0.5)] relative overflow-hidden flex flex-col h-[400px]">
+Line 1193 | Depth:  4 | <div className="flex justify-between items-center mb-6 px-2">
+Line 1194 | Depth:  4 | <h2 className="text-4xl font-bold font-bungee text-white uppercase tracking-tight opacity-90">LOG</h2>
+Line 1195 | Depth:  4 | {session.history.length > 0 && (
+Line 1196 | Depth:  4 | <button onClick={async () => { await clearHistory(); await refresh(); }} className="text-sm font-bold text-rose-500/40 hover:text-rose-500 uppercase tracking-widest transition-all">
+Line 1197 | Depth:  4 | CLEAR
+Line 1198 | Depth:  4 | </button>
+Line 1199 | Depth:  4 | )}
+Line 1200 | Depth:  3 | </div>
+Line 1201 | Depth:  4 | <div className="space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
+Line 1202 | Depth:  4 | {session.history.map((item, i) => (
+Line 1203 | Depth:  5 | <div key={i} className="bg-black/40 p-4 rounded-2xl border border-white/5 flex flex-col group hover:border-[var(--neon-purple)] transition-all">
+Line 1204 | Depth:  6 | <div className="flex justify-between items-start mb-2">
+Line 1205 | Depth:  7 | <div className="min-w-0 pr-2">
+Line 1206 | Depth:  7 | <div className="text-xl font-bold text-white uppercase truncate tracking-tight group-hover:text-[var(--neon-purple)] transition-colors font-bungee">{item.songName}</div>
+Line 1207 | Depth:  7 | <div className="text-sm text-slate-600 uppercase truncate tracking-widest font-righteous">{item.artist}</div>
+Line 1208 | Depth:  6 | </div>
+Line 1209 | Depth:  7 | <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+Line 1210 | Depth:  7 | <CopyButton request={item} />
+Line 1211 | Depth:  7 | <YouTubeSearchButton request={item} />
+Line 1212 | Depth:  7 | <VideoLink url={item.youtubeUrl} />
+Line 1213 | Depth:  6 | </div>
+Line 1214 | Depth:  5 | </div>
+Line 1215 | Depth:  6 | <div className="flex items-center justify-between mt-2 border-t border-white/5 pt-2">
+Line 1216 | Depth:  6 | <span className="text-base font-black text-[var(--neon-pink)] uppercase truncate">@{item.participantName}</span>
+Line 1217 | Depth:  6 | <button
+Line 1218 | Depth:  6 | onClick={async () => { await reAddFromHistory(item, true); await refresh(); }}
+Line 1219 | Depth:  6 | className="opacity-0 group-hover:opacity-100 text-xs font-black text-[var(--neon-pink)] hover:underline transition-all uppercase tracking-widest"
+Line 1220 | Depth:  6 | >
+Line 1221 | Depth:  6 | RE-QUEUE
+Line 1222 | Depth:  6 | </button>
+Line 1223 | Depth:  5 | </div>
+Line 1224 | Depth:  4 | </div>
+Line 1225 | Depth:  4 | ))}
+Line 1226 | Depth:  4 | {session.history.length === 0 && <div className="text-center py-16 opacity-20"><p className="text-lg italic font-righteous uppercase tracking-widest text-slate-800">EMPTY</p></div>}
+Line 1227 | Depth:  3 | </div>
+Line 1228 | Depth:  3 | </section>
+Line 1229 | Depth:  2 | </div>
+Line 1230 | Depth:  1 | </div>
+Line 1231 | Depth:  1 | )
+Line 1232 | Depth:  1 | }
+Line 1233 | Depth:  1 | 
+Line 1234 | Depth:  1 | 
+Line 1235 | Depth:  1 | {
+Line 1236 | Depth:  1 | activeTab === 'ROTATION' && (
+Line 1237 | Depth:  2 | <div className="space-y-16 animate-in slide-in-from-bottom-2 pb-32">
+Line 1238 | Depth:  2 | {session.currentRound && session.currentRound.length > 0 && (
+Line 1239 | Depth:  2 | <section className="glass-panel border-4 rounded-[4rem] p-12 shadow-[0_0_100px_rgba(0,255,157,0.3)] relative overflow-hidden neon-sign-border-green">
+Line 1240 | Depth:  3 | <div className="flex items-center gap-8 mb-12">
+Line 1241 | Depth:  3 | <div className="w-8 h-8 bg-[var(--neon-green)] rounded-full animate-ping shadow-[0_0_25px_var(--neon-green)]"></div>
+Line 1242 | Depth:  3 | <h3 className="text-6xl font-black text-white uppercase tracking-tighter font-righteous neon-glow-green">CURRENT_ROTATION</h3>
+Line 1243 | Depth:  2 | </div>
+Line 1244 | Depth:  3 | <div className="flex flex-col gap-4">
+Line 1245 | Depth:  3 | {session.currentRound.map((song, i) => {
+Line 1246 | Depth:  3 | // Find index of first non-done song
+Line 1247 | Depth:  3 | const activeIndex = session.currentRound!.findIndex(s => s.status !== RequestStatus.DONE);
+Line 1248 | Depth:  3 | const isActive = i === (activeIndex === -1 ? 0 : activeIndex);
+Line 1249 | Depth:  3 | 
+Line 1250 | Depth:  3 | return (
+Line 1251 | Depth:  4 | <div
+Line 1252 | Depth:  4 | key={song.id}
+Line 1253 | Depth:  4 | className={`p-3 pl-6 pr-4 rounded-xl border-l-8 transition-all duration-300 flex items-center justify-between gap-4 w-full shadow-lg relative overflow-hidden group ${isActive
+Line 1254 | Depth:  4 | ? 'bg-[#001005] border-l-[var(--neon-green)] border-y border-r border-[#1a3320] z-10 scale-[1.01]'
+Line 1255 | Depth:  4 | : 'bg-[#0a0a10] border-l-slate-700 border-y border-r border-white/10 opacity-70 hover:opacity-100'
+Line 1256 | Depth:  4 | }`}
+Line 1257 | Depth:  4 | >
+Line 1258 | Depth:  4 | {/* Strip Background Grid Lines */}
+Line 1259 | Depth:  4 | <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_49%,rgba(255,255,255,0.03)_50%,transparent_51%)] bg-[length:50px_100%] pointer-events-none"></div>
+Line 1260 | Depth:  4 | 
+Line 1261 | Depth:  4 | {/* Left Side: Info Strip */}
+Line 1262 | Depth:  5 | <div className="flex items-center gap-6 min-w-0 flex-1 z-10">
+Line 1263 | Depth:  5 | {/* ID Box */}
+Line 1264 | Depth:  6 | <div className="w-16 h-full flex flex-col justify-center items-center border-r border-white/10 pr-4 shrink-0">
+Line 1265 | Depth:  6 | <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">SEQ_ID</span>
+Line 1266 | Depth:  6 | <span className={`text-xl font-bold font-mono tracking-tighter ${isActive ? 'text-[var(--neon-green)]' : 'text-slate-400'}`}>
+Line 1267 | Depth:  6 | {String(song.requestNumber).padStart(3, '0')}
+Line 1268 | Depth:  6 | </span>
+Line 1269 | Depth:  5 | </div>
+Line 1270 | Depth:  5 | 
+Line 1271 | Depth:  5 | {/* Main Info */}
+Line 1272 | Depth:  6 | <div className="flex items-baseline gap-6 min-w-0 flex-1">
+Line 1273 | Depth:  6 | <h3 className={`text-3xl font-black uppercase truncate font-righteous tracking-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>
+Line 1274 | Depth:  6 | {song.songName}
+Line 1275 | Depth:  6 | </h3>
+Line 1276 | Depth:  7 | <div className="flex items-center gap-3 opacity-80 shrink-0">
+Line 1277 | Depth:  7 | <span className="text-xl font-bold font-righteous text-[var(--neon-cyan)] uppercase tracking-wider">{song.artist}</span>
+Line 1278 | Depth:  7 | <span className="text-slate-600 font-mono text-lg">/</span>
+Line 1279 | Depth:  7 | <span className="text-xl font-bold font-righteous text-[var(--neon-pink)] uppercase tracking-wider">@{song.participantName}</span>
+Line 1280 | Depth:  6 | </div>
+Line 1281 | Depth:  5 | </div>
+Line 1282 | Depth:  4 | </div>
+Line 1283 | Depth:  4 | 
+Line 1284 | Depth:  4 | {/* Right Side: Control Cluster */}
+Line 1285 | Depth:  5 | <div className="flex items-center gap-3 z-10 pl-6 border-l border-white/10 bg-gradient-to-l from-black/80 to-transparent">
+Line 1286 | Depth:  5 | {isActive && (
+Line 1287 | Depth:  6 | <div className="px-3 py-1 bg-[var(--neon-green)] text-black text-[10px] font-black uppercase tracking-[0.2em] rounded animate-pulse shadow-[0_0_10px_var(--neon-green)] mr-2 shrink-0">
+Line 1288 | Depth:  6 | LIVE
+Line 1289 | Depth:  5 | </div>
+Line 1290 | Depth:  5 | )}
+Line 1291 | Depth:  6 | <div className="flex gap-2">
+Line 1292 | Depth:  6 | <CopyButton request={song} />
+Line 1293 | Depth:  6 | <YouTubeSearchButton request={song} />
+Line 1294 | Depth:  6 | <VideoLink url={song.youtubeUrl} />
+Line 1295 | Depth:  6 | <button onClick={() => setRequestToEdit(song)} className="w-10 h-10 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white hover:text-black border border-white/10 transition-all text-slate-400 group" title="EDIT">
+Line 1296 | Depth:  6 | <span className="text-sm font-black font-righteous">EDIT</span>
+Line 1297 | Depth:  6 | </button>
+Line 1298 | Depth:  6 | 
+Line 1299 | Depth:  6 | <button
+Line 1300 | Depth:  6 | onClick={() => handlePlayOnStage(song)}
+Line 1301 | Depth:  6 | className="w-10 h-10 flex items-center justify-center rounded-lg bg-black border border-white/20 hover:bg-white hover:text-black hover:border-white transition-all group"
+Line 1302 | Depth:  6 | title="RESET TRACK"
+Line 1303 | Depth:  6 | >
+Line 1304 | Depth:  6 | <span className="text-lg">⏮</span>
+Line 1305 | Depth:  6 | </button>
+Line 1306 | Depth:  6 | 
+Line 1307 | Depth:  6 | <button
+Line 1308 | Depth:  6 | disabled={song.status === RequestStatus.DONE}
+Line 1309 | Depth:  6 | onClick={async () => {
+Line 1310 | Depth:  6 | await markRequestAsDone(song.id);
+Line 1311 | Depth:  6 | await refresh();
+Line 1312 | Depth:  6 | }}
+Line 1313 | Depth:  6 | className={`h-10 px-6 rounded-lg text-sm font-black uppercase tracking-widest font-righteous transition-all flex items-center gap-2 ${song.status === RequestStatus.DONE
+Line 1314 | Depth:  6 | ? 'bg-white/10 text-white/40 cursor-not-allowed border border-white/5'
+Line 1315 | Depth:  6 | : 'bg-[var(--neon-cyan)]/10 hover:bg-[var(--neon-cyan)] text-[var(--neon-cyan)] hover:text-black border border-[var(--neon-cyan)]/50'
+Line 1316 | Depth:  6 | }`}
+Line 1317 | Depth:  6 | >
+Line 1318 | Depth:  6 | <span>{song.status === RequestStatus.DONE ? 'COMPLETED' : 'DONE'}</span>
+Line 1319 | Depth:  6 | {song.status !== RequestStatus.DONE && <span className="text-lg leading-none">→</span>}
+Line 1320 | Depth:  6 | </button>
+Line 1321 | Depth:  5 | </div>
+Line 1322 | Depth:  4 | </div>
+Line 1323 | Depth:  3 | </div>
+Line 1324 | Depth:  3 | );
+Line 1325 | Depth:  3 | })}
+Line 1326 | Depth:  2 | </div>
+Line 1327 | Depth:  2 | </section>
+Line 1328 | Depth:  2 | )}
+Line 1329 | Depth:  2 | 
+Line 1330 | Depth:  2 | <section className="bg-[#050510] border-4 border-[var(--neon-cyan)]/30 rounded-[3rem] p-10 shadow-[0_0_80px_rgba(0,229,255,0.15)] relative overflow-hidden backdrop-blur-md">
+Line 1331 | Depth:  3 | <div className="flex items-center gap-6 mb-10">
+Line 1332 | Depth:  3 | <div className="w-4 h-4 bg-[var(--neon-cyan)] shadow-[0_0_20px_var(--neon-cyan)] rounded-full animate-pulse"></div>
+Line 1333 | Depth:  3 | <h3 className="text-4xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-cyan">UPCOMING NODES</h3>
+Line 1334 | Depth:  2 | </div>
+Line 1335 | Depth:  3 | <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
+Line 1336 | Depth:  3 | {approvedSinging.map((req) => (
+Line 1337 | Depth:  4 | <div key={req.id} className="relative group perspective-1000">
+Line 1338 | Depth:  4 | <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-purple)] to-[var(--neon-blue)] rounded-[2.5rem] blur-xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
+Line 1339 | Depth:  5 | <div className="relative bg-[#101015] p-8 rounded-[2.5rem] border border-white/10 flex justify-between items-center group-hover:border-[var(--neon-cyan)] transition-all shadow-2xl h-full">
+Line 1340 | Depth:  6 | <div className="min-w-0 pr-6 flex-1">
+Line 1341 | Depth:  6 | <div className="text-white font-black uppercase truncate text-4xl font-bungee tracking-tight mb-2 group-hover:text-[var(--neon-cyan)] transition-colors">{req.songName}</div>
+Line 1342 | Depth:  7 | <div className="text-lg text-slate-500 uppercase flex items-center gap-3 font-righteous tracking-[0.2em] opacity-80">
+Line 1343 | Depth:  7 | <span className="text-[var(--neon-green)] font-black">@{req.participantName}</span>
+Line 1344 | Depth:  7 | <span className="opacity-20">|</span>
+Line 1345 | Depth:  7 | <span className="truncate">{req.artist}</span>
+Line 1346 | Depth:  6 | </div>
+Line 1347 | Depth:  5 | </div>
+Line 1348 | Depth:  6 | <div className="flex gap-3 shrink-0 flex-col">
+Line 1349 | Depth:  6 | <button onClick={() => handlePromoteToStage(req.id)} className="px-6 py-3 bg-[var(--neon-green)] text-black text-base font-black rounded-xl uppercase tracking-[0.2em] font-righteous shadow-[0_0_20px_var(--neon-green)] transition-all hover:bg-white hover:scale-105">STAGE</button>
+Line 1350 | Depth:  6 | <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="px-6 py-3 border border-white/10 text-white/40 hover:text-rose-500 hover:border-rose-500/50 rounded-xl transition-all text-lg font-black uppercase tracking-[0.2em]">REMOVE</button>
+Line 1351 | Depth:  5 | </div>
+Line 1352 | Depth:  4 | </div>
+Line 1353 | Depth:  3 | </div>
+Line 1354 | Depth:  3 | ))}
+Line 1355 | Depth:  3 | {approvedSinging.length === 0 && (
+Line 1356 | Depth:  4 | <div className="col-span-full py-32 text-center border-4 border-dashed border-white/5 rounded-[4rem] opacity-30">
+Line 1357 | Depth:  4 | <p className="text-5xl font-black uppercase tracking-[0.5em] italic font-righteous text-slate-700">NO DATA STREAM</p>
+Line 1358 | Depth:  3 | </div>
+Line 1359 | Depth:  3 | )}
+Line 1360 | Depth:  2 | </div>
+Line 1361 | Depth:  2 | </section>
+Line 1362 | Depth:  1 | </div>
+Line 1363 | Depth:  1 | )
+Line 1364 | Depth:  1 | }
+Line 1365 | Depth:  1 | 
+Line 1366 | Depth:  1 | {
+Line 1367 | Depth:  1 | activeTab === 'PERFORMERS' && (
+Line 1368 | Depth:  2 | <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 animate-in slide-in-from-bottom-2 pb-32">
+Line 1369 | Depth:  2 | <section className="lg:col-span-8 bg-[#0a0a0a] border-4 border-[var(--neon-cyan)]/20 rounded-[3rem] p-10 shadow-[0_0_60px_rgba(0,229,255,0.1)] relative overflow-hidden backdrop-blur-md">
+Line 1370 | Depth:  3 | <div className="flex justify-between items-center mb-10 px-2">
+Line 1371 | Depth:  3 | <h2 className="text-4xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-cyan">PERFORMER INDEX</h2>
+Line 1372 | Depth:  4 | <div className="flex items-center gap-4 px-6 py-2 bg-black/40 border border-[var(--neon-cyan)]/30 rounded-full shadow-lg">
+Line 1373 | Depth:  4 | <div className="w-2 h-2 rounded-full bg-[var(--neon-cyan)] animate-pulse"></div>
+Line 1374 | Depth:  4 | <span className="text-lg font-bold text-[var(--neon-cyan)] uppercase tracking-widest font-righteous">{liveMicCount} ACTIVE</span>
+Line 1375 | Depth:  3 | </div>
+Line 1376 | Depth:  2 | </div>
+Line 1377 | Depth:  3 | <div className="grid gap-6">
+Line 1378 | Depth:  3 | {session.participants.map(p => {
+Line 1379 | Depth:  3 | const isReady = p.status === ParticipantStatus.READY;
+Line 1380 | Depth:  3 | const requests = session.requests.filter(r => r.participantId === p.id);
+Line 1381 | Depth:  3 | const approvedCount = requests.filter(r => r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING).length;
+Line 1382 | Depth:  3 | 
+Line 1383 | Depth:  3 | return (
+Line 1384 | Depth:  4 | <div key={p.id} className={`flex items-center justify-between p-6 rounded-[2rem] transition-all border-2 ${isReady ? 'bg-[#002a1a]/30 border-[var(--neon-green)] shadow-[0_0_30px_rgba(0,255,157,0.15)]' : 'bg-black/40 border-white/5 hover:border-white/20'}`}>
+Line 1385 | Depth:  5 | <div className="min-w-0 flex items-center gap-6 text-left">
+Line 1386 | Depth:  5 | <button
+Line 1387 | Depth:  5 | onClick={async () => { await updateParticipantStatus(p.id, isReady ? ParticipantStatus.STANDBY : ParticipantStatus.READY); await refresh(); }}
+Line 1388 | Depth:  5 | className={`w-12 h-12 rounded-full shrink-0 border-2 transition-all flex items-center justify-center ${isReady ? 'bg-[var(--neon-green)] border-[var(--neon-green)] shadow-[0_0_20px_var(--neon-green)]' : 'bg-slate-900 border-white/10 hover:border-white/50'}`}
+Line 1389 | Depth:  5 | >
+Line 1390 | Depth:  5 | {isReady && <div className="w-4 h-4 bg-white rounded-full animate-pulse"></div>}
+Line 1391 | Depth:  5 | </button>
+Line 1392 | Depth:  6 | <div className="min-w-0">
+Line 1393 | Depth:  6 | <button
+Line 1394 | Depth:  6 | onClick={() => viewPerformerProfile(p.id)}
+Line 1395 | Depth:  6 | className={`font-bold text-4xl uppercase truncate font-bungee tracking-tight transition-colors ${isReady ? 'text-white' : 'text-slate-600 hover:text-[var(--neon-green)]'}`}
+Line 1396 | Depth:  6 | >
+Line 1397 | Depth:  6 | {p.name}
+Line 1398 | Depth:  6 | </button>
+Line 1399 | Depth:  6 | {approvedCount > 0 && <div className="text-base font-bold text-[var(--neon-cyan)] uppercase mt-1 tracking-widest font-righteous opacity-90">{approvedCount} TRACKS READY</div>}
+Line 1400 | Depth:  5 | </div>
+Line 1401 | Depth:  4 | </div>
+Line 1402 | Depth:  5 | <div className="flex gap-4 items-center">
+Line 1403 | Depth:  5 | <button onClick={() => setPrefilledSinger(p)} className="px-6 py-3 bg-[var(--neon-cyan)]/10 text-[var(--neon-cyan)] rounded-xl border border-[var(--neon-cyan)]/50 transition-all font-righteous text-base font-black uppercase tracking-[0.2em] hover:bg-[var(--neon-cyan)] hover:text-black hover:shadow-[0_0_20px_var(--neon-cyan)]">
+Line 1404 | Depth:  5 | ADD TRACK
+Line 1405 | Depth:  5 | </button>
+Line 1406 | Depth:  5 | <button onClick={async () => { if (confirm(`Remove ${p.name}?`)) { await removeParticipant(p.id); await refresh(); } }} className="text-rose-500/30 hover:text-rose-500 p-3 transition-colors text-3xl font-black">✕</button>
+Line 1407 | Depth:  4 | </div>
+Line 1408 | Depth:  3 | </div>
+Line 1409 | Depth:  3 | );
+Line 1410 | Depth:  3 | })}
+Line 1411 | Depth:  3 | {session.participants.length === 0 && <div className="py-32 text-center border-4 border-dashed border-white/5 rounded-[3rem] opacity-30"><p className="text-5xl font-black uppercase tracking-[0.6em] italic font-righteous text-slate-800">NO SIGNALS</p></div>}
+Line 1412 | Depth:  2 | </div>
+Line 1413 | Depth:  2 | </section>
+Line 1414 | Depth:  2 | 
+Line 1415 | Depth:  2 | <section className="lg:col-span-4 lg:sticky lg:top-36 h-fit bg-[#050510] border-4 border border-white/5 rounded-[3.5rem] p-8 shadow-[0_0_60px_rgba(157,0,255,0.15)] relative overflow-hidden">
+Line 1416 | Depth:  3 | <div className="flex justify-between items-center mb-10 px-2">
+Line 1417 | Depth:  3 | <h2 className="text-4xl font-black text-white uppercase tracking-tighter font-bungee neon-glow-purple">SESSION LOG</h2>
+Line 1418 | Depth:  3 | {session.history.length > 0 && <button onClick={async () => { await clearHistory(); await refresh(); }} className="text-sm font-black text-rose-500/40 hover:text-rose-500 uppercase tracking-[0.3em] font-righteous transition-all">CLEAR ALL</button>}
+Line 1419 | Depth:  2 | </div>
+Line 1420 | Depth:  3 | <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+Line 1421 | Depth:  3 | {session.history
+Line 1422 | Depth:  3 | .filter(item => (item.playedAt || 0) >= (session.startedAt || 0))
+Line 1423 | Depth:  3 | .map((item, i) => (
+Line 1424 | Depth:  4 | <div key={i} className="bg-black/40 p-5 rounded-[1.5rem] border border-white/5 group hover:border-[var(--neon-purple)] transition-all">
+Line 1425 | Depth:  5 | <div className="flex justify-between items-start mb-3">
+Line 1426 | Depth:  6 | <div className="min-w-0 pr-4">
+Line 1427 | Depth:  6 | <div className="text-2xl font-black text-white uppercase truncate font-bungee tracking-tight group-hover:text-[var(--neon-purple)] transition-colors">{item.songName}</div>
+Line 1428 | Depth:  6 | <div className="text-sm text-slate-600 font-bold uppercase truncate font-righteous tracking-widest mt-1">{item.artist}</div>
+Line 1429 | Depth:  5 | </div>
+Line 1430 | Depth:  5 | <VideoLink url={item.youtubeUrl} />
+Line 1431 | Depth:  4 | </div>
+Line 1432 | Depth:  5 | <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-1">
+Line 1433 | Depth:  5 | <button onClick={() => viewPerformerProfile(item.participantId)} className="text-sm font-black text-[var(--neon-pink)] uppercase truncate hover:text-white font-righteous tracking-widest transition-colors mb-0">@{item.participantName}</button>
+Line 1434 | Depth:  5 | <button onClick={async () => { await reAddFromHistory(item, true); await refresh(); }} className="opacity-0 group-hover:opacity-100 text-xs font-black text-[var(--neon-cyan)] hover:text-white transition-all font-righteous tracking-widest uppercase ml-auto">RELOAD</button>
+Line 1435 | Depth:  4 | </div>
+Line 1436 | Depth:  3 | </div>
+Line 1437 | Depth:  3 | ))}
+Line 1438 | Depth:  3 | {session.history.length === 0 && <div className="text-center py-20 opacity-20"><p className="text-lg italic font-righteous uppercase tracking-widest text-slate-700">EMPTY</p></div>}
+Line 1439 | Depth:  2 | </div>
+Line 1440 | Depth:  2 | </section>
+Line 1441 | Depth:  2 | 
+Line 1442 | Depth:  2 | <section className="lg:col-span-12 bg-black/40 border-4 border-white/5 rounded-[3rem] p-10 mt-10 relative overflow-hidden">
+Line 1443 | Depth:  3 | <div className="flex justify-between items-center mb-10 px-2">
+Line 1444 | Depth:  3 | <h2 className="text-4xl font-black text-white uppercase tracking-tighter font-bungee neon-glow-cyan">COMPLETED ROUNDS</h2>
+Line 1445 | Depth:  3 | <div className="text-[var(--neon-cyan)]/40 text-sm font-black uppercase tracking-[0.4em] font-righteous">CHRONOLOGICAL_ARCHIVE</div>
+Line 1446 | Depth:  2 | </div>
+Line 1447 | Depth:  2 | 
+Line 1448 | Depth:  3 | <div className="grid gap-12">
+Line 1449 | Depth:  3 | {(() => {
+Line 1450 | Depth:  3 | const rounds: Record<number, SongRequest[]> = {};
+Line 1451 | Depth:  3 | session.history
+Line 1452 | Depth:  3 | .filter(song => (song.playedAt || 0) >= (session.startedAt || 0))
+Line 1453 | Depth:  3 | .forEach(song => {
+Line 1454 | Depth:  3 | const time = song.playedAt || 0;
+Line 1455 | Depth:  3 | if (!rounds[time]) rounds[time] = [];
+Line 1456 | Depth:  3 | rounds[time].push(song);
+Line 1457 | Depth:  3 | });
+Line 1458 | Depth:  3 | 
+Line 1459 | Depth:  3 | const sortedTimestamps = Object.keys(rounds).map(Number).sort((a, b) => b - a);
+Line 1460 | Depth:  3 | 
+Line 1461 | Depth:  3 | if (sortedTimestamps.length === 0) {
+Line 1462 | Depth:  3 | return (
+Line 1463 | Depth:  4 | <div className="text-center py-24 border-4 border-dashed border-white/5 rounded-[2.5rem] opacity-20">
+Line 1464 | Depth:  4 | <p className="text-2xl font-black uppercase tracking-[0.4em] font-righteous text-slate-500">HISTORY_NULL</p>
+Line 1465 | Depth:  3 | </div>
+Line 1466 | Depth:  3 | );
+Line 1467 | Depth:  3 | }
+Line 1468 | Depth:  3 | 
+Line 1469 | Depth:  3 | return sortedTimestamps.map(timestamp => (
+Line 1470 | Depth:  4 | <div key={timestamp} className="bg-[#050510] border-2 border-white/5 rounded-[2.5rem] p-8 relative group hover:border-[var(--neon-cyan)]/30 transition-all">
+Line 1471 | Depth:  5 | <div className="absolute top-0 left-10 py-1 px-4 bg-[var(--neon-cyan)] text-black text-[10px] font-black uppercase tracking-widest rounded-b-lg font-righteous shadow-[0_0_15px_rgba(0,229,255,0.4)]">
+Line 1472 | Depth:  5 | ROUND_{new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+Line 1473 | Depth:  4 | </div>
+Line 1474 | Depth:  4 | 
+Line 1475 | Depth:  5 | <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+Line 1476 | Depth:  5 | {rounds[timestamp].map((song, i) => (
+Line 1477 | Depth:  6 | <div key={song.id} className="flex flex-col p-4 bg-black/40 rounded-2xl border border-white/5 group/song hover:bg-white/5 transition-all">
+Line 1478 | Depth:  7 | <div className="flex justify-between items-start mb-2">
+Line 1479 | Depth:  7 | <div className="text-lg font-black text-white uppercase truncate font-bungee tracking-tight group-hover/song:text-[var(--neon-cyan)] transition-colors">{song.songName}</div>
+Line 1480 | Depth:  7 | <VideoLink url={song.youtubeUrl} />
+Line 1481 | Depth:  6 | </div>
+Line 1482 | Depth:  7 | <div className="flex items-center justify-between">
+Line 1483 | Depth:  7 | <span className="text-xs font-black text-[var(--neon-pink)] uppercase tracking-widest font-righteous">@{song.participantName}</span>
+Line 1484 | Depth:  7 | <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">POS_{i + 1}</span>
+Line 1485 | Depth:  6 | </div>
+Line 1486 | Depth:  5 | </div>
+Line 1487 | Depth:  5 | ))}
+Line 1488 | Depth:  4 | </div>
+Line 1489 | Depth:  3 | </div>
+Line 1490 | Depth:  3 | ));
+Line 1491 | Depth:  3 | })()}
+Line 1492 | Depth:  2 | </div>
+Line 1493 | Depth:  2 | </section>
+Line 1494 | Depth:  1 | </div>
+Line 1495 | Depth:  1 | )
+Line 1496 | Depth:  1 | }
+Line 1497 | Depth:  1 | 
+Line 1498 | Depth:  1 | {
+Line 1499 | Depth:  1 | activeTab === 'LIBRARY' && (
+Line 1500 | Depth:  1 | <section className="animate-in fade-in slide-in-from-bottom-2 space-y-10 pb-32">
+Line 1501 | Depth:  2 | <div className="sticky top-0 z-40 pt-4 -mt-4">
+Line 1502 | Depth:  3 | <div className="relative group p-1 rounded-[2.5rem] bg-[#050510]/90 shadow-2xl backdrop-blur-xl border border-white/10">
+Line 1503 | Depth:  3 | <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-pink)]/20 via-[var(--neon-purple)]/20 to-[var(--neon-cyan)]/20 blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
+Line 1504 | Depth:  3 | <input
+Line 1505 | Depth:  3 | type="text"
+Line 1506 | Depth:  3 | placeholder="SCANNING GLOBAL SONGBOOK..."
+Line 1507 | Depth:  3 | value={librarySearchQuery}
+Line 1508 | Depth:  3 | onChange={(e) => setLibrarySearchQuery(e.target.value)}
+Line 1509 | Depth:  3 | className="w-full bg-black/50 border-2 border-white/10 rounded-[2.3rem] py-6 pl-16 pr-32 text-2xl font-bold tracking-widest text-white placeholder:text-slate-600 focus:outline-none focus:border-[var(--neon-pink)] transition-all font-righteous uppercase"
+Line 1510 | Depth:  3 | />
+Line 1511 | Depth:  3 | <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-[var(--neon-pink)] transition-colors pointer-events-none">
+Line 1512 | Depth:  3 | <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+Line 1513 | Depth:  3 | </span>
+Line 1514 | Depth:  4 | <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-2">
+Line 1515 | Depth:  4 | <button
+Line 1516 | Depth:  4 | onClick={() => setIsAddingVerifiedSong(true)}
+Line 1517 | Depth:  4 | className="px-6 py-3 bg-[var(--neon-cyan)] text-black rounded-[2rem] font-black text-base uppercase tracking-widest shadow-[0_0_15px_rgba(0,229,255,0.4)] active:scale-95 transition-all font-righteous hover:bg-white hover:scale-105"
+Line 1518 | Depth:  4 | >
+Line 1519 | Depth:  4 | + ADD NEW
+Line 1520 | Depth:  4 | </button>
+Line 1521 | Depth:  3 | </div>
+Line 1522 | Depth:  2 | </div>
+Line 1523 | Depth:  1 | </div>
+Line 1524 | Depth:  1 | 
+Line 1525 | Depth:  2 | <div className="flex flex-col gap-3">
+Line 1526 | Depth:  2 | {(() => {
+Line 1527 | Depth:  2 | const verified = (session?.verifiedSongbook || []).map(v => ({
+Line 1528 | Depth:  2 | ...v,
+Line 1529 | Depth:  2 | isVerified: true,
+Line 1530 | Depth:  2 | title: v.songName,
+Line 1531 | Depth:  2 | source: 'VERIFIED'
+Line 1532 | Depth:  2 | }));
+Line 1533 | Depth:  2 | 
+Line 1534 | Depth:  2 | const combined = verified.filter(song => {
+Line 1535 | Depth:  2 | if (!librarySearchQuery) return true;
+Line 1536 | Depth:  2 | const query = librarySearchQuery.toLowerCase();
+Line 1537 | Depth:  2 | return song.title.toLowerCase().includes(query) || song.artist.toLowerCase().includes(query);
+Line 1538 | Depth:  2 | });
+Line 1539 | Depth:  2 | 
+Line 1540 | Depth:  2 | if (combined.length === 0) {
+Line 1541 | Depth:  2 | return (
+Line 1542 | Depth:  3 | <div className="col-span-full text-center py-40 opacity-30 border-4 border-dashed border-white/5 rounded-[4rem]">
+Line 1543 | Depth:  3 | <div className="text-8xl mb-6 opacity-50 grayscale animate-pulse">{librarySearchQuery ? '🚫' : '📡'}</div>
+Line 1544 | Depth:  3 | <p className="text-5xl font-black uppercase tracking-[0.5em] font-righteous text-slate-600">{librarySearchQuery ? 'NO MATCH FOUND' : 'DATABASE OFFLINE'}</p>
+Line 1545 | Depth:  2 | </div>
+Line 1546 | Depth:  2 | );
+Line 1547 | Depth:  2 | }
+Line 1548 | Depth:  2 | 
+Line 1549 | Depth:  2 | return combined.map((song, idx) => (
+Line 1550 | Depth:  3 | <div key={idx} className="bg-[#101015] border-2 border-white/5 p-4 rounded-[2rem] flex items-center justify-between group hover:border-[var(--neon-cyan)] transition-all relative hover:z-50 shadow-lg">
+Line 1551 | Depth:  4 | <div className="flex items-center gap-6 flex-1 min-w-0">
+Line 1552 | Depth:  4 | <div className="w-12 h-12 flex items-center justify-center bg-black rounded-lg border border-white/10 text-[var(--neon-cyan)] text-2xl">💿</div>
+Line 1553 | Depth:  5 | <div className="min-w-0 pr-4">
+Line 1554 | Depth:  6 | <div className="flex items-center gap-3">
+Line 1555 | Depth:  6 | {song.isVerified && (
+Line 1556 | Depth:  6 | <div className="px-2 py-0.5 bg-[var(--neon-pink)] text-black rounded-full text-[10px] font-black uppercase tracking-widest font-righteous shrink-0">VERIFIED</div>
+Line 1557 | Depth:  6 | )}
+Line 1558 | Depth:  6 | <h4 className="text-3xl font-black text-white uppercase truncate tracking-tighter font-bungee group-hover:text-[var(--neon-cyan)] transition-colors">{song.title}</h4>
+Line 1559 | Depth:  6 | <span className="text-base text-slate-600 font-bold uppercase font-righteous tracking-widest truncate">/ {song.artist}</span>
+Line 1560 | Depth:  5 | </div>
+Line 1561 | Depth:  4 | </div>
+Line 1562 | Depth:  3 | </div>
+Line 1563 | Depth:  3 | 
+Line 1564 | Depth:  4 | <div className="flex items-center gap-4 shrink-0">
+Line 1565 | Depth:  5 | <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+Line 1566 | Depth:  5 | <CopyButton request={song as any} />
+Line 1567 | Depth:  5 | <YouTubeSearchButton request={song as any} />
+Line 1568 | Depth:  5 | <VideoLink url={(song as any).youtubeUrl} />
+Line 1569 | Depth:  5 | <button
+Line 1570 | Depth:  5 | onClick={async () => { await deleteVerifiedSong(song.id).then(refresh); }}
+Line 1571 | Depth:  5 | className="p-2 text-rose-500/20 hover:text-rose-500 transition-all text-xl"
+Line 1572 | Depth:  5 | >✕</button>
+Line 1573 | Depth:  4 | </div>
+Line 1574 | Depth:  5 | <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5 ml-4">
+Line 1575 | Depth:  6 | <div className="relative group/assign">
+Line 1576 | Depth:  6 | <button className="px-6 py-2.5 bg-white text-black text-sm font-black uppercase rounded-lg hover:bg-[var(--neon-cyan)] transition-all font-righteous tracking-wider">
+Line 1577 | Depth:  6 | ASSIGN
+Line 1578 | Depth:  6 | </button>
+Line 1579 | Depth:  7 | <div className="absolute bottom-full right-0 mb-4 bg-[#0a0a0a] border-2 border-[var(--neon-cyan)]/30 rounded-[1.5rem] shadow-2xl opacity-0 invisible group-hover/assign:opacity-100 group-hover/assign:visible transition-all p-4 z-50 backdrop-blur-xl w-[200px]">
+Line 1580 | Depth:  7 | <p className="text-base text-[var(--neon-cyan)] font-black uppercase mb-3 border-b border-white/10 pb-2 font-righteous tracking-widest">TRANSMIT TO:</p>
+Line 1581 | Depth:  8 | <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+Line 1582 | Depth:  8 | {session.participants.map(p => (
+Line 1583 | Depth:  8 | <button
+Line 1584 | Depth:  8 | key={p.id}
+Line 1585 | Depth:  8 | onClick={async () => { const req = await addRequest({ participantId: p.id, participantName: p.name, songName: song.title, artist: song.artist, youtubeUrl: (song as any).youtubeUrl, type: RequestType.SINGING }); if (req) await approveRequest(req.id); await refresh(); }}
+Line 1586 | Depth:  8 | className="w-full text-left p-2 rounded-lg hover:bg-white/10 hover:text-[var(--neon-cyan)] text-lg font-black text-slate-400 uppercase truncate font-righteous transition-all"
+Line 1587 | Depth:  8 | >
+Line 1588 | Depth:  8 | {p.name}
+Line 1589 | Depth:  8 | </button>
+Line 1590 | Depth:  8 | ))}
+Line 1591 | Depth:  8 | <div className="h-[1px] bg-white/10 my-2" />
+Line 1592 | Depth:  8 | <button
+Line 1593 | Depth:  8 | onClick={async () => { const req = await addRequest({ participantId: 'DJ-MANUAL', participantName: 'GUEST', songName: song.title, artist: song.artist, youtubeUrl: (song as any).youtubeUrl, type: RequestType.SINGING }); if (req) await approveRequest(req.id); await refresh(); }}
+Line 1594 | Depth:  8 | className="w-full text-left p-2 rounded-lg bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)] hover:text-black text-sm font-black uppercase font-righteous transition-all"
+Line 1595 | Depth:  8 | >
+Line 1596 | Depth:  8 | + GUEST
+Line 1597 | Depth:  8 | </button>
+Line 1598 | Depth:  7 | </div>
+Line 1599 | Depth:  6 | </div>
+Line 1600 | Depth:  5 | </div>
+Line 1601 | Depth:  5 | 
+Line 1602 | Depth:  6 | <div className="relative group/star">
+Line 1603 | Depth:  6 | <button className="px-4 py-2.5 bg-black border border-white/10 text-[var(--neon-pink)] rounded-lg font-black text-sm uppercase tracking-widest hover:border-[var(--neon-pink)] transition-all font-righteous">★</button>
+Line 1604 | Depth:  7 | <div className="absolute bottom-full right-0 mb-4 bg-[#0a0a0a] border-2 border-[var(--neon-pink)]/30 rounded-[1.5rem] shadow-2xl opacity-0 invisible group-hover/star:opacity-100 group-hover/star:visible transition-all p-4 z-50 backdrop-blur-xl w-[180px]">
+Line 1605 | Depth:  7 | <p className="text-base text-[var(--neon-pink)] font-black uppercase mb-3 border-b border-white/10 pb-2 font-righteous tracking-widest">ADD FAVORITE:</p>
+Line 1606 | Depth:  8 | <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+Line 1607 | Depth:  8 | {session.participants.map(p => (
+Line 1608 | Depth:  8 | <button
+Line 1609 | Depth:  8 | key={p.id}
+Line 1610 | Depth:  8 | onClick={async () => { await addUserFavorite(p.id, { songName: song.title, artist: song.artist, youtubeUrl: (song as any).youtubeUrl, type: song.type as RequestType }); await refresh(); }}
+Line 1611 | Depth:  8 | className="w-full text-left p-2 rounded-lg hover:bg-white/10 hover:text-[var(--neon-pink)] text-lg font-black text-slate-400 uppercase truncate font-righteous transition-all"
+Line 1612 | Depth:  8 | >
+Line 1613 | Depth:  8 | {p.name}
+Line 1614 | Depth:  8 | </button>
+Line 1615 | Depth:  8 | ))}
+Line 1616 | Depth:  7 | </div>
+Line 1617 | Depth:  6 | </div>
+Line 1618 | Depth:  5 | </div>
+Line 1619 | Depth:  4 | </div>
+Line 1620 | Depth:  3 | </div>
+Line 1621 | Depth:  2 | </div>
+Line 1622 | Depth:  2 | ));
+Line 1623 | Depth:  2 | })()}
+Line 1624 | Depth:  1 | </div>
+Line 1625 | Depth:  1 | </section>
+Line 1626 | Depth:  1 | )
+Line 1627 | Depth:  1 | }
+Line 1628 | Depth:  1 | </main >
+Line 1629 | Depth:  1 | 
+Line 1630 | Depth:  1 | {showRoundConfirm && (
+Line 1631 | Depth:  2 | <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-6 z-[100] backdrop-blur-xl animate-in fade-in duration-300">
+Line 1632 | Depth:  3 | <div className="w-full max-w-2xl bg-[#0a0a0a] border-4 border-[var(--neon-pink)]/30 rounded-[3rem] p-10 shadow-[0_0_100px_rgba(255,42,109,0.2)] animate-in zoom-in-95 duration-500 relative overflow-hidden">
+Line 1633 | Depth:  4 | <div className="flex justify-between items-start mb-8">
+Line 1634 | Depth:  4 | <h2 className="text-5xl font-bold text-white uppercase tracking-tight leading-none font-bungee neon-glow-pink">REVIEW LINEUP</h2>
+Line 1635 | Depth:  4 | <button onClick={() => setShowRoundConfirm(false)} className="text-slate-600 hover:text-white font-bold text-5xl px-2 transition-all transform hover:scale-110">✕</button>
+Line 1636 | Depth:  3 | </div>
+Line 1637 | Depth:  3 | <div className="mb-8 text-lg text-[var(--neon-cyan)] font-bold uppercase tracking-widest font-righteous opacity-80 decoration-dotted underline underline-offset-4">OPERATIONAL READY CHECK</div>
+Line 1638 | Depth:  3 | 
+Line 1639 | Depth:  4 | <div className="space-y-4 mb-10 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
+Line 1640 | Depth:  4 | {(() => {
+Line 1641 | Depth:  4 | const singingParticipants = session.participants
+Line 1642 | Depth:  4 | .filter(p => session.requests?.some(r => r.participantId === p.id && r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING && !r.isInRound))
+Line 1643 | Depth:  4 | .sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0)); // Visual sort, actual sort happens in generateRound
+Line 1644 | Depth:  4 | 
+Line 1645 | Depth:  4 | // If we have singers, show them
+Line 1646 | Depth:  4 | if (singingParticipants.length > 0) {
+Line 1647 | Depth:  4 | return singingParticipants.map(p => {
+Line 1648 | Depth:  4 | const isReady = p.status === ParticipantStatus.READY;
+Line 1649 | Depth:  4 | const song = session.requests?.find(r =>
+Line 1650 | Depth:  4 | r.participantId === p.id &&
+Line 1651 | Depth:  4 | r.status === RequestStatus.APPROVED &&
+Line 1652 | Depth:  4 | r.type === RequestType.SINGING &&
+Line 1653 | Depth:  4 | !r.isInRound
+Line 1654 | Depth:  4 | );
+Line 1655 | Depth:  4 | 
+Line 1656 | Depth:  4 | return (
+Line 1657 | Depth:  5 | <div key={p.id} className={`flex items-center justify-between p-4 rounded-[1.5rem] border-2 transition-all duration-300 ${isReady ? 'bg-[#150030] border-[var(--neon-green)] shadow-[0_0_20px_rgba(57,255,20,0.15)]' : 'bg-black/40 border-white/5 opacity-50'}`}>
+Line 1658 | Depth:  6 | <div className="flex items-center gap-4 min-w-0">
+Line 1659 | Depth:  6 | <button
+Line 1660 | Depth:  6 | onClick={async () => { await updateParticipantStatus(p.id, isReady ? ParticipantStatus.STANDBY : ParticipantStatus.READY); await refresh(); }}
+Line 1661 | Depth:  6 | className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center transition-all border-2 ${isReady ? 'bg-[var(--neon-green)] border-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-slate-900 border-white/10 hover:border-slate-600'}`}
+Line 1662 | Depth:  6 | >
+Line 1663 | Depth:  6 | {isReady && <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>}
+Line 1664 | Depth:  6 | </button>
+Line 1665 | Depth:  7 | <div className="min-w-0">
+Line 1666 | Depth:  7 | <div className={`font-bold uppercase text-2xl truncate tracking-tight font-bungee ${isReady ? 'text-white' : 'text-slate-600'}`}>{p.name}</div>
+Line 1667 | Depth:  7 | {isReady ? (
+Line 1668 | Depth:  7 | song ? (
+Line 1669 | Depth:  8 | <div className="text-[var(--neon-cyan)] text-base font-black uppercase tracking-[0.2em] font-righteous mt-0.5 opacity-90">
+Line 1670 | Depth:  8 | {song.songName}
+Line 1671 | Depth:  7 | </div>
+Line 1672 | Depth:  7 | ) : (
+Line 1673 | Depth:  7 | <div className="text-rose-500 text-sm font-black uppercase tracking-[0.1em] font-righteous mt-0.5">⚠️ NO SIGNAL</div>
+Line 1674 | Depth:  7 | )
+Line 1675 | Depth:  7 | ) : (
+Line 1676 | Depth:  7 | <div className="text-slate-700 text-sm font-black uppercase tracking-[0.2em] font-righteous mt-0.5">STANDBY</div>
+Line 1677 | Depth:  7 | )}
+Line 1678 | Depth:  6 | </div>
+Line 1679 | Depth:  5 | </div>
+Line 1680 | Depth:  5 | {isReady && song && <div className="shrink-0 text-sm bg-[var(--neon-cyan)] text-black px-4 py-1.5 rounded-full font-black uppercase tracking-widest font-righteous shadow-[0_0_10px_var(--neon-cyan)] animate-in fade-in zoom-in">READY</div>}
+Line 1681 | Depth:  4 | </div>
+Line 1682 | Depth:  4 | );
+Line 1683 | Depth:  4 | });
+Line 1684 | Depth:  4 | } else {
+Line 1685 | Depth:  4 | // Show Listening Requests Fallback
+Line 1686 | Depth:  4 | const listening = session.requests?.filter(r =>
+Line 1687 | Depth:  4 | r.status === RequestStatus.APPROVED && r.type === RequestType.LISTENING && !r.isInRound
+Line 1688 | Depth:  4 | ).sort((a, b) => a.createdAt - b.createdAt).slice(0, 5) || [];
+Line 1689 | Depth:  4 | 
+Line 1690 | Depth:  4 | if (listening.length > 0) {
+Line 1691 | Depth:  4 | return (
+Line 1692 | Depth:  5 | <div className="space-y-4">
+Line 1693 | Depth:  6 | <div className="p-4 bg-white/5 rounded-xl border border-dashed border-white/10 text-center">
+Line 1694 | Depth:  6 | <p className="text-[var(--neon-blue)] font-black uppercase tracking-widest font-righteous">FALLBACK: LISTENING MODE</p>
+Line 1695 | Depth:  5 | </div>
+Line 1696 | Depth:  5 | {listening.map(song => (
+Line 1697 | Depth:  6 | <div key={song.id} className="flex items-center justify-between p-4 rounded-[1.5rem] border-2 bg-[#0a0a20] border-[var(--neon-blue)]/30">
+Line 1698 | Depth:  7 | <div className="min-w-0">
+Line 1699 | Depth:  7 | <div className="text-[var(--neon-blue)] text-xl font-black uppercase tracking-tight font-bungee">{song.songName}</div>
+Line 1700 | Depth:  7 | <div className="text-slate-500 text-sm font-bold uppercase tracking-widest font-righteous">{song.artist}</div>
+Line 1701 | Depth:  6 | </div>
+Line 1702 | Depth:  6 | <div className="text-xs font-black uppercase tracking-widest text-[var(--neon-pink)] font-righteous">@{song.participantName}</div>
+Line 1703 | Depth:  5 | </div>
+Line 1704 | Depth:  5 | ))}
+Line 1705 | Depth:  4 | </div>
+Line 1706 | Depth:  4 | );
+Line 1707 | Depth:  4 | }
+Line 1708 | Depth:  4 | 
+Line 1709 | Depth:  4 | return (
+Line 1710 | Depth:  5 | <div className="text-center py-24 bg-black/20 rounded-[2.5rem] border-4 border-dashed border-white/5 animate-in fade-in duration-700">
+Line 1711 | Depth:  5 | <p className="text-slate-700 text-2xl font-black uppercase tracking-[0.4em] font-righteous">NO DATA</p>
+Line 1712 | Depth:  4 | </div>
+Line 1713 | Depth:  4 | );
+Line 1714 | Depth:  4 | }
+Line 1715 | Depth:  4 | })()}
+Line 1716 | Depth:  3 | </div>
+Line 1717 | Depth:  3 | 
+Line 1718 | Depth:  4 | <div className="flex gap-4">
+Line 1719 | Depth:  4 | <button onClick={() => setShowRoundConfirm(false)} className="flex-1 py-4 bg-black hover:bg-white hover:text-black text-white border border-white/10 rounded-xl font-black uppercase text-base tracking-widest transition-all font-righteous">CANCEL</button>
+Line 1720 | Depth:  4 | {(() => {
+Line 1721 | Depth:  4 | const singingEligible = session.participants.filter(p =>
+Line 1722 | Depth:  4 | session.requests?.some(r => r.participantId === p.id && r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING && !r.isInRound)
+Line 1723 | Depth:  4 | ).length;
+Line 1724 | Depth:  4 | 
+Line 1725 | Depth:  4 | const listeningEligible = session.requests?.filter(r =>
+Line 1726 | Depth:  4 | r.status === RequestStatus.APPROVED && r.type === RequestType.LISTENING && !r.isInRound
+Line 1727 | Depth:  4 | ).length || 0;
+Line 1728 | Depth:  4 | 
+Line 1729 | Depth:  4 | const eligibleCount = singingEligible > 0 ? singingEligible : listeningEligible;
+Line 1730 | Depth:  4 | const modeLabel = singingEligible > 0 ? 'ACTIVATE ROUND' : 'ACTIVATE LISTENING';
+Line 1731 | Depth:  4 | 
+Line 1732 | Depth:  4 | return (
+Line 1733 | Depth:  4 | <button
+Line 1734 | Depth:  4 | onClick={handleConfirmRound}
+Line 1735 | Depth:  4 | disabled={eligibleCount === 0}
+Line 1736 | Depth:  4 | className={`flex-[2] py-4 rounded-xl font-black uppercase text-base tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg font-righteous ${eligibleCount > 0 ? 'bg-[var(--neon-green)] hover:bg-white hover:text-black text-black hover:scale-105' : 'bg-slate-900 text-slate-800 cursor-not-allowed border border-white/5'}`}
+Line 1737 | Depth:  4 | >
+Line 1738 | Depth:  4 | {eligibleCount > 0 ? (
+Line 1739 | Depth:  4 | <>
+Line 1740 | Depth:  4 | <div className="w-1.5 h-1.5 bg-current rounded-full animate-ping"></div>
+Line 1741 | Depth:  4 | {modeLabel} ({eligibleCount})
+Line 1742 | Depth:  4 | </>
+Line 1743 | Depth:  4 | ) : 'IDLE'}
+Line 1744 | Depth:  4 | </button>
+Line 1745 | Depth:  4 | );
+Line 1746 | Depth:  4 | })()}
+Line 1747 | Depth:  3 | </div>
+Line 1748 | Depth:  3 | {/* Queue Strategy Selector */}
+Line 1749 | Depth:  4 | <div className="bg-[#151520] p-6 rounded-[2rem] border border-white/5 mt-8">
+Line 1750 | Depth:  4 | <h3 className="text-xl font-black text-white uppercase tracking-widest font-righteous mb-4 flex items-center gap-3">
+Line 1751 | Depth:  4 | <span className="text-[var(--neon-purple)]">⚖️</span> Priority Protocol
+Line 1752 | Depth:  4 | </h3>
+Line 1753 | Depth:  5 | <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+Line 1754 | Depth:  5 | {Object.values(QueueStrategy).map((strat) => (
+Line 1755 | Depth:  5 | <button
+Line 1756 | Depth:  5 | key={strat}
+Line 1757 | Depth:  5 | onClick={() => {
+Line 1758 | Depth:  5 | setQueueStrategy(strat);
+Line 1759 | Depth:  5 | // refresh(); // Optimistic update usually handled by listener, but refresh good to sync
+Line 1760 | Depth:  5 | }}
+Line 1761 | Depth:  5 | className={`p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden group ${session.queueStrategy === strat
+Line 1762 | Depth:  5 | ? 'bg-[var(--neon-purple)]/20 border-[var(--neon-purple)] text-white shadow-[0_0_15px_var(--neon-purple)]'
+Line 1763 | Depth:  5 | : 'bg-black/40 border-white/5 text-slate-500 hover:border-white/20 hover:text-slate-300'
+Line 1764 | Depth:  5 | }`}
+Line 1765 | Depth:  5 | >
+Line 1766 | Depth:  6 | <div className="font-bold font-righteous uppercase tracking-wider relative z-10">
+Line 1767 | Depth:  6 | {strat.replace('_', ' ')}
+Line 1768 | Depth:  5 | </div>
+Line 1769 | Depth:  6 | <div className="text-[10px] uppercase font-mono mt-1 opacity-60 relative z-10">
+Line 1770 | Depth:  6 | {strat === 'FRESH_MEAT' && "New Singers First"}
+Line 1771 | Depth:  6 | {strat === 'FAIR_ROTATION' && "Fewest Songs + Oldest Wait"}
+Line 1772 | Depth:  6 | {strat === 'FIFO' && "Strict First In First Out"}
+Line 1773 | Depth:  6 | {strat === 'OLDEST_MEMBER' && "Oldest Singers First"}
+Line 1774 | Depth:  6 | {strat === 'RANDOM' && "Chaotic Shuffle"}
+Line 1775 | Depth:  5 | </div>
+Line 1776 | Depth:  5 | {session.queueStrategy === strat && (
+Line 1777 | Depth:  5 | <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[var(--neon-green)] animate-pulse"></div>
+Line 1778 | Depth:  5 | )}
+Line 1779 | Depth:  5 | </button>
+Line 1780 | Depth:  5 | ))}
+Line 1781 | Depth:  4 | </div>
+Line 1782 | Depth:  3 | </div>
+Line 1783 | Depth:  2 | </div>
+Line 1784 | Depth:  1 | </div>
+Line 1785 | Depth:  1 | )}
+Line 1786 | Depth:  1 | 
+Line 1787 | Depth:  1 | 
+Line 1788 | Depth:  1 | {
+Line 1789 | Depth:  1 | showResetConfirm && (
+Line 1790 | Depth:  2 | <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-300">
+Line 1791 | Depth:  3 | <div className="w-full max-w-md bg-[#050510] border-4 border-rose-500/30 rounded-[3rem] p-10 text-center shadow-[0_0_100px_rgba(244,63,94,0.3)] animate-in zoom-in-95 duration-300 relative overflow-hidden">
+Line 1792 | Depth:  3 | <div className="absolute top-0 left-0 w-full h-1 bg-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.8)]"></div>
+Line 1793 | Depth:  3 | <div className="w-20 h-20 bg-rose-500/10 text-rose-500 rounded-[2rem] border-2 border-rose-500/20 flex items-center justify-center mx-auto mb-6 text-4xl font-black shadow-[0_0_30px_rgba(244,63,94,0.2)] animate-pulse">🧹</div>
+Line 1794 | Depth:  3 | <h2 className="text-5xl font-black text-white uppercase mb-4 tracking-tight font-bungee neon-text-glow-rose">SYSTEM RESET</h2>
+Line 1795 | Depth:  3 | <p className="text-slate-400 text-lg mb-8 leading-relaxed font-black font-righteous uppercase tracking-widest">
+Line 1796 | Depth:  3 | This will <span className="text-rose-500 underline decoration-2 underline-offset-4 decoration-rose-500">TERMINATE ALL SESSIONS</span>, clear requests, and wipe history logs.
+Line 1797 | Depth:  3 | </p>
+Line 1798 | Depth:  4 | <div className="flex gap-4">
+Line 1799 | Depth:  4 | <button onClick={() => setShowResetConfirm(false)} className="flex-1 py-4 bg-black border-2 border-white/10 text-white rounded-xl text-base font-black uppercase tracking-widest font-righteous transition-all hover:bg-white/5">ABORT</button>
+Line 1800 | Depth:  4 | <button onClick={handleConfirmReset} className="flex-[2] py-4 bg-rose-500 text-white rounded-xl text-base font-black uppercase tracking-widest font-righteous shadow-[0_0_30px_rgba(244,63,94,0.4)] transition-all hover:bg-rose-400 hover:scale-105">EXECUTE WIPE</button>
+Line 1801 | Depth:  3 | </div>
+Line 1802 | Depth:  2 | </div>
+Line 1803 | Depth:  1 | </div>
+Line 1804 | Depth:  1 | )
+Line 1805 | Depth:  1 | }
+Line 1806 | Depth:  1 | 
+Line 1807 | Depth:  1 | {
+Line 1808 | Depth:  1 | (showUserManager || managedProfile) && (
+Line 1809 | Depth:  2 | <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[70] backdrop-blur-3xl animate-in fade-in duration-300">
+Line 1810 | Depth:  3 | <div className="w-full max-w-6xl bg-[#0a0a0a] border-4 border-white/10 rounded-[4rem] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] flex flex-col max-h-[90vh] relative">
+Line 1811 | Depth:  3 | <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
+Line 1812 | Depth:  4 | <div className="p-8 border-b-2 border-white/5 flex justify-between items-center bg-black/40 backdrop-blur-xl">
+Line 1813 | Depth:  5 | <div>
+Line 1814 | Depth:  5 | <h2 className="text-5xl font-black text-white font-bungee uppercase tracking-tight neon-glow-purple">User Directory</h2>
+Line 1815 | Depth:  5 | <p className="text-base text-[var(--neon-cyan)] uppercase font-black tracking-[0.3em] font-righteous opacity-80 mt-1">Authenticated Identities & Signal History</p>
+Line 1816 | Depth:  4 | </div>
+Line 1817 | Depth:  5 | <div className="flex gap-3">
+Line 1818 | Depth:  5 | {managedProfile && (
+Line 1819 | Depth:  5 | <button onClick={() => setManagedProfile(null)} className="px-6 py-3 bg-black border border-white/10 text-white rounded-xl text-sm font-black uppercase tracking-widest font-righteous hover:bg-white/10 transition-all">← ALL ACCOUNTS</button>
+Line 1820 | Depth:  5 | )}
+Line 1821 | Depth:  5 | <button
+Line 1822 | Depth:  5 | onClick={() => setIsCreatingProfile(true)}
+Line 1823 | Depth:  5 | className="px-6 py-3 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all hover:scale-105"
+Line 1824 | Depth:  5 | >
+Line 1825 | Depth:  5 | + NEW ACCOUNT
+Line 1826 | Depth:  5 | </button>
+Line 1827 | Depth:  5 | <button onClick={closeModals} className="text-slate-600 hover:text-white p-2 ml-2 font-black text-4xl transition-colors transform hover:scale-110">✕</button>
+Line 1828 | Depth:  4 | </div>
+Line 1829 | Depth:  3 | </div>
+Line 1830 | Depth:  3 | 
+Line 1831 | Depth:  4 | <div className="p-6 border-b-2 border-white/5 bg-black/20">
+Line 1832 | Depth:  5 | <div className="relative group max-w-2xl mx-auto">
+Line 1833 | Depth:  5 | <input
+Line 1834 | Depth:  5 | type="text"
+Line 1835 | Depth:  5 | placeholder="SCANNING DIRECTORY RECORDS..."
+Line 1836 | Depth:  5 | value={directorySearch}
+Line 1837 | Depth:  5 | onChange={(e) => setDirectorySearch(e.target.value)}
+Line 1838 | Depth:  5 | className="w-full bg-[#050510] border-2 border-white/10 rounded-2xl px-10 py-4 text-white font-black uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all shadow-inner placeholder:text-slate-700 text-xl"
+Line 1839 | Depth:  5 | />
+Line 1840 | Depth:  5 | <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700 group-focus-within:text-[var(--neon-pink)] transition-colors">
+Line 1841 | Depth:  5 | <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+Line 1842 | Depth:  5 | </span>
+Line 1843 | Depth:  4 | </div>
+Line 1844 | Depth:  3 | </div>
+Line 1845 | Depth:  3 | 
+Line 1846 | Depth:  4 | <div className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar bg-black/20">
+Line 1847 | Depth:  4 | {managedProfile ? (
+Line 1848 | Depth:  5 | <div className="animate-in slide-in-from-right-4 duration-500 grid lg:grid-cols-12 gap-8">
+Line 1849 | Depth:  6 | <div className="lg:col-span-4 space-y-6">
+Line 1850 | Depth:  7 | <div className="bg-[#101015] border-2 border-white/5 rounded-[3rem] p-8 shadow-2xl relative overflow-hidden group hover:border-[var(--neon-purple)] transition-all">
+Line 1851 | Depth:  7 | <div className="absolute top-0 right-0 w-48 h-48 bg-[var(--neon-purple)]/10 blur-[60px] rounded-full -mr-24 -mt-24 group-hover:bg-[var(--neon-purple)]/20 transition-all" />
+Line 1852 | Depth:  8 | <div className="relative z-10 flex flex-col items-center text-center">
+Line 1853 | Depth:  9 | <div className="scale-125 mb-4">
+Line 1854 | Depth:  9 | <UserAvatar name={managedProfile.name} isActive={session.participants.some(p => p.id === managedProfile.id)} />
+Line 1855 | Depth:  8 | </div>
+Line 1856 | Depth:  9 | <div className="mt-4">
+Line 1857 | Depth:  9 | <div className="text-sm font-bold text-[var(--neon-cyan)] uppercase tracking-widest mb-2 font-righteous">AUTHENTICATED IDENTITY</div>
+Line 1858 | Depth:  9 | <h3 className="text-5xl font-bold text-white uppercase tracking-tight leading-none font-bungee break-words">{managedProfile.name}</h3>
+Line 1859 | Depth:  8 | </div>
+Line 1860 | Depth:  8 | 
+Line 1861 | Depth:  9 | <div className="w-full mt-8 space-y-3 pt-6 border-t border-white/5">
+Line 1862 | Depth: 10 | <div className="flex justify-between items-center text-sm uppercase font-black font-righteous tracking-widest">
+Line 1863 | Depth: 10 | <span className="text-slate-600">ID SIGNATURE</span>
+Line 1864 | Depth: 10 | <span className="text-[var(--neon-pink)] font-mono opacity-80">{managedProfile.id.slice(0, 8)}...</span>
+Line 1865 | Depth:  9 | </div>
+Line 1866 | Depth: 10 | <div className="flex justify-between items-center text-sm uppercase font-black font-righteous tracking-widest">
+Line 1867 | Depth: 10 | <span className="text-slate-600">ENCRYPTION</span>
+Line 1868 | Depth: 10 | <span className={`px-2 py-0.5 rounded-full ${managedProfile.password ? 'bg-[var(--neon-pink)]/10 text-[var(--neon-pink)]' : 'bg-slate-900 text-slate-600'}`}>
+Line 1869 | Depth: 10 | {managedProfile.password ? 'SECURE PIN' : 'OPEN LINK'}
+Line 1870 | Depth: 10 | </span>
+Line 1871 | Depth:  9 | </div>
+Line 1872 | Depth:  8 | </div>
+Line 1873 | Depth:  8 | 
+Line 1874 | Depth:  9 | <div className="w-full mt-10 space-y-3">
+Line 1875 | Depth:  9 | <button onClick={() => startChangePassword(managedProfile)} className="w-full py-3 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous">MODIFY SECURITY</button>
+Line 1876 | Depth:  9 | <button onClick={async () => { await joinSession(managedProfile.id); await refresh(); }} className="w-full py-3 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)] font-righteous hover:bg-white">FORCE RE-JOIN</button>
+Line 1877 | Depth:  9 | <button onClick={() => setQrTargetUser(managedProfile)} className="w-full py-3 bg-white/5 border border-white/10 hover:border-[var(--neon-cyan)] text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous hover:bg-white/10">GENERATE SINC QR</button>
+Line 1878 | Depth:  9 | 
+Line 1879 | Depth:  8 | </div>
+Line 1880 | Depth:  7 | </div>
+Line 1881 | Depth:  6 | </div>
+Line 1882 | Depth:  5 | </div>
+Line 1883 | Depth:  5 | 
+Line 1884 | Depth:  6 | <div className="lg:col-span-8 space-y-6">
+Line 1885 | Depth:  7 | <div className="grid md:grid-cols-2 gap-6">
+Line 1886 | Depth:  8 | <div className="bg-[#101015] border-2 border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden">
+Line 1887 | Depth:  8 | <h4 className="text-sm font-black text-[var(--neon-pink)] uppercase tracking-[0.3em] mb-6 font-righteous">LIBRARY STARS ({managedProfile.favorites.length})</h4>
+Line 1888 | Depth:  9 | <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+Line 1889 | Depth:  9 | {managedProfile.favorites.map(fav => (
+Line 1890 | Depth: 10 | <div key={fav.id} className="bg-black/40 border border-white/5 p-4 rounded-xl flex justify-between items-center group hover:border-[var(--neon-pink)] transition-all">
+Line 1891 | Depth: 11 | <div className="min-w-0 pr-4">
+Line 1892 | Depth: 11 | <div className="text-xl font-black text-white truncate uppercase tracking-tight font-righteous group-hover:text-[var(--neon-pink)] transition-colors">{fav.songName}</div>
+Line 1893 | Depth: 11 | <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-0.5 font-righteous opacity-60">{fav.artist}</div>
+Line 1894 | Depth: 10 | </div>
+Line 1895 | Depth: 11 | <div className="flex gap-2 shrink-0">
+Line 1896 | Depth: 11 | <button onClick={async () => { await addRequest({ participantId: managedProfile!.id, participantName: managedProfile!.name, songName: fav.songName, artist: fav.artist, youtubeUrl: fav.youtubeUrl, type: fav.type }); await refresh(); }} className="px-3 py-1.5 bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] rounded-lg text-xs font-black uppercase font-righteous hover:bg-[var(--neon-cyan)] hover:text-black transition-all">ADD</button>
+Line 1897 | Depth: 11 | <button onClick={() => setProfileItemToEdit({ type: 'favorite', itemId: fav.id })} className="p-1.5 text-slate-700 hover:text-white transition-colors">✏️</button>
+Line 1898 | Depth: 11 | <button onClick={async () => { await removeUserFavorite(managedProfile!.id, fav.id); await refresh(); }} className="p-1.5 text-rose-500/30 hover:text-rose-500 transition-colors">✕</button>
+Line 1899 | Depth: 10 | </div>
+Line 1900 | Depth:  9 | </div>
+Line 1901 | Depth:  9 | ))}
+Line 1902 | Depth:  9 | {managedProfile.favorites.length === 0 && <div className="flex flex-col items-center py-20 opacity-20"><span className="text-4xl mb-3 grayscale">⭐</span><p className="text-sm font-black uppercase tracking-[0.3em] font-righteous text-slate-600">Catalog is empty</p></div>}
+Line 1903 | Depth:  8 | </div>
+Line 1904 | Depth:  7 | </div>
+Line 1905 | Depth:  7 | 
+Line 1906 | Depth:  8 | <div className="bg-[#101015] border-2 border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden">
+Line 1907 | Depth:  8 | <h4 className="text-sm font-black text-[var(--neon-cyan)] uppercase tracking-[0.3em] mb-6 font-righteous">ACTIVE SESSION HISTORY ({managedProfile.personalHistory.filter(h => h.sessionId === session.id).length})</h4>
+Line 1908 | Depth:  9 | <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+Line 1909 | Depth:  9 | {managedProfile.personalHistory.filter(h => h.sessionId === session.id).map((h, i) => (
+Line 1910 | Depth: 10 | <div key={i} className="bg-black/40 border border-white/5 p-4 rounded-xl group hover:border-[var(--neon-cyan)] transition-all">
+Line 1911 | Depth: 11 | <div className="flex justify-between items-start">
+Line 1912 | Depth: 12 | <div className="min-w-0 pr-4">
+Line 1913 | Depth: 12 | <div className="text-xl font-bold text-white truncate uppercase tracking-tight font-righteous group-hover:text-[var(--neon-cyan)] transition-colors">{h.songName}</div>
+Line 1914 | Depth: 12 | <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-0.5 font-righteous opacity-60">{h.artist}</div>
+Line 1915 | Depth: 11 | </div>
+Line 1916 | Depth: 12 | <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+Line 1917 | Depth: 12 | <button onClick={() => setProfileItemToEdit({ type: 'history', itemId: h.id })} className="p-1.5 text-slate-700 hover:text-white transition-colors">✏️</button>
+Line 1918 | Depth: 12 | <button onClick={async () => { await removeUserHistoryItem(managedProfile!.id, h.id); await refresh(); }} className="p-1.5 text-rose-500/30 hover:text-rose-500 transition-colors">✕</button>
+Line 1919 | Depth: 11 | </div>
+Line 1920 | Depth: 10 | </div>
+Line 1921 | Depth: 11 | <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5">
+Line 1922 | Depth: 11 | <span className="text-xs text-slate-700 font-black uppercase font-righteous tracking-widest">{new Date(h.createdAt).toLocaleDateString()}</span>
+Line 1923 | Depth: 11 | <button
+Line 1924 | Depth: 11 | onClick={async () => { await reAddFromHistory(h, true); await refresh(); }}
+Line 1925 | Depth: 11 | className="px-3 py-1.5 bg-[var(--neon-pink)]/10 border border-[var(--neon-pink)]/30 text-[var(--neon-pink)] rounded-lg text-xs font-black uppercase font-righteous hover:bg-[var(--neon-pink)] hover:text-black transition-all"
+Line 1926 | Depth: 11 | >
+Line 1927 | Depth: 11 | RE-QUEUE
+Line 1928 | Depth: 11 | </button>
+Line 1929 | Depth: 10 | </div>
+Line 1930 | Depth:  9 | </div>
+Line 1931 | Depth:  9 | ))}
+Line 1932 | Depth:  9 | {managedProfile.personalHistory.filter(h => h.sessionId === session.id).length === 0 && <div className="flex flex-col items-center py-20 opacity-20"><span className="text-4xl mb-3 grayscale">🎤</span><p className="text-sm font-black uppercase tracking-[0.3em] font-righteous text-slate-600">No session transmissions recorded</p></div>}
+Line 1933 | Depth:  8 | </div>
+Line 1934 | Depth:  7 | </div>
+Line 1935 | Depth:  6 | </div>
+Line 1936 | Depth:  5 | </div>
+Line 1937 | Depth:  5 | ) : isChangingPassword ? (
+Line 1938 | Depth:  5 | <form onSubmit={handleChangePasswordSubmit} className="max-w-xl mx-auto bg-[#101015] border-2 border-white/10 p-10 rounded-[3rem] space-y-6 shadow-[0_0_60px_rgba(255,0,127,0.1)] animate-in fade-in zoom-in-95 duration-500">
+Line 1939 | Depth:  5 | <h3 className="text-5xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-pink mb-2 text-center">SECURITY UPDATE</h3>
+Line 1940 | Depth:  5 | <p className="text-center text-slate-400 font-righteous uppercase tracking-widest mb-8">
+Line 1941 | Depth:  5 | UPDATING KEY FOR: <span className="text-[var(--neon-cyan)]">{editingProfile?.name}</span>
+Line 1942 | Depth:  5 | </p>
+Line 1943 | Depth:  5 | 
+Line 1944 | Depth:  6 | <div className="space-y-6">
+Line 1945 | Depth:  7 | <div>
+Line 1946 | Depth:  7 | <label className="block text-sm font-bold text-slate-500 uppercase mb-2 ml-4 tracking-widest font-righteous">NEW ENCRYPTION PIN</label>
+Line 1947 | Depth:  7 | <input required type="password" value={passwordForm} onChange={e => { setPasswordForm(e.target.value); setProfileError(''); }} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-bold uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" placeholder="ENTER NEW PIN" />
+Line 1948 | Depth:  6 | </div>
+Line 1949 | Depth:  6 | 
+Line 1950 | Depth:  6 | {profileError && (
+Line 1951 | Depth:  7 | <div className="mb-4 animate-pulse">
+Line 1952 | Depth:  7 | <p className="text-[var(--neon-pink)] font-bold uppercase text-sm tracking-widest flex items-center gap-2">
+Line 1953 | Depth:  7 | <span className="text-lg">⚠️</span> {profileError}
+Line 1954 | Depth:  7 | </p>
+Line 1955 | Depth:  6 | </div>
+Line 1956 | Depth:  6 | )}
+Line 1957 | Depth:  5 | </div>
+Line 1958 | Depth:  6 | <div className="flex gap-4 pt-4">
+Line 1959 | Depth:  6 | <button type="button" onClick={() => { setIsChangingPassword(false); setManagedProfile(editingProfile); setEditingProfile(null); }} className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-sm font-bold uppercase tracking-widest font-righteous hover:bg-white/5">ABORT</button>
+Line 1960 | Depth:  6 | <button type="submit" className="flex-[2] py-4 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-bold uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white">UPDATE KEY</button>
+Line 1961 | Depth:  5 | </div>
+Line 1962 | Depth:  5 | </form>
+Line 1963 | Depth:  5 | ) : isCreatingProfile ? (
+Line 1964 | Depth:  5 | <form onSubmit={handleProfileFormSubmit} className="max-w-xl mx-auto bg-[#101015] border-2 border-white/10 p-10 rounded-[3rem] space-y-6 shadow-[0_0_60px_rgba(255,0,127,0.1)] animate-in fade-in zoom-in-95 duration-500">
+Line 1965 | Depth:  5 | <h3 className="text-5xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-pink mb-2 text-center">{editingProfile ? 'Modify Profile' : 'New User Account'}</h3>
+Line 1966 | Depth:  6 | <div className="space-y-6">
+Line 1967 | Depth:  7 | <div>
+Line 1968 | Depth:  7 | <label className="block text-sm font-bold text-slate-500 uppercase mb-2 ml-4 tracking-widest font-righteous">IDENTITY HANDLE</label>
+Line 1969 | Depth:  7 | <input required type="text" value={profileForm.name} onChange={e => { setProfileForm({ ...profileForm, name: e.target.value }); setProfileError(''); }} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-bold uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" />
+Line 1970 | Depth:  6 | </div>
+Line 1971 | Depth:  6 | 
+Line 1972 | Depth:  6 | {profileError && (
+Line 1973 | Depth:  7 | <div className="mb-4 animate-pulse">
+Line 1974 | Depth:  7 | <p className="text-[var(--neon-pink)] font-bold uppercase text-sm tracking-widest flex items-center gap-2">
+Line 1975 | Depth:  7 | <span className="text-lg">⚠️</span> {profileError}
+Line 1976 | Depth:  7 | </p>
+Line 1977 | Depth:  6 | </div>
+Line 1978 | Depth:  6 | )}
+Line 1979 | Depth:  7 | <div>
+Line 1980 | Depth:  7 | <label className="block text-sm font-bold text-slate-500 uppercase mb-2 ml-4 tracking-widest font-righteous">ENCRYPTION PIN (OPTIONAL)</label>
+Line 1981 | Depth:  7 | <input type="password" value={profileForm.password} onChange={e => setProfileForm({ ...profileForm, password: e.target.value })} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-bold uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" />
+Line 1982 | Depth:  6 | </div>
+Line 1983 | Depth:  5 | </div>
+Line 1984 | Depth:  6 | <div className="flex gap-4 pt-4">
+Line 1985 | Depth:  6 | <button type="button" onClick={() => { setIsCreatingProfile(false); setEditingProfile(null); }} className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-sm font-bold uppercase tracking-widest font-righteous hover:bg-white/5">ABORT</button>
+Line 1986 | Depth:  6 | <button type="submit" className="flex-[2] py-4 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-bold uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white">AUTHORIZE ACCOUNT</button>
+Line 1987 | Depth:  5 | </div>
+Line 1988 | Depth:  5 | </form>
+Line 1989 | Depth:  5 | ) : (
+Line 1990 | Depth:  6 | <div className="space-y-16">
+Line 1991 | Depth:  6 | {(() => {
+Line 1992 | Depth:  6 | const connectedGuests = accounts.filter(user =>
+Line 1993 | Depth:  6 | !user.password &&
+Line 1994 | Depth:  6 | session.participants.some(p => p.id === user.id) &&
+Line 1995 | Depth:  6 | (user.name.toLowerCase().includes(directorySearch.toLowerCase()) || user.id.toLowerCase().includes(directorySearch.toLowerCase()))
+Line 1996 | Depth:  6 | );
+Line 1997 | Depth:  6 | const others = accounts.filter(user =>
+Line 1998 | Depth:  6 | (user.password || !session.participants.some(p => p.id === user.id)) &&
+Line 1999 | Depth:  6 | (user.name.toLowerCase().includes(directorySearch.toLowerCase()) || user.id.toLowerCase().includes(directorySearch.toLowerCase()))
+Line 2000 | Depth:  6 | );
+Line 2001 | Depth:  6 | 
+Line 2002 | Depth:  6 | return (
+Line 2003 | Depth:  6 | <>
+Line 2004 | Depth:  6 | {connectedGuests.length > 0 && (
+Line 2005 | Depth:  7 | <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+Line 2006 | Depth:  8 | <div className="flex items-center gap-6">
+Line 2007 | Depth:  8 | <h3 className="text-base font-black text-[var(--neon-green)] uppercase tracking-[0.5em] font-righteous whitespace-nowrap">ACTIVE SIGNALS</h3>
+Line 2008 | Depth:  8 | <div className="h-[2px] w-full bg-gradient-to-r from-[var(--neon-green)]/30 to-transparent"></div>
+Line 2009 | Depth:  7 | </div>
+Line 2010 | Depth:  8 | <div className="flex flex-col gap-4">
+Line 2011 | Depth:  8 | {connectedGuests.map(user => (
+Line 2012 | Depth:  9 | <div key={user.id} className="bg-[#151520] border-2 border-white/5 rounded-[2rem] p-4 flex items-center justify-between hover:border-[var(--neon-green)] transition-all shadow-lg group relative overflow-hidden">
+Line 2013 | Depth: 10 | <div className="flex items-center gap-6 min-w-0 pr-4">
+Line 2014 | Depth: 10 | <UserAvatar name={user.name} isActive={true} />
+Line 2015 | Depth: 11 | <div className="min-w-0">
+Line 2016 | Depth: 11 | <button
+Line 2017 | Depth: 11 | onClick={() => setManagedProfile(user)}
+Line 2018 | Depth: 11 | className="text-white font-bold text-3xl uppercase truncate tracking-tight text-left block hover:text-[var(--neon-green)] transition-colors font-bungee"
+Line 2019 | Depth: 11 | >
+Line 2020 | Depth: 11 | {user.name}
+Line 2021 | Depth: 11 | </button>
+Line 2022 | Depth: 12 | <div className="flex items-center gap-3 mt-1">
+Line 2023 | Depth: 12 | <span className="text-[10px] bg-[var(--neon-green)] text-black px-2 py-0.5 rounded-full font-black uppercase tracking-widest font-righteous shrink-0">LIVE</span>
+Line 2024 | Depth: 12 | <span className="text-sm text-slate-600 uppercase font-black font-righteous tracking-widest truncate">{user.favorites.length} ★ • {user.personalHistory.length} TX</span>
+Line 2025 | Depth: 11 | </div>
+Line 2026 | Depth: 10 | </div>
+Line 2027 | Depth:  9 | </div>
+Line 2028 | Depth:  9 | 
+Line 2029 | Depth: 10 | <div className="flex items-center gap-4 shrink-0">
+Line 2030 | Depth: 11 | <div className="flex items-center gap-4 py-2 px-4 bg-black/40 rounded-2xl border border-white/5">
+Line 2031 | Depth: 11 | <button onClick={() => setManagedProfile(user)} className="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-black uppercase tracking-widest transition-all font-righteous">LOG</button>
+Line 2032 | Depth: 11 | <button onClick={() => startEditProfile(user)} className="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-black uppercase transition-all font-righteous">EDIT</button>
+Line 2033 | Depth: 11 | <button
+Line 2034 | Depth: 11 | onClick={() => handleQuickSet(user)}
+Line 2035 | Depth: 11 | className="py-2.5 px-6 bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] hover:text-black rounded-lg text-xs font-black uppercase tracking-widest transition-all font-righteous hover:bg-[var(--neon-cyan)]"
+Line 2036 | Depth: 11 | >
+Line 2037 | Depth: 11 | AUTO_SET
+Line 2038 | Depth: 11 | </button>
+Line 2039 | Depth: 11 | <button
+Line 2040 | Depth: 11 | onClick={() => setPickingSongForUser(user)}
+Line 2041 | Depth: 11 | className="py-2.5 px-6 bg-[var(--neon-pink)]/20 text-[var(--neon-pink)] hover:text-white rounded-lg text-xs font-black uppercase tracking-widest transition-all font-righteous hover:bg-[var(--neon-pink)]"
+Line 2042 | Depth: 11 | >
+Line 2043 | Depth: 11 | MANUAL
+Line 2044 | Depth: 11 | </button>
+Line 2045 | Depth: 10 | </div>
+Line 2046 | Depth: 10 | <button onClick={async () => { if (confirm('Terminate temporary link?')) { await deleteAccount(user.id); await refresh(); } }} className="w-10 h-10 flex items-center justify-center text-rose-500/20 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all font-black">✕</button>
+Line 2047 | Depth:  9 | </div>
+Line 2048 | Depth:  8 | </div>
+Line 2049 | Depth:  8 | ))}
+Line 2050 | Depth:  7 | </div>
+Line 2051 | Depth:  6 | </div>
+Line 2052 | Depth:  6 | )}
+Line 2053 | Depth:  6 | 
+Line 2054 | Depth:  7 | <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+Line 2055 | Depth:  8 | <div className="flex items-center gap-6">
+Line 2056 | Depth:  8 | <h3 className="text-base font-black text-slate-600 uppercase tracking-[0.5em] font-righteous whitespace-nowrap">ARCHIVE DIRECTORY</h3>
+Line 2057 | Depth:  8 | <div className="h-[1px] w-full bg-white/5"></div>
+Line 2058 | Depth:  7 | </div>
+Line 2059 | Depth:  8 | <div className="flex flex-col gap-4">
+Line 2060 | Depth:  8 | {others.map(user => {
+Line 2061 | Depth:  8 | const isActive = session.participants.some(p => p.id === user.id);
+Line 2062 | Depth:  8 | return (
+Line 2063 | Depth:  9 | <div key={user.id} className={`bg-[#101015] border-2 ${isActive ? 'border-[var(--neon-cyan)] shadow-[0_0_20px_rgba(0,229,255,0.1)]' : 'border-white/5'} rounded-[2.5rem] p-6 flex flex-col justify-between hover:border-[var(--neon-purple)] transition-all group`}>
+Line 2064 | Depth: 10 | <div className="flex justify-between items-start gap-4 mb-3">
+Line 2065 | Depth: 11 | <div className="flex items-center gap-4 min-w-0">
+Line 2066 | Depth: 12 | <div className="relative">
+Line 2067 | Depth: 13 | <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black border-2 ${user.password ? 'bg-indigo-900/50 border-[var(--neon-purple)] text-white shadow-[0_0_15px_rgba(167,139,250,0.3)]' : 'bg-slate-800 border-white/10 text-slate-500'}`}>
+Line 2068 | Depth: 13 | {user.name.charAt(0).toUpperCase()}
+Line 2069 | Depth: 12 | </div>
+Line 2070 | Depth: 12 | {user.isAdmin && <div className="absolute -top-2 -right-2 bg-[var(--neon-pink)] text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg border border-white/20">ADMIN</div>}
+Line 2071 | Depth: 11 | </div>
+Line 2072 | Depth: 12 | <div className="min-w-0">
+Line 2073 | Depth: 13 | <div className="flex justify-between items-start gap-2">
+Line 2074 | Depth: 13 | <button
+Line 2075 | Depth: 13 | onClick={() => setManagedProfile(user)}
+Line 2076 | Depth: 13 | className="text-white font-bold text-2xl uppercase truncate tracking-tight text-left block hover:text-[var(--neon-purple)] transition-colors font-bungee"
+Line 2077 | Depth: 13 | >
+Line 2078 | Depth: 13 | {user.name}
+Line 2079 | Depth: 13 | </button>
+Line 2080 | Depth: 12 | </div>
+Line 2081 | Depth: 12 | <p className="text-xs text-slate-500 uppercase font-black tracking-[0.2em] mt-1 font-righteous">
+Line 2082 | Depth: 12 | {user.password ? '🔐 AUTHENTICATED' : 'GUEST ID'} • {user.favorites.length} ★
+Line 2083 | Depth: 12 | </p>
+Line 2084 | Depth: 11 | </div>
+Line 2085 | Depth: 10 | </div>
+Line 2086 | Depth: 10 | <button
+Line 2087 | Depth: 10 | onClick={() => setQrTargetUser(user)}
+Line 2088 | Depth: 10 | className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-[var(--neon-cyan)]/20 hover:border-[var(--neon-cyan)] hover:text-[var(--neon-cyan)] transition-all group/qr"
+Line 2089 | Depth: 10 | title="Generate SINC QR"
+Line 2090 | Depth: 10 | >
+Line 2091 | Depth: 11 | <div className="w-6 h-6 flex flex-col justify-between items-center p-0.5">
+Line 2092 | Depth: 11 | <div className="w-full h-[2px] bg-current"></div>
+Line 2093 | Depth: 12 | <div className="w-full flex justify-between">
+Line 2094 | Depth: 12 | <div className="w-[2px] h-[2px] bg-current"></div>
+Line 2095 | Depth: 12 | <div className="w-[2px] h-[2px] bg-current"></div>
+Line 2096 | Depth: 11 | </div>
+Line 2097 | Depth: 11 | <div className="w-full h-[2px] bg-current"></div>
+Line 2098 | Depth: 12 | <div className="w-full flex justify-between">
+Line 2099 | Depth: 12 | <div className="w-[2px] h-[2px] bg-current"></div>
+Line 2100 | Depth: 12 | <div className="w-[2px] h-[2px] bg-current"></div>
+Line 2101 | Depth: 11 | </div>
+Line 2102 | Depth: 11 | <div className="w-full h-[2px] bg-current"></div>
+Line 2103 | Depth: 10 | </div>
+Line 2104 | Depth: 10 | </button>
+Line 2105 | Depth:  9 | </div>
+Line 2106 | Depth:  9 | 
+Line 2107 | Depth: 10 | <div className="grid grid-cols-1 gap-2">
+Line 2108 | Depth: 11 | <div className="flex gap-2">
+Line 2109 | Depth: 11 | <button onClick={() => setManagedProfile(user)} className="flex-1 py-2.5 bg-black border border-white/10 hover:border-[var(--neon-purple)] text-white rounded-lg text-xs font-black uppercase transition-all font-righteous">LOG</button>
+Line 2110 | Depth: 11 | <button onClick={() => startEditProfile(user)} className="flex-1 py-2.5 bg-black border border-white/10 hover:border-[var(--neon-purple)] text-white rounded-lg text-xs font-black uppercase transition-all font-righteous">EDIT</button>
+Line 2111 | Depth: 11 | <button
+Line 2112 | Depth: 11 | onClick={() => handleQuickSet(user)}
+Line 2113 | Depth: 11 | className="flex-[2] py-2.5 bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] hover:text-black rounded-lg text-xs font-black uppercase transition-all font-righteous hover:bg-[var(--neon-cyan)]"
+Line 2114 | Depth: 11 | >
+Line 2115 | Depth: 11 | AUTO-SET
+Line 2116 | Depth: 11 | </button>
+Line 2117 | Depth: 10 | </div>
+Line 2118 | Depth: 11 | <div className="flex gap-2">
+Line 2119 | Depth: 11 | <button
+Line 2120 | Depth: 11 | onClick={() => setPickingSongForUser(user)}
+Line 2121 | Depth: 11 | className="flex-[4] py-2.5 bg-slate-900 border border-white/5 hover:border-[var(--neon-pink)] text-slate-500 hover:text-white rounded-lg flex items-center justify-center gap-2 transition-all text-xs font-black uppercase font-righteous"
+Line 2122 | Depth: 11 | >
+Line 2123 | Depth: 11 | MANUAL SELECT
+Line 2124 | Depth: 11 | </button>
+Line 2125 | Depth: 11 | <button onClick={async () => { if (confirm('Erase this record permanently?')) { await deleteAccount(user.id); await refresh(); } }} className="flex-1 py-2.5 bg-rose-500/5 text-rose-500/20 hover:text-rose-500 border border-transparent hover:border-rose-500/30 rounded-lg transition-all flex items-center justify-center">✕</button>
+Line 2126 | Depth: 10 | </div>
+Line 2127 | Depth:  9 | </div>
+Line 2128 | Depth:  8 | </div>
+Line 2129 | Depth:  8 | );
+Line 2130 | Depth:  8 | })}
+Line 2131 | Depth:  7 | </div>
+Line 2132 | Depth:  7 | {others.length === 0 && connectedGuests.length === 0 && (
+Line 2133 | Depth:  8 | <div className="text-center py-24 bg-black/20 rounded-[3rem] border-2 border-dashed border-white/5">
+Line 2134 | Depth:  8 | <p className="text-slate-800 text-base font-black uppercase tracking-[0.5em] font-righteous">EMPTY DIRECTORY - NO SIGNALS DETECTED</p>
+Line 2135 | Depth:  7 | </div>
+Line 2136 | Depth:  7 | )}
+Line 2137 | Depth:  6 | </div>
+Line 2138 | Depth:  6 | </>
+Line 2139 | Depth:  6 | );
+Line 2140 | Depth:  6 | })()}
+Line 2141 | Depth:  6 | )}
+Line 2142 | Depth:  5 | </div>
+Line 2143 | Depth:  4 | </div>
+Line 2144 | Depth:  3 | </div>
+Line 2145 | Depth:  3 | )
+Line 2146 | Depth:  3 | }
+Line 2147 | Depth:  3 | 
+Line 2148 | Depth:  3 | 
+Line 2149 | Depth:  3 | 
+Line 2150 | Depth:  3 | {
+Line 2151 | Depth:  3 | (isAddingRequest || requestToEdit || profileItemToEdit || prefilledSinger || isAddingVerifiedSong || verifiedSongToEdit) && (
+Line 2152 | Depth:  4 | <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[100] backdrop-blur-xl">
+Line 2153 | Depth:  5 | <div className="w-full max-w-md">
+Line 2154 | Depth:  5 | {(() => {
+Line 2155 | Depth:  5 | let initialData = { singerName: '', songName: '', artist: '', youtubeUrl: '', type: RequestType.SINGING };
+Line 2156 | Depth:  5 | let title = "Global Track Input";
+Line 2157 | Depth:  5 | 
+Line 2158 | Depth:  5 | if (profileItemToEdit && managedProfile) {
+Line 2159 | Depth:  5 | if (profileItemToEdit.type === 'favorite') {
+Line 2160 | Depth:  5 | const fav = managedProfile.favorites.find(f => f.id === profileItemToEdit.itemId);
+Line 2161 | Depth:  5 | if (fav) {
+Line 2162 | Depth:  5 | initialData = { singerName: managedProfile.name, songName: fav.songName, artist: fav.artist, youtubeUrl: fav.youtubeUrl || '', type: fav.type };
+Line 2163 | Depth:  5 | title = `Edit Permanent Favorite for ${managedProfile.name}`;
+Line 2164 | Depth:  5 | }
+Line 2165 | Depth:  5 | } else {
+Line 2166 | Depth:  5 | const hist = managedProfile.personalHistory.find(h => h.id === profileItemToEdit.itemId);
+Line 2167 | Depth:  5 | if (hist) {
+Line 2168 | Depth:  5 | initialData = { singerName: managedProfile.name, songName: hist.songName, artist: hist.artist, youtubeUrl: hist.youtubeUrl || '', type: hist.type };
+Line 2169 | Depth:  5 | title = `Edit History Entry for ${managedProfile.name}`;
+Line 2170 | Depth:  5 | }
+Line 2171 | Depth:  5 | }
+Line 2172 | Depth:  5 | } else if (requestToEdit) {
+Line 2173 | Depth:  5 | initialData = { singerName: requestToEdit.participantName, songName: requestToEdit.songName, artist: requestToEdit.artist, youtubeUrl: requestToEdit.youtubeUrl || '', type: requestToEdit.type };
+Line 2174 | Depth:  5 | title = "Modify Track";
+Line 2175 | Depth:  5 | } else if (verifiedSongToEdit) {
+Line 2176 | Depth:  5 | initialData = { singerName: '', songName: verifiedSongToEdit.songName, artist: verifiedSongToEdit.artist, youtubeUrl: verifiedSongToEdit.youtubeUrl || '', type: verifiedSongToEdit.type };
+Line 2177 | Depth:  5 | title = "Edit Verified Song";
+Line 2178 | Depth:  5 | } else if (isAddingVerifiedSong) {
+Line 2179 | Depth:  5 | initialData = { singerName: '', songName: '', artist: '', youtubeUrl: '', type: RequestType.SINGING };
+Line 2180 | Depth:  5 | title = "Add to Verified Songbook";
+Line 2181 | Depth:  5 | } else if (prefilledSinger) {
+Line 2182 | Depth:  5 | initialData.singerName = prefilledSinger.name;
+Line 2183 | Depth:  5 | title = `Song for ${prefilledSinger.name}`;
+Line 2184 | Depth:  5 | }
+Line 2185 | Depth:  5 | 
+Line 2186 | Depth:  5 | return (
+Line 2187 | Depth:  5 | <SongRequestForm
+Line 2188 | Depth:  5 | key={requestToEdit?.id || profileItemToEdit?.itemId || prefilledSinger?.id || verifiedSongToEdit?.id || (isAddingVerifiedSong ? 'new-verified' : 'new-request')}
+Line 2189 | Depth:  5 | title={title}
+Line 2190 | Depth:  5 | showSingerName={!profileItemToEdit && !verifiedSongToEdit && !isAddingVerifiedSong}
+Line 2191 | Depth:  5 | initialSingerName={initialData.singerName}
+Line 2192 | Depth:  5 | initialSongName={initialData.songName}
+Line 2193 | Depth:  5 | initialArtist={initialData.artist}
+Line 2194 | Depth:  5 | initialYoutubeUrl={initialData.youtubeUrl}
+Line 2195 | Depth:  5 | initialType={initialData.type}
+Line 2196 | Depth:  5 | submitLabel={(requestToEdit || profileItemToEdit || verifiedSongToEdit) ? "Save Update" : (isAddingVerifiedSong ? "Add to Library" : "Queue Track")}
+Line 2197 | Depth:  5 | onSubmit={handleManualRequestSubmit}
+Line 2198 | Depth:  5 | onCancel={closeModals}
+Line 2199 | Depth:  5 | participants={session.participants}
+Line 2200 | Depth:  5 | />
+Line 2201 | Depth:  5 | );
+Line 2202 | Depth:  5 | })()}
+Line 2203 | Depth:  4 | </div>
+Line 2204 | Depth:  3 | </div>
+Line 2205 | Depth:  3 | )
+Line 2206 | Depth:  3 | }
+Line 2207 | Depth:  3 | 
+Line 2208 | Depth:  3 | 
+Line 2209 | Depth:  3 | 
+Line 2210 | Depth:  3 | 
+Line 2211 | Depth:  3 | {
+Line 2212 | Depth:  3 | 
+Line 2213 | Depth:  3 | (showQrModal || qrTargetUser) && (
+Line 2214 | Depth:  4 | <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-500">
+Line 2215 | Depth:  5 | <div className="w-full max-w-sm bg-[#0a0a0a] border-4 border-white/10 rounded-[3rem] p-8 relative overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-500">
+Line 2216 | Depth:  5 | <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-cyan)] via-[var(--neon-purple)] to-[var(--neon-pink)] animate-gradient-x"></div>
+Line 2217 | Depth:  5 | 
+Line 2218 | Depth:  6 | <div className="flex justify-between items-start mb-8">
+Line 2219 | Depth:  7 | <div>
+Line 2220 | Depth:  7 | <h2 className="text-3xl font-black text-white uppercase tracking-tight font-bungee neon-glow-white">
+Line 2221 | Depth:  7 | {qrTargetUser ? 'USER SINC' : 'JOIN ROOM'}
+Line 2222 | Depth:  7 | </h2>
+Line 2223 | Depth:  7 | {qrTargetUser && <p className="text-[var(--neon-cyan)] text-xs font-black uppercase tracking-widest font-righteous mt-1">TARGET: {qrTargetUser.name}</p>}
+Line 2224 | Depth:  6 | </div>
+Line 2225 | Depth:  6 | <button onClick={() => { setShowQrModal(false); setQrTargetUser(null); }} className="text-slate-600 hover:text-white p-2 font-black text-3xl transition-colors">✕</button>
+Line 2226 | Depth:  5 | </div>
+Line 2227 | Depth:  5 | 
+Line 2228 | Depth:  6 | <div className="bg-white p-4 rounded-3xl mb-8 transform hover:scale-105 transition-transform duration-500 hover:rotate-1 shadow-[0_0_50px_rgba(255,255,255,0.1)]">
+Line 2229 | Depth:  6 | <QRCode
+Line 2230 | Depth:  6 | value={(() => {
+Line 2231 | Depth:  6 | // Always use network URL for QR codes to ensure phone connectivity
+Line 2232 | Depth:  6 | const baseUrl = getNetworkUrl();
+Line 2233 | Depth:  6 | if (qrTargetUser) {
+Line 2234 | Depth:  6 | return `${baseUrl}?userId=${qrTargetUser.id}&room=${roomId || ''}`;
+Line 2235 | Depth:  6 | }
+Line 2236 | Depth:  6 | return `${baseUrl}?room=${roomId || ''}`;
+Line 2237 | Depth:  6 | })()}
+Line 2238 | Depth:  6 | size={400} // Increased size
+Line 2239 | Depth:  6 | style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+Line 2240 | Depth:  6 | viewBox={`0 0 256 256`}
+Line 2241 | Depth:  6 | />
+Line 2242 | Depth:  5 | </div>
+Line 2243 | Depth:  5 | 
+Line 2244 | Depth:  6 | <div className="text-center space-y-4">
+Line 2245 | Depth:  6 | <p className="text-slate-400 font-bold uppercase tracking-widest text-xs font-righteous">
+Line 2246 | Depth:  6 | {qrTargetUser ? 'SCAN TO LINK DEVICE TO PROFILE' : 'SCAN TO JOIN SESSION'}
+Line 2247 | Depth:  6 | </p>
+Line 2248 | Depth:  7 | <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+Line 2249 | Depth:  7 | <p className="text-[var(--neon-cyan)] font-black uppercase tracking-widest text-sm font-righteous break-all">
+Line 2250 | Depth:  7 | {qrTargetUser ? 'AUTO-LOGIN ENABLED' : `ROOM ID: ${roomId}`}
+Line 2251 | Depth:  7 | </p>
+Line 2252 | Depth:  6 | </div>
+Line 2253 | Depth:  5 | </div>
+Line 2254 | Depth:  5 | 
+Line 2255 | Depth:  4 | </div>
+Line 2256 | Depth:  3 | </div>
+Line 2257 | Depth:  3 | )
+Line 2258 | Depth:  3 | }
+Line 2259 | Depth:  3 | {
+Line 2260 | Depth:  3 | showNetworkConfig && (
+Line 2261 | Depth:  4 | <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-300">
+Line 2262 | Depth:  5 | <div className="w-full max-w-xl bg-[#050510] border-4 border-white/10 p-12 rounded-[3.5rem] shadow-[0_0_100px_rgba(0,0,0,0.8)] relative overflow-hidden animate-in zoom-in-95 duration-300">
+Line 2263 | Depth:  5 | <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
+Line 2264 | Depth:  5 | <h3 className="text-5xl font-black text-white uppercase mb-4 tracking-tight font-bungee neon-glow-purple">Signal Origin</h3>
+Line 2265 | Depth:  5 | <p className="text-base text-[var(--neon-cyan)] font-black uppercase tracking-[0.4em] mb-12 font-righteous opacity-80">Set the endpoint for guest terminal connections</p>
+Line 2266 | Depth:  5 | 
+Line 2267 | Depth:  6 | <div className="space-y-8">
+Line 2268 | Depth:  7 | <div className="bg-black/40 p-8 rounded-[2rem] border-2 border-white/5 border-dashed">
+Line 2269 | Depth:  7 | <p className="text-sm text-slate-500 uppercase font-black mb-3 tracking-[0.3em] font-righteous">LOCAL ENVIRONMENT DETECTION</p>
+Line 2270 | Depth:  8 | <div className="text-xl text-[var(--neon-cyan)] font-mono font-black tracking-widest">
+Line 2271 | Depth:  8 | {window.location.hostname} <span className="text-sm text-slate-700 opacity-60">(CURRENT HOST)</span>
+Line 2272 | Depth:  7 | </div>
+Line 2273 | Depth:  6 | </div>
+Line 2274 | Depth:  6 | 
+Line 2275 | Depth:  7 | <div>
+Line 2276 | Depth:  7 | <label className="block text-sm font-black text-slate-500 uppercase mb-4 ml-4 tracking-[0.3em] font-righteous">TERMINAL ADDRESS / PUBLIC TUNNEL URL</label>
+Line 2277 | Depth:  7 | <input
+Line 2278 | Depth:  7 | type="text"
+Line 2279 | Depth:  7 | value={networkIpInput}
+Line 2280 | Depth:  7 | onChange={(e) => setNetworkIpInput(e.target.value)}
+Line 2281 | Depth:  7 | placeholder="E.G. 192.168.1.15 OR HTTPS://SIGNAL.NGROK.APP"
+Line 2282 | Depth:  7 | className="w-full bg-black border-2 border-white/10 rounded-2xl px-8 py-5 text-white font-black uppercase font-mono tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all placeholder:text-slate-800 text-lg"
+Line 2283 | Depth:  7 | />
+Line 2284 | Depth:  6 | </div>
+Line 2285 | Depth:  6 | 
+Line 2286 | Depth:  7 | <div className="bg-[var(--neon-pink)]/5 border border-[var(--neon-pink)]/10 p-6 rounded-2xl">
+Line 2287 | Depth:  7 | <p className="text-sm text-[var(--neon-pink)]/60 font-black leading-relaxed uppercase tracking-widest font-righteous italic">
+Line 2288 | Depth:  7 | Note: Cross-network connectivity requires tunneling (ngrok) for public-private bridge.
+Line 2289 | Depth:  7 | </p>
+Line 2290 | Depth:  6 | </div>
+Line 2291 | Depth:  6 | 
+Line 2292 | Depth:  7 | <div className="flex gap-4 pt-6">
+Line 2293 | Depth:  7 | <button
+Line 2294 | Depth:  7 | onClick={() => setShowNetworkConfig(false)}
+Line 2295 | Depth:  7 | className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-sm font-black uppercase tracking-widest font-righteous hover:bg-white/5"
+Line 2296 | Depth:  7 | >
+Line 2297 | Depth:  7 | ABORT
+Line 2298 | Depth:  7 | </button>
+Line 2299 | Depth:  7 | <button
+Line 2300 | Depth:  7 | onClick={handleSaveNetworkIp}
+Line 2301 | Depth:  7 | className="flex-[2] py-4 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all hover:scale-105"
+Line 2302 | Depth:  7 | >
+Line 2303 | Depth:  7 | AUTHORIZE CONFIG
+Line 2304 | Depth:  7 | </button>
+Line 2305 | Depth:  6 | </div>
+Line 2306 | Depth:  5 | </div>
+Line 2307 | Depth:  5 | 
+Line 2308 | Depth:  5 | 
+Line 2309 | Depth:  4 | </div>
+Line 2310 | Depth:  3 | </div>
+Line 2311 | Depth:  3 | )
+Line 2312 | Depth:  3 | }
+Line 2313 | Depth:  3 | {
+Line 2314 | Depth:  3 | pickingSongForUser && (
+Line 2315 | Depth:  4 | <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-300">
+Line 2316 | Depth:  5 | <div className="w-full max-w-4xl bg-[#0a0a0a] border-4 border-white/10 rounded-[4rem] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] flex flex-col max-h-[90vh] relative animate-in zoom-in-95 duration-300">
+Line 2317 | Depth:  5 | <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
+Line 2318 | Depth:  6 | <div className="p-8 border-b-2 border-white/5 flex justify-between items-center bg-black/40 backdrop-blur-xl">
+Line 2319 | Depth:  7 | <div>
+Line 2320 | Depth:  7 | <h2 className="text-5xl font-black text-white font-bungee uppercase tracking-tight neon-glow-pink">Signal Selection</h2>
+Line 2321 | Depth:  7 | <p className="text-base text-[var(--neon-cyan)] font-black uppercase tracking-[0.4em] mt-1 font-righteous opacity-80">Verified Catalog • Target: <span className="text-[var(--neon-pink)]">{pickingSongForUser.name}</span></p>
+Line 2322 | Depth:  6 | </div>
+Line 2323 | Depth:  6 | <button onClick={() => setPickingSongForUser(null)} className="text-slate-600 hover:text-white p-3 font-black text-4xl transition-colors transform hover:scale-110">✕</button>
+Line 2324 | Depth:  5 | </div>
+Line 2325 | Depth:  5 | 
+Line 2326 | Depth:  6 | <div className="p-6 bg-black/20 border-b-2 border-white/5">
+Line 2327 | Depth:  7 | <div className="relative group">
+Line 2328 | Depth:  7 | <input
+Line 2329 | Depth:  7 | type="text"
+Line 2330 | Depth:  7 | placeholder="FILTER VERIFIED TRANSMISSIONS..."
+Line 2331 | Depth:  7 | value={pickerSearch}
+Line 2332 | Depth:  7 | onChange={(e) => setPickerSearch(e.target.value)}
+Line 2333 | Depth:  7 | className="w-full bg-[#050510] border-2 border-white/10 rounded-2xl px-12 py-4 text-white font-black uppercase tracking-widest font-righteous outline-none focus:border-[var(--neon-pink)] transition-all shadow-inner placeholder:text-slate-700 text-xl"
+Line 2334 | Depth:  7 | />
+Line 2335 | Depth:  7 | <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700 group-focus-within:text-[var(--neon-pink)] transition-colors">
+Line 2336 | Depth:  7 | <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+Line 2337 | Depth:  7 | </span>
+Line 2338 | Depth:  6 | </div>
+Line 2339 | Depth:  5 | </div>
+Line 2340 | Depth:  5 | 
+Line 2341 | Depth:  6 | <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+Line 2342 | Depth:  6 | {pickerSearch && filteredVerifiedSongs.length === 0 && (
+Line 2343 | Depth:  7 | <div className="text-center py-20 opacity-50">
+Line 2344 | Depth:  7 | <p className="text-xl font-black uppercase tracking-widest text-slate-600 font-righteous">NO MATCHING TRANSMISSIONS</p>
+Line 2345 | Depth:  6 | </div>
+Line 2346 | Depth:  6 | )}
+Line 2347 | Depth:  6 | {!pickerSearch && verifiedSongs.length === 0 && (
+Line 2348 | Depth:  7 | <div className="text-center py-20 opacity-50">
+Line 2349 | Depth:  7 | <p className="text-xl font-black uppercase tracking-widest text-slate-600 font-righteous">NO VERIFIED SONGS IN LIBRARY</p>
+Line 2350 | Depth:  6 | </div>
+Line 2351 | Depth:  6 | )}
+Line 2352 | Depth:  7 | <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+Line 2353 | Depth:  7 | {(pickerSearch ? filteredVerifiedSongs : verifiedSongs).map((song) => (
+Line 2354 | Depth:  8 | <div key={song.id} className="bg-black/40 border-2 border-white/5 rounded-2xl p-4 relative overflow-hidden group hover:border-[var(--neon-pink)] transition-all">
+Line 2355 | Depth:  8 | <h3 className="text-lg font-black text-white uppercase truncate font-righteous">{song.songName}</h3>
+Line 2356 | Depth:  8 | <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-4 font-righteous">{song.artist}</p>
+Line 2357 | Depth:  9 | <div className="flex gap-2">
+Line 2358 | Depth:  9 | <button
+Line 2359 | Depth:  9 | onClick={() => handleSelectVerifiedSong(song)}
+Line 2360 | Depth:  9 | className="flex-1 py-2 bg-[var(--neon-pink)]/20 text-[var(--neon-pink)] hover:text-black rounded-lg text-xs font-black uppercase transition-all font-righteous hover:bg-[var(--neon-pink)]"
+Line 2361 | Depth:  9 | >
+Line 2362 | Depth:  9 | SELECT
+Line 2363 | Depth:  9 | </button>
+Line 2364 | Depth:  9 | <button
+Line 2365 | Depth:  9 | onClick={() => startEditVerifiedSong(song)}
+Line 2366 | Depth:  9 | className="flex-1 py-2 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-white rounded-lg text-xs font-black uppercase transition-all font-righteous"
+Line 2367 | Depth:  9 | >
+Line 2368 | Depth:  9 | EDIT
+Line 2369 | Depth:  9 | </button>
+Line 2370 | Depth:  8 | </div>
+Line 2371 | Depth:  7 | </div>
+Line 2372 | Depth:  7 | ))}
+Line 2373 | Depth:  6 | </div>
+Line 2374 | Depth:  5 | </div>
+Line 2375 | Depth:  5 | 
+Line 2376 | Depth:  6 | <div className="p-6 border-t-2 border-white/5 flex justify-end bg-black/40 backdrop-blur-xl">
+Line 2377 | Depth:  6 | <button
+Line 2378 | Depth:  6 | onClick={() => setIsAddingVerifiedSong(true)}
+Line 2379 | Depth:  6 | className="py-3 px-6 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all hover:scale-105"
+Line 2380 | Depth:  6 | >
+Line 2381 | Depth:  6 | ADD NEW VERIFIED SONG
+Line 2382 | Depth:  6 | </button>
+Line 2383 | Depth:  5 | </div>
+Line 2384 | Depth:  4 | </div>
+Line 2385 | Depth:  3 | </div>
+Line 2386 | Depth:  3 | )
+Line 2387 | Depth:  3 | }
+Line 2388 | Depth:  3 | 
+Line 2389 | Depth:  3 | <style>{`
+Line 2390 | Depth:  3 | @keyframes gradient-x {
+Line 2391 | Depth:  3 | 0%, 100% { background-position: 0% 50%; }
+Line 2392 | Depth:  3 | 50% { background-position: 100% 50%; }
+Line 2393 | Depth:  3 | }
+Line 2394 | Depth:  3 | .animate-gradient-x {
+Line 2395 | Depth:  3 | background-size: 200% 200%;
+Line 2396 | Depth:  3 | animation: gradient-x 3s ease infinite;
+Line 2397 | Depth:  3 | }
+Line 2398 | Depth:  3 | .neon-glow-pink {
+Line 2399 | Depth:  3 | text-shadow: 0 0 10px rgba(255, 0, 255, 0.5), 0 0 20px rgba(255, 0, 255, 0.3);
+Line 2400 | Depth:  3 | }
+Line 2401 | Depth:  3 | .neon-glow-cyan {
+Line 2402 | Depth:  3 | text-shadow: 0 0 10px rgba(0, 229, 255, 0.5), 0 0 20px rgba(0, 229, 255, 0.3);
+Line 2403 | Depth:  3 | }
+Line 2404 | Depth:  3 | .neon-glow-purple {
+Line 2405 | Depth:  3 | text-shadow: 0 0 10px rgba(167, 139, 250, 0.5), 0 0 20px rgba(167, 139, 250, 0.3);
+Line 2406 | Depth:  3 | }
+Line 2407 | Depth:  3 | .neon-glow-green {
+Line 2408 | Depth:  3 | text-shadow: 0 0 10px rgba(0, 255, 157, 0.5), 0 0 20px rgba(0, 255, 157, 0.3);
+Line 2409 | Depth:  3 | }
+Line 2410 | Depth:  3 | .neon-glow-white {
+Line 2411 | Depth:  3 | text-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 0 20px rgba(255, 255, 255, 0.3);
+Line 2412 | Depth:  3 | }
+Line 2413 | Depth:  3 | .custom-scrollbar::-webkit-scrollbar {
+Line 2414 | Depth:  3 | width: 8px;
+Line 2415 | Depth:  3 | }
+Line 2416 | Depth:  3 | .custom-scrollbar::-webkit-scrollbar-track {
+Line 2417 | Depth:  3 | background: rgba(255, 255, 255, 0.02);
+Line 2418 | Depth:  3 | border-radius: 4px;
+Line 2419 | Depth:  3 | }
+Line 2420 | Depth:  3 | .custom-scrollbar::-webkit-scrollbar-thumb {
+Line 2421 | Depth:  3 | background: rgba(255, 255, 255, 0.1);
+Line 2422 | Depth:  3 | border-radius: 4px;
+Line 2423 | Depth:  3 | }
+Line 2424 | Depth:  3 | .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+Line 2425 | Depth:  3 | background: rgba(255, 255, 255, 0.2);
+Line 2426 | Depth:  3 | }
+Line 2427 | Depth:  3 | `}</style>
+Line 2428 | Depth:  3 | {
+Line 2429 | Depth:  3 | activeTab === 'ADMIN' && (
+Line 2430 | Depth:  4 | <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+Line 2431 | Depth:  5 | <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/5 shadow-2xl relative overflow-hidden">
+Line 2432 | Depth:  5 | <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-green)]/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+Line 2433 | Depth:  5 | 
+Line 2434 | Depth:  6 | <div className="flex justify-between items-center mb-10 relative z-10">
+Line 2435 | Depth:  7 | <div>
+Line 2436 | Depth:  7 | <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-green">
+Line 2437 | Depth:  7 | <span className="text-5xl">🛡️</span> SESSION CONTROL
+Line 2438 | Depth:  7 | </h2>
+Line 2439 | Depth:  7 | <p className="text-slate-500 font-bold uppercase tracking-widest mt-2 font-righteous">MANAGE ACTIVE INSTANCES</p>
+Line 2440 | Depth:  6 | </div>
+Line 2441 | Depth:  5 | </div>
+Line 2442 | Depth:  5 | 
+Line 2443 | Depth:  6 | <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+Line 2444 | Depth:  6 | {activeSessions.map((s) => (
+Line 2445 | Depth:  7 | <div key={s.id} className="bg-black/40 border-2 border-white/5 rounded-[2rem] p-6 relative overflow-hidden group hover:border-[var(--neon-green)] transition-all">
+Line 2446 | Depth:  8 | <div className="flex justify-between items-start mb-4">
+Line 2447 | Depth:  9 | <div className="w-12 h-12 bg-black rounded-xl border border-white/10 flex items-center justify-center text-2xl">
+Line 2448 | Depth:  9 | {s.id === session?.id ? '📍' : '🌐'}
+Line 2449 | Depth:  8 | </div>
+Line 2450 | Depth:  9 | <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${s.id === session?.id ? 'bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] border-[var(--neon-cyan)]' : 'bg-slate-800 text-slate-400 border-white/10'}`}>
+Line 2451 | Depth:  9 | {s.id === session?.id ? 'CURRENT' : 'REMOTE'}
+Line 2452 | Depth:  8 | </div>
+Line 2453 | Depth:  7 | </div>
+Line 2454 | Depth:  7 | <h3 className="text-xl font-black text-white uppercase truncate font-bungee mb-1">{s.venueName || 'Unknown Venue'}</h3>
+Line 2455 | Depth:  7 | <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-6 font-righteous">HOST: {s.hostName} • ID: {s.id}</p>
+Line 2456 | Depth:  7 | 
+Line 2457 | Depth:  7 | <button
+Line 2458 | Depth:  7 | onClick={async () => {
+Line 2459 | Depth:  7 | if (confirm(`Force close session "${s.venueName}"? This cannot be undone.`)) {
+Line 2460 | Depth:  7 | await unregisterSession(s.id);
+Line 2461 | Depth:  7 | }
+Line 2462 | Depth:  7 | }}
+Line 2463 | Depth:  7 | className="w-full py-3 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/30 rounded-xl font-black uppercase tracking-widest text-xs transition-all font-righteous"
+Line 2464 | Depth:  7 | >
+Line 2465 | Depth:  7 | FORCE CLOSE
+Line 2466 | Depth:  7 | </button>
+Line 2467 | Depth:  6 | </div>
+Line 2468 | Depth:  6 | ))}
+Line 2469 | Depth:  6 | {activeSessions.length === 0 && (
+Line 2470 | Depth:  7 | <div className="col-span-full text-center py-20 opacity-50">
+Line 2471 | Depth:  7 | <p className="text-xl font-black uppercase tracking-widest text-slate-600 font-righteous">NO ACTIVE SESSIONS FOUND</p>
+Line 2472 | Depth:  6 | </div>
+Line 2473 | Depth:  6 | )}
+Line 2474 | Depth:  5 | </div>
+Line 2475 | Depth:  5 | 
+Line 2476 | Depth:  4 | </div>
+Line 2477 | Depth:  3 | </div>
+Line 2478 | Depth:  3 | )
+Line 2479 | Depth:  3 | }
+Line 2480 | Depth:  3 | 
+Line 2481 | Depth:  3 | {
+Line 2482 | Depth:  3 | activeTab === 'NETWORK' && (
+Line 2483 | Depth:  4 | <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+Line 2484 | Depth:  5 | <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/5 shadow-2xl relative overflow-hidden">
+Line 2485 | Depth:  5 | <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-purple)]/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+Line 2486 | Depth:  5 | 
+Line 2487 | Depth:  6 | <div className="flex justify-between items-center mb-10 relative z-10">
+Line 2488 | Depth:  7 | <div>
+Line 2489 | Depth:  7 | <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-purple">
+Line 2490 | Depth:  7 | <span className="text-5xl">📡</span> NETWORK ACTIVITY
+Line 2491 | Depth:  7 | </h2>
+Line 2492 | Depth:  7 | <p className="text-slate-400 mt-2 font-mono">
+Line 2493 | Depth:  7 | Monitor all connected devices and manage sessions.
+Line 2494 | Depth:  7 | </p>
+Line 2495 | Depth:  6 | </div>
+Line 2496 | Depth:  7 | <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
+Line 2497 | Depth:  7 | <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Total Connections</span>
+Line 2498 | Depth:  7 | <span className="text-2xl font-black text-white">{session.deviceConnections?.length || 0}</span>
+Line 2499 | Depth:  6 | </div>
+Line 2500 | Depth:  5 | </div>
+Line 2501 | Depth:  5 | 
+Line 2502 | Depth:  6 | <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+Line 2503 | Depth:  6 | {session.deviceConnections?.map((device) => {
+Line 2504 | Depth:  6 | const isConnected = device.status === 'connected';
+Line 2505 | Depth:  6 | const assignedUser = device.userId ? accounts.find(a => a.id === device.userId) : null;
+Line 2506 | Depth:  6 | const isGuest = device.isGuest || assignedUser?.isGuest;
+Line 2507 | Depth:  6 | 
+Line 2508 | Depth:  6 | return (
+Line 2509 | Depth:  6 | 
+Line 2510 | Depth:  7 | <div key={device.id} className={`p-6 rounded-[2rem] border transition-all relative overflow-hidden group ${isConnected
+Line 2511 | Depth:  7 | ? 'bg-[#151520] border-[var(--neon-purple)]/30 hover:border-[var(--neon-purple)]'
+Line 2512 | Depth:  7 | : 'bg-[#05050A] border-white/5 opacity-60'
+Line 2513 | Depth:  7 | }`}>
+Line 2514 | Depth:  7 | {/* Status Dot */}
+Line 2515 | Depth:  7 | <div className={`absolute top-6 right-6 w-3 h-3 rounded-full ${isConnected ? 'bg-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-rose-500'}`}></div>
+Line 2516 | Depth:  7 | 
+Line 2517 | Depth:  8 | <div className="flex items-start gap-4 mb-6">
+Line 2518 | Depth:  9 | <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg ${assignedUser
+Line 2519 | Depth:  9 | ? (isGuest ? 'bg-[var(--neon-orange)]/20 text-[var(--neon-orange)]' : 'bg-[var(--neon-blue)]/20 text-[var(--neon-blue)]')
+Line 2520 | Depth:  9 | : 'bg-white/5 text-slate-500'
+Line 2521 | Depth:  9 | }`}>
+Line 2522 | Depth:  9 | {assignedUser ? (isGuest ? '👽' : '👤') : '📱'}
+Line 2523 | Depth:  8 | </div>
+Line 2524 | Depth:  9 | <div>
+Line 2525 | Depth:  9 | <h3 className="text-xl font-bold text-white font-righteous tracking-wide">
+Line 2526 | Depth:  9 | {device.id}
+Line 2527 | Depth:  9 | </h3>
+Line 2528 | Depth: 10 | <div className="text-xs font-mono text-slate-500 mt-1 truncate max-w-[150px]" title={device.peerId}>
+Line 2529 | Depth: 10 | {device.peerId}
+Line 2530 | Depth:  9 | </div>
+Line 2531 | Depth: 10 | <div className={`mt-2 text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded inline-block ${isConnected ? 'bg-[var(--neon-green)]/10 text-[var(--neon-green)]' : 'bg-rose-500/10 text-rose-500'
+Line 2532 | Depth: 10 | }`}>
+Line 2533 | Depth: 10 | {device.status}
+Line 2534 | Depth:  9 | </div>
+Line 2535 | Depth:  8 | </div>
+Line 2536 | Depth:  7 | </div>
+Line 2537 | Depth:  7 | 
+Line 2538 | Depth:  8 | <div className="space-y-4">
+Line 2539 | Depth:  9 | <div className="p-4 bg-black/40 rounded-xl border border-white/5">
+Line 2540 | Depth: 10 | <div className="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-1">
+Line 2541 | Depth: 10 | Assigned Session
+Line 2542 | Depth:  9 | </div>
+Line 2543 | Depth: 10 | <div className="text-white font-medium truncate">
+Line 2544 | Depth: 10 | {assignedUser ? assignedUser.name : <span className="text-slate-600 italic">Unassigned</span>}
+Line 2545 | Depth:  9 | </div>
+Line 2546 | Depth:  8 | </div>
+Line 2547 | Depth:  8 | 
+Line 2548 | Depth:  9 | <div className="flex gap-2">
+Line 2549 | Depth:  9 | <button
+Line 2550 | Depth:  9 | onClick={() => {
+Line 2551 | Depth:  9 | const userName = prompt("Enter User Name to link (must exist in Directory):");
+Line 2552 | Depth:  9 | if (userName) {
+Line 2553 | Depth:  9 | const user = accounts.find(a => a.name.toLowerCase() === userName.toLowerCase());
+Line 2554 | Depth:  9 | if (user) {
+Line 2555 | Depth:  9 | assignUserToDevice(device.id, user.id, user.isGuest);
+Line 2556 | Depth:  9 | refresh();
+Line 2557 | Depth:  9 | } else {
+Line 2558 | Depth:  9 | alert("User not found!");
+Line 2559 | Depth:  9 | }
+Line 2560 | Depth:  9 | }
+Line 2561 | Depth:  9 | }}
+Line 2562 | Depth:  9 | className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-sm font-bold text-white transition-all"
+Line 2563 | Depth:  9 | >
+Line 2564 | Depth:  9 | {assignedUser ? 'CHANGE' : 'LINK USER'}
+Line 2565 | Depth:  9 | </button>
+Line 2566 | Depth:  9 | <button
+Line 2567 | Depth:  9 | onClick={async () => {
+Line 2568 | Depth:  9 | if (confirm("Forget this device?")) {
+Line 2569 | Depth:  9 | await removeDevice(device.id);
+Line 2570 | Depth:  9 | refresh();
+Line 2571 | Depth:  9 | }
+Line 2572 | Depth:  9 | }}
+Line 2573 | Depth:  9 | className="px-4 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 transition-all"
+Line 2574 | Depth:  9 | >
+Line 2575 | Depth:  9 | Forget
+Line 2576 | Depth:  9 | </button>
+Line 2577 | Depth:  8 | </div>
+Line 2578 | Depth:  7 | </div>
+Line 2579 | Depth:  6 | </div>
+Line 2580 | Depth:  6 | );
+Line 2581 | Depth:  6 | })}
+Line 2582 | Depth:  6 | 
+Line 2583 | Depth:  6 | {(!session.deviceConnections || session.deviceConnections.length === 0) && (
+Line 2584 | Depth:  7 | <div className="col-span-full py-20 text-center text-slate-500 font-mono">
+Line 2585 | Depth:  7 | No devices detected yet. Scan the QR code to connect.
+Line 2586 | Depth:  6 | </div>
+Line 2587 | Depth:  6 | )}
+Line 2588 | Depth:  5 | </div>
+Line 2589 | Depth:  4 | </div>
+Line 2590 | Depth:  3 | </div>
+Line 2591 | Depth:  3 | )
+Line 2592 | Depth:  3 | }
+Line 2593 | Depth:  3 | 
+Line 2594 | Depth:  2 | </div >
+Line 2595 | Depth:  2 | );
+Line 2596 | Depth:  2 | };
+Line 2597 | Depth:  2 | 
+Line 2598 | Depth:  2 | export default DJView;
+Final Depth: 2

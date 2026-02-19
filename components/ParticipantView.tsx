@@ -6,7 +6,7 @@ import { Participant, KaraokeSession, ParticipantStatus, RequestType, RequestSta
 import {
   getSession, joinSession, updateParticipantStatus, addRequest, deleteRequest,
   updateRequest, getUserProfile, toggleFavorite, saveUserProfile, registerUser,
-  loginUser, logoutUser, updateParticipantMic, reorderMyRequests, updateVocalRange
+  loginUser, logoutUser, updateParticipantMic, reorderMyRequests, updateVocalRange, loginUserById
 } from '../services/sessionManager';
 import SongRequestForm from './SongRequestForm';
 import { syncService } from '../services/syncService';
@@ -60,6 +60,21 @@ const ParticipantView: React.FC = () => {
 
   useEffect(() => {
     const init = async () => {
+      // Check for SINC Login
+      const params = new URLSearchParams(window.location.search);
+      const sincUserId = params.get('userId');
+
+      if (sincUserId) {
+        console.log(`[Participant] SINC Login detected for userId: ${sincUserId}`);
+        const result = await loginUserById(sincUserId);
+        if (result.success && result.profile) {
+          setUserProfile(result.profile);
+          setIsLoginMode(false);
+          // Clear param to prevent re-login loop or messy URL
+          window.history.replaceState({}, '', window.location.pathname + (roomId ? `?room=${roomId}` : ''));
+        }
+      }
+
       const profile = await getUserProfile();
       if (profile) {
         setUserProfile(profile);
@@ -369,7 +384,7 @@ const ParticipantView: React.FC = () => {
           )}
 
           <button type="submit" className="w-full py-6 mt-6 bg-[var(--neon-pink)] hover:bg-white hover:text-black text-white rounded-2xl font-black text-3xl shadow-[0_0_40px_rgba(255,0,127,0.3)] transition-all uppercase tracking-[0.2em] font-bungee hover:scale-[1.02] active:scale-95">
-            {isLoginMode ? 'ENTER AS GUEST' : 'SIGN IN'}
+            {isLoginMode ? 'SIGN IN' : 'CREATE PROFILE'}
           </button>
 
           <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setAuthError(''); }} className="text-slate-600 hover:text-[var(--neon-cyan)] text-sm font-black uppercase tracking-[0.3em] pt-6 block mx-auto transition-colors font-righteous border-b-2 border-transparent hover:border-[var(--neon-cyan)] pb-1">

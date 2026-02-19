@@ -10,11 +10,16 @@ class SyncService {
   private heartbeatInterval: number | null = null;
   private retryCount: number = 0;
   private maxRetries: number = 10;
+  private actionQueue: RemoteAction[] = [];
 
   public onStateReceived: ((state: KaraokeSession) => void) | null = null;
   public onActionReceived: ((action: RemoteAction) => void) | null = null;
   public onConnectionStatus: ((status: 'connected' | 'disconnected' | 'connecting') => void) | null = null;
   public onPeerConnected: (() => void) | null = null;
+
+  // New Event for Device Tracking
+  public onDeviceConnected: ((peerId: string) => void) | null = null;
+  public onDeviceDisconnected: ((peerId: string) => void) | null = null;
 
   private async getPublicIP(): Promise<string> {
     try {
@@ -158,8 +163,23 @@ class SyncService {
     conn.on('open', () => {
       console.log(`[Sync] Data connection established with: ${conn.peer}`);
       this.connections.set(conn.peer, conn);
+
+      // Flush Action Queue if we are a client connecting to host
+      if (!this.isHost && this.actionQueue.length > 0) {
+        console.log(`[Sync] Flushing ${this.actionQueue.length} queued actions to host.`);
+        this.actionQueue.forEach(action => {
+          conn.send(action);
+        });
+        this.actionQueue = [];
+      }
+
       if (this.onConnectionStatus) this.onConnectionStatus('connected');
       if (this.isHost && this.onPeerConnected) this.onPeerConnected();
+
+      // Trigger new device connected event
+      if (this.isHost && this.onDeviceConnected) {
+        this.onDeviceConnected(conn.peer);
+      }
     });
 
     conn.on('data', (data: unknown) => {
@@ -177,6 +197,10 @@ class SyncService {
       this.connections.delete(conn.peer);
       if (this.connections.size === 0 && this.onConnectionStatus) {
         if (!this.isHost) this.onConnectionStatus('disconnected');
+      }
+      // Trigger device disconnected event
+      if (this.isHost && this.onDeviceDisconnected) {
+        this.onDeviceDisconnected(conn.peer);
       }
     });
 
@@ -206,11 +230,20 @@ class SyncService {
 
   sendAction(action: RemoteAction) {
     if (this.isHost || !this.peer) return;
+
+    // Check if we have any open connection to host
+    let sent = false;
     this.connections.forEach(conn => {
       if (conn.open) {
         conn.send(action);
+        sent = true;
       }
     });
+
+    if (!sent) {
+      console.log('[Sync] No connection to host. Queuing action:', action.type);
+      this.actionQueue.push(action);
+    }
   }
 
   getRoomId(): string | null {
@@ -221,6 +254,7 @@ class SyncService {
     if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
     this.connections.forEach(c => c.close());
     this.connections.clear();
+    this.actionQueue = [];
     if (this.peer) {
       this.peer.destroy();
       this.peer = null;

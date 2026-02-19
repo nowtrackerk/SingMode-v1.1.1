@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { KaraokeSession } from '../types';
-import { getSession, saveSession, logoutUser } from '../services/sessionManager';
+import { getSession, saveSession, logoutUser, administrativeCleanup } from '../services/sessionManager';
 
 interface AdminPortalProps {
     onBack: () => void;
@@ -141,6 +141,36 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onBack }) => {
                                     <label className="text-[10px] uppercase font-black tracking-widest">Accent Neon</label>
                                     <input type="color" value={theme.accent} onChange={(e) => setTheme({ ...theme, accent: e.target.value })} className="bg-transparent border-none w-10 h-10 cursor-pointer" />
                                 </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Maintenance Section */}
+                    <section className="bg-black/40 border-2 border-white/5 rounded-[3rem] p-10 space-y-8 shadow-2xl col-span-full">
+                        <div>
+                            <h2 className="text-2xl font-bungee text-rose-500 mb-2 uppercase">System Maintenance</h2>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-black opacity-60">DATABASE PURGE OPERATIONS</p>
+                        </div>
+
+                        <div className="flex flex-col md:flex-row gap-6">
+                            <div className="flex-1 p-6 bg-white/5 rounded-2xl border border-white/5">
+                                <h4 className="text-xs font-black uppercase tracking-widest mb-1 text-white">Account Optimization</h4>
+                                <p className="text-[9px] text-slate-500 uppercase font-bold mb-4">Deletes all guests and duplicate entries</p>
+                                <button
+                                    onClick={async () => {
+                                        if (confirm('DANGER: This will permanently delete all guest accounts and duplicate stage names. Proceed?')) {
+                                            const res = await administrativeCleanup();
+                                            if (res.success) {
+                                                alert(`Cleanup complete. Deleted ${res.deletedCount} items.`);
+                                            } else {
+                                                alert(`Cleanup failed: ${res.error}`);
+                                            }
+                                        }
+                                    }}
+                                    className="px-6 py-3 bg-rose-500/10 border border-rose-500 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                >
+                                    PURGE GUESTS & DUPLICATES
+                                </button>
                             </div>
                         </div>
                     </section>

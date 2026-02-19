@@ -1,4 +1,4 @@
-import { KaraokeSession, Participant, SongRequest, ParticipantStatus, RequestStatus, UserProfile, FavoriteSong, RequestType, ChatMessage, TickerMessage, RemoteAction, VerifiedSong, ActiveSession } from '../types';
+import { KaraokeSession, Participant, SongRequest, ParticipantStatus, RequestStatus, UserProfile, FavoriteSong, RequestType, ChatMessage, TickerMessage, RemoteAction, VerifiedSong, ActiveSession, QueueStrategy } from '../types';
 import { syncService } from './syncService';
 import { auth, db } from './firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "firebase/auth";
@@ -22,7 +22,10 @@ const INITIAL_SESSION: KaraokeSession = {
   isPlayingVideo: false,
   nextRequestNumber: 1,
   maxRequestsPerUser: 5,
-  bannedUsers: []
+  bannedUsers: [], // Metadata for D.6.1
+  deviceConnections: [], // Device Tracking
+  queueStrategy: QueueStrategy.FRESH_MEAT, // Default Strategy
+  startedAt: Date.now()
 };
 
 const isExtension = typeof window !== 'undefined' && (window as any).chrome && (window as any).chrome.storage;
@@ -87,6 +90,19 @@ async function handleRemoteAction(action: RemoteAction) {
         }
       }
       await joinSession(id);
+
+      // Link Device
+      const session = await getSession();
+      if (session.deviceConnections) {
+        // We try to find a device that matches the senderId (peerId)
+        // Note: action.senderId is the Peer ID
+        const devIdx = session.deviceConnections.findIndex(d => d.peerId === action.senderId);
+        if (devIdx > -1) {
+          session.deviceConnections[devIdx].userId = id;
+          session.deviceConnections[devIdx].isGuest = profile?.isGuest ?? false;
+          await saveSession(session);
+        }
+      }
       break;
     }
     case 'TOGGLE_STATUS':
@@ -175,7 +191,67 @@ export const initializeSync = async (role: 'DJ' | 'PARTICIPANT', room?: string) 
       console.log("Synced users from Firestore:", users.length);
       storage.set(ACCOUNTS_KEY, users);
     });
+
+    // Device Tracking Events
+    syncService.onDeviceConnected = (peerId) => {
+      trackDeviceConnection(peerId);
+    };
+
+    syncService.onDeviceDisconnected = async (peerId) => {
+      const session = await getSession();
+      if (session.deviceConnections) {
+        const idx = session.deviceConnections.findIndex(d => d.peerId === peerId);
+        if (idx > -1) {
+          session.deviceConnections[idx].status = 'disconnected';
+          session.deviceConnections[idx].lastSeen = Date.now();
+          await saveSession(session);
+        }
+      }
+    };
   }
+};
+
+export const trackDeviceConnection = async (peerId: string) => {
+  const session = await getSession();
+  if (!session.deviceConnections) session.deviceConnections = [];
+
+  const existingIdx = session.deviceConnections.findIndex(d => d.peerId === peerId);
+
+  if (existingIdx > -1) {
+    session.deviceConnections[existingIdx].status = 'connected';
+    session.deviceConnections[existingIdx].lastSeen = Date.now();
+  } else {
+    // New Device
+    session.deviceConnections.push({
+      id: `D-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
+      peerId: peerId,
+      connectedAt: Date.now(),
+      lastSeen: Date.now(),
+      status: 'connected',
+      userAgent: 'Unknown'
+    });
+  }
+  await saveSession(session);
+};
+
+export const assignUserToDevice = async (deviceId: string, userId: string, isGuest = false) => {
+  const session = await getSession();
+  if (!session.deviceConnections) return;
+
+  const idx = session.deviceConnections.findIndex(d => d.id === deviceId);
+  if (idx > -1) {
+    session.deviceConnections[idx].userId = userId;
+    session.deviceConnections[idx].isGuest = isGuest;
+    await saveSession(session);
+  }
+};
+
+export const removeDevice = async (deviceId: string) => {
+  const session = await getSession();
+  if (!session.deviceConnections) return;
+
+  session.deviceConnections = session.deviceConnections.filter(d => d.id !== deviceId);
+  await saveSession(session);
 };
 
 export const getSession = async (): Promise<KaraokeSession> => {
@@ -188,6 +264,8 @@ export const getSession = async (): Promise<KaraokeSession> => {
   if (!session.nextRequestNumber) session.nextRequestNumber = 1;
   if (session.maxRequestsPerUser === undefined) session.maxRequestsPerUser = 5;
   if (!session.bannedUsers) session.bannedUsers = [];
+  if (!session.deviceConnections) session.deviceConnections = [];
+  if (!session.queueStrategy) session.queueStrategy = QueueStrategy.FRESH_MEAT;
   return session;
 };
 
@@ -250,7 +328,8 @@ export const resetSession = async () => {
     ...INITIAL_SESSION,
     id: `session-${Date.now()}`,
     verifiedSongbook: current.verifiedSongbook, // Persist the songbook
-    nextRequestNumber: 1
+    nextRequestNumber: 1,
+    startedAt: Date.now()
   };
   await saveSession(emptySession);
 };
@@ -385,14 +464,8 @@ export const updateUserHistoryItem = async (profileId: string, historyId: string
 
 export const deleteAccount = async (profileId: string) => {
   await removeParticipant(profileId);
-  // Deleting user from Firestore is not typically done from client sdk directly for Auth users
-  // But we can delete the document.
-  // For now, let's just delete the processed document.
   try {
-    // NOTE: We cannot delete the Auth user easily from here without Admin SDK or re-authentication
-    // Just delete the profile doc
-    // await deleteDoc(doc(db, "users", profileId)); 
-    // Commented out to avoid accidental data loss during dev, maybe just flag as deleted?
+    await deleteDoc(doc(db, "users", profileId));
     let accounts = await getAllAccounts();
     accounts = accounts.filter(a => a.id !== profileId);
     await storage.set(ACCOUNTS_KEY, accounts);
@@ -403,6 +476,48 @@ export const deleteAccount = async (profileId: string) => {
   const active = await getUserProfile();
   if (active && active.id === profileId) {
     await logoutUser();
+  }
+};
+
+export const administrativeCleanup = async () => {
+  try {
+    const accounts = await getAllAccounts();
+    const toDelete: string[] = [];
+    const seenNames = new Map<string, string>(); // name -> id
+
+    for (const account of accounts) {
+      // 1. Guest cleanup (no password)
+      if (!account.password) {
+        toDelete.push(account.id);
+        continue;
+      }
+
+      // 2. Duplicate cleanup
+      const normalizedName = account.name.toLowerCase().trim();
+      if (seenNames.has(normalizedName)) {
+        toDelete.push(account.id);
+      } else {
+        seenNames.set(normalizedName, account.id);
+      }
+    }
+
+    if (toDelete.length > 0) {
+      for (const id of toDelete) {
+        await deleteDoc(doc(db, "users", id));
+      }
+
+      // Force refresh cache
+      const usersRef = collection(db, "users");
+      const snapshot = await getDocs(usersRef);
+      const fetchedUsers: UserProfile[] = [];
+      snapshot.forEach(doc => fetchedUsers.push(doc.data() as UserProfile));
+      await storage.set(ACCOUNTS_KEY, fetchedUsers);
+    }
+
+    return { success: true, deletedCount: toDelete.length };
+  } catch (e) {
+    console.error("Cleanup failed:", e);
+    return { success: false, error: String(e) };
   }
 };
 
@@ -570,13 +685,42 @@ export const loginUser = async (name: string, password?: string): Promise<{ succ
     }
   }
 
-  // Guest login with existing handle?
-  if (found && !found.password) {
+  // Password-less fallback (should generally be handled by specific methods or guest mode, but keeping for compatibility)
+  if (found) {
+    await storage.set(PROFILE_KEY, found);
     return { success: true, profile: found };
   }
 
-  return { success: false, error: "User handle not found." };
+  return { success: false, error: 'User not found' };
 };
+
+export const loginUserById = async (userId: string): Promise<{ success: boolean, error?: string, profile?: UserProfile }> => {
+  const accounts = await getAllAccounts();
+  let found = accounts.find(a => a.id === userId);
+
+  if (!found) {
+    try {
+      const docRef = doc(db, "users", userId);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        found = snap.data() as UserProfile;
+        // Cache it
+        accounts.push(found);
+        await storage.set(ACCOUNTS_KEY, accounts);
+      }
+    } catch (e) {
+      console.error("Error fetching user by ID:", e);
+    }
+  }
+
+  if (found) {
+    await storage.set(PROFILE_KEY, found);
+    return { success: true, profile: found };
+  }
+  return { success: false, error: 'User not found' };
+};
+
+
 
 export const logoutUser = async () => {
   await signOut(auth);
@@ -641,6 +785,11 @@ const addParticipantToSession = async (session: KaraokeSession, profile: UserPro
   } else {
     session.participants.push(newParticipant);
   }
+
+  // Link Device if found (try to match implicit sender or just skip if we don't have peerId here easily)
+  // Note: joinSession is called on DJ side by handleRemoteAction, but we don't pass senderId to joinSession easily yet.
+  // We'll handle this linkage in handleRemoteAction instead for better reliability.
+
   await saveSession(session);
   return newParticipant;
 };
@@ -1000,33 +1149,132 @@ export const reorderRequest = async (requestId: string, direction: 'up' | 'down'
   }
 };
 
+export const setQueueStrategy = async (strategy: QueueStrategy) => {
+  const session = await getSession();
+  session.queueStrategy = strategy;
+  await saveSession(session);
+};
+
 export const generateRound = async () => {
   const session = await getSession();
+  const strategy = session.queueStrategy || QueueStrategy.FRESH_MEAT;
 
-  // Find all participants who have at least one approved singing request that isn't already in a round
-  const eligibleParticipants = session.participants.filter(p =>
-    session.requests.some(r =>
-      r.participantId === p.id &&
-      r.status === RequestStatus.APPROVED &&
-      r.type === RequestType.SINGING &&
-      !r.isInRound
-    )
-  ).sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0));
+  // Common: Find all pending approved singing requests not in round
+  const pendingRequests = session.requests.filter(r =>
+    r.status === RequestStatus.APPROVED &&
+    r.type === RequestType.SINGING &&
+    !r.isInRound
+  );
 
   const roundSongs: SongRequest[] = [];
 
-  eligibleParticipants.forEach(p => {
-    const songRef = session.requests.find(r =>
-      r.participantId === p.id &&
-      r.status === RequestStatus.APPROVED &&
-      r.type === RequestType.SINGING &&
-      !r.isInRound
+  if (strategy === QueueStrategy.FIFO) {
+    // 1. Strict FIFO: Just take the oldest requests regardless of user
+    // Sort by createdAt ASC
+    const sortedRequests = [...pendingRequests].sort((a, b) => a.createdAt - b.createdAt);
+
+    // Take top X (e.g. 10 or all) - preserving "one song per user per round" is usually desired even in FIFO?
+    // User asked for "strict FIFO: Ignore user grouping". So just take them in order.
+    // However, a Round usually implies a set of songs. We'll take top 20 to form a batch? 
+    // Or maybe just fill the round with unique users from the top?
+    // Let's interpret "Strict FIFO" as: Pure queue order. If User A has 3 songs queued before User B, User A sings 3 times.
+    // BUT `generateRound` usually implies creating a playlist.
+    // Let's limit to 10 songs for sanity.
+    roundSongs.push(...sortedRequests.slice(0, 10));
+
+  } else {
+    // Strategies that select ONE song per Eligible Participant
+    const eligibleParticipants = session.participants.filter(p =>
+      pendingRequests.some(r => r.participantId === p.id)
     );
-    if (songRef) {
-      songRef.isInRound = true;
-      roundSongs.push({ ...songRef });
-      // Automatically set participant to READY if they are in the round
-      p.status = ParticipantStatus.READY;
+
+    let sortedParticipants = [...eligibleParticipants];
+
+    switch (strategy) {
+      case QueueStrategy.FRESH_MEAT:
+        // Newest joined first
+        sortedParticipants.sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0));
+        break;
+
+      case QueueStrategy.OLDEST_MEMBER:
+        // Oldest joined first
+        sortedParticipants.sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0));
+        break;
+
+      case QueueStrategy.RANDOM:
+        // Shuffle
+        sortedParticipants.sort(() => Math.random() - 0.5);
+        break;
+
+      case QueueStrategy.FAIR_ROTATION:
+        // 1. Fewest songs sung
+        // 2. Oldest Signup (or Oldest Request?) - Plan said "Oldest Request", user said "oldest fewest songs sung first"
+        // Let's interpret as: Primary Sort = Song Count ASC. Secondary Sort = Earliest Request Time ASC.
+
+        // We need to count songs sung. We can count requests with status=DONE or history?
+        // Let's use `session.requests` where status=DONE or DONE_HISTORY (if we tracked it).
+        // Current session only tracks active requests. Done requests might be cleared or marked DONE.
+        // We will count requests in session with status === DONE + those in current round?
+        // A better metric might be `personalHistory` in UserProfile, but that requires fetching profiles.
+        // Let's stick to session-based "Songs Sung in this Session".
+
+        const getSongCount = (pid: string) => {
+          return session.requests.filter(r => r.participantId === pid && (r.status === RequestStatus.DONE)).length;
+        };
+
+        const getOldestRequestTime = (pid: string) => {
+          const userRequests = pendingRequests.filter(r => r.participantId === pid).sort((a, b) => a.createdAt - b.createdAt);
+          return userRequests[0]?.createdAt || Date.now();
+        };
+
+        sortedParticipants.sort((a, b) => {
+          const countA = getSongCount(a.id);
+          const countB = getSongCount(b.id);
+          if (countA !== countB) return countA - countB; // Fewest first
+          return getOldestRequestTime(a.id) - getOldestRequestTime(b.id); // Oldest request first
+        });
+        break;
+    }
+
+    // Now pick one song per sorted participant
+    sortedParticipants.forEach(p => {
+      // Pick their oldest pending request (FIFO per user)
+      const userRequests = pendingRequests
+        .filter(r => r.participantId === p.id)
+        .sort((a, b) => a.createdAt - b.createdAt);
+
+      const songToPlay = userRequests[0];
+      if (songToPlay) {
+        roundSongs.push(songToPlay);
+      }
+    });
+
+  }
+
+  // FALLBACK: If no singing requests, fill with Listening requests
+  if (roundSongs.length === 0) {
+    const listeningRequests = session.requests.filter(r =>
+      r.status === RequestStatus.APPROVED &&
+      r.type === RequestType.LISTENING &&
+      !r.isInRound
+    ).sort((a, b) => a.createdAt - b.createdAt);
+
+    // Take top 5 Listening requests to keep things moving
+    if (listeningRequests.length > 0) {
+      roundSongs.push(...listeningRequests.slice(0, 5));
+    }
+  }
+
+  // Mark selected songs as In Round
+  roundSongs.forEach(song => {
+    // Update the actual object in session.requests
+    const ref = session.requests.find(r => r.id === song.id);
+    if (ref) ref.isInRound = true;
+
+    // Update status of singer to READY only if it's a SINGING request
+    if (song.type === RequestType.SINGING) {
+      const p = session.participants.find(u => u.id === song.participantId);
+      if (p) p.status = ParticipantStatus.READY;
     }
   });
 
@@ -1239,10 +1487,17 @@ export const cleanupExpiredGuestAccounts = async () => {
 
 export const registerSession = async (metadata: Omit<ActiveSession, 'participantsCount'>) => {
   try {
+    // Ensure no undefined fields are sent to Firestore
     const sessionData: ActiveSession = {
-      ...metadata,
-      participantsCount: 0
+      id: metadata.id,
+      hostName: metadata.hostName || "SingMode DJ",
+      hostUid: metadata.hostUid || "anonymous-host",
+      isActive: metadata.isActive ?? true,
+      startedAt: metadata.startedAt || Date.now(),
+      participantsCount: 0,
+      venueName: metadata.venueName || "SingMode Venue"
     };
+
     await setDoc(doc(db, "sessions", metadata.id), sessionData);
   } catch (e) {
     console.error("Error registering session:", e);

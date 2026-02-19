@@ -1,0 +1,686 @@
+Line   592 | Depth:  1 | <div className="flex items-center justify-center p-20 min-h-screen">
+Line   593 | Depth:  1 | <div className="w-12 h-12 border-4 border-teal-400 border-t-transparent rounded-full animate-spin"><
+Line   594 | Depth:  0 | </div>
+Line   647 | Depth:  1 | <div className="relative">
+Line   648 | Depth:  2 | <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${colors[colorIndex]} p-[2px] shadow-lg sha
+Line   649 | Depth:  3 | <div className="w-full h-full bg-slate-950 rounded-[14px] flex items-center justify-center">
+Line   651 | Depth:  2 | </div>
+Line   652 | Depth:  1 | </div>
+Line   656 | Depth:  0 | </div>
+Line   691 | Depth:  1 | <div className="max-w-[1600px] mx-auto p-4 lg:p-8 space-y-12 relative font-inter text-slate-300">
+Line   694 | Depth:  1 | <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] t
+Line   695 | Depth:  2 | <div className="relative glass-panel rounded-[3.9rem] p-10 flex flex-col md:flex-row justify-between
+Line   696 | Depth:  3 | <div className="flex items-center gap-10">
+Line   697 | Depth:  4 | <div className="relative group/logo">
+Line   698 | Depth:  4 | <div className="absolute inset-0 bg-gradient-to-tr from-[var(--neon-yellow)] to-[var(--neon-pink)] r
+Line   699 | Depth:  5 | <div className="relative p-1.5 rounded-full border-4 border-white/10 shadow-2xl bg-black/40">
+Line   701 | Depth:  4 | </div>
+Line   702 | Depth:  3 | </div>
+Line   703 | Depth:  4 | <div>
+Line   707 | Depth:  5 | <div className="flex items-center gap-4 mt-4">
+Line   711 | Depth:  4 | </div>
+Line   712 | Depth:  3 | </div>
+Line   713 | Depth:  2 | </div>
+Line   715 | Depth:  3 | <div className="flex gap-4">
+Line   716 | Depth:  4 | <div className="text-right">
+Line   717 | Depth:  4 | <div className="text-base text-[var(--neon-yellow)] font-bold uppercase tracking-widest font-righteo
+Line   718 | Depth:  5 | <div className="text-4xl text-white font-bold uppercase tracking-widest font-bungee flex items-cente
+Line   719 | Depth:  5 | ONLINE <div className="w-3 h-3 bg-[var(--neon-green)] rounded-full animate-pulse shadow-[0_0_10px_va
+Line   720 | Depth:  4 | </div>
+Line   721 | Depth:  3 | </div>
+Line   722 | Depth:  2 | </div>
+Line   723 | Depth:  1 | </div>
+Line   727 | Depth:  2 | <div className="sticky top-4 z-50">
+Line   728 | Depth:  3 | <div className="glass-panel p-4 rounded-[2.5rem] border border-white/20 shadow-[0_20px_50px_rgba(0,0
+Line   729 | Depth:  4 | <div className="flex gap-3 p-2 bg-black/40 rounded-[2rem] border border-white/5">
+Line   740 | Depth:  3 | </div>
+Line   742 | Depth:  3 | <div className="w-[1px] h-12 bg-white/10 mx-2"></div>
+Line   744 | Depth:  4 | <div className="flex gap-2">
+Line   777 | Depth:  3 | </div>
+Line   779 | Depth:  3 | <div className="flex-1"></div>
+Line   781 | Depth:  4 | <div className="flex gap-2 p-2 bg-black/40 rounded-[2rem] border border-white/5 overflow-x-auto no-s
+Line   794 | Depth:  3 | </div>
+Line   795 | Depth:  2 | </div>
+Line   796 | Depth:  1 | </div>
+Line   800 | Depth:  2 | <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in slide-in-from-bottom-2">
+Line   801 | Depth:  3 | <div className="lg:col-span-8 space-y-10">
+Line   804 | Depth:  3 | <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] t
+Line   805 | Depth:  4 | <div className="relative bg-[#150030]/90 p-10 rounded-[2.8rem] backdrop-blur-xl border-2 border-[var
+Line   806 | Depth:  5 | <div className="flex justify-between items-center mb-8">
+Line   813 | Depth:  4 | </div>
+Line   814 | Depth:  5 | <div className="flex flex-col gap-3">
+Line   823 | Depth:  6 | <div
+Line   831 | Depth:  6 | <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_49%,rgba(255,255,255,0.03)_50
+Line   834 | Depth:  7 | <div className="flex items-center gap-6 min-w-0 flex-1 z-10">
+Line   836 | Depth:  8 | <div className="w-16 h-full flex flex-col justify-center items-center border-r border-white/10 pr-4 
+Line   841 | Depth:  7 | </div>
+Line   844 | Depth:  8 | <div className="flex items-baseline gap-6 min-w-0 flex-1">
+Line   848 | Depth:  9 | <div className="flex items-center gap-3 opacity-80 shrink-0">
+Line   852 | Depth:  9 | <div className={`w-2 h-2 rounded-full ${isReady ? 'bg-[var(--neon-green)] shadow-[0_0_5px_var(--neon
+Line   855 | Depth:  8 | </div>
+Line   856 | Depth:  7 | </div>
+Line   857 | Depth:  6 | </div>
+Line   860 | Depth:  7 | <div className="flex items-center gap-3 z-10 pl-4 border-l border-white/10 bg-gradient-to-l from-bla
+Line   862 | Depth:  8 | <div className="px-3 py-1 bg-[var(--neon-green)] text-black text-[10px] font-black uppercase trackin
+Line   864 | Depth:  7 | </div>
+Line   895 | Depth:  6 | </div>
+Line   896 | Depth:  5 | </div>
+Line   899 | Depth:  4 | </div>
+Line   900 | Depth:  3 | </div>
+Line   905 | Depth:  4 | <div className="flex justify-between items-center mb-8 px-2">
+Line   912 | Depth:  3 | </div>
+Line   913 | Depth:  4 | <div className="flex flex-col gap-4">
+Line   915 | Depth:  5 | <div
+Line   923 | Depth:  6 | <div className="flex-1 min-w-0">
+Line   924 | Depth:  7 | <div className="flex items-center gap-4 mb-1">
+Line   925 | Depth:  8 | <div className="text-xs font-black font-righteous text-[var(--neon-pink)] uppercase tracking-[0.2em]
+Line   927 | Depth:  7 | </div>
+Line   928 | Depth:  7 | <div className="text-3xl font-black text-white uppercase truncate tracking-tighter font-bungee group
+Line   929 | Depth:  7 | <div className="text-slate-500 text-base font-black uppercase tracking-[0.2em] font-righteous trunca
+Line   930 | Depth:  6 | </div>
+Line   931 | Depth:  7 | <div className="flex items-center gap-4">
+Line   934 | Depth:  8 | <div className="flex-1 max-w-md px-3 py-1 bg-black/40 border-l-2 border-[var(--neon-pink)] rounded-r
+Line   936 | Depth:  7 | </div>
+Line   938 | Depth:  6 | </div>
+Line   939 | Depth:  5 | </div>
+Line   941 | Depth:  6 | <div className="flex items-center gap-4 shrink-0">
+Line   942 | Depth:  7 | <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+Line   947 | Depth:  6 | </div>
+Line   948 | Depth:  7 | <div className="flex gap-2 bg-black/40 p-1 rounded-2xl border border-white/5">
+Line   951 | Depth:  6 | </div>
+Line   952 | Depth:  5 | </div>
+Line   953 | Depth:  4 | </div>
+Line   956 | Depth:  5 | <div className="col-span-full py-24 text-center border-4 border-dashed border-white/5 rounded-[2.5re
+Line   958 | Depth:  4 | </div>
+Line   960 | Depth:  3 | </div>
+Line   963 | Depth:  4 | <div className="flex flex-col gap-10">
+Line   968 | Depth:  5 | <div className="flex flex-col gap-3">
+Line   970 | Depth:  6 | <div
+Line   978 | Depth:  7 | <div className="w-12 h-12 flex items-center justify-center bg-black/40 rounded-2xl border border-whi
+Line   980 | Depth:  6 | </div>
+Line   982 | Depth:  7 | <div className="flex-1 min-w-0">
+Line   983 | Depth:  8 | <div className="flex items-center gap-4 mb-0.5">
+Line   984 | Depth:  8 | <div className="text-2xl font-bold text-white truncate uppercase tracking-tight font-bungee group-ho
+Line   985 | Depth:  8 | <div className="text-sm text-slate-500 uppercase tracking-widest font-righteous">/ {req.artist}</div
+Line   986 | Depth:  7 | </div>
+Line   987 | Depth:  8 | <div className="flex items-center gap-4">
+Line   990 | Depth:  9 | <div className="flex-1 max-w-sm px-2 py-0.5 bg-[var(--neon-yellow)]/5 border-l border-[var(--neon-ye
+Line   992 | Depth:  8 | </div>
+Line   994 | Depth:  7 | </div>
+Line   995 | Depth:  6 | </div>
+Line   997 | Depth:  7 | <div className="flex items-center gap-4 shrink-0">
+Line   998 | Depth:  8 | <div className="flex flex-col gap-0.5 px-2">
+Line  1001 | Depth:  7 | </div>
+Line  1002 | Depth:  8 | <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+Line  1007 | Depth:  7 | </div>
+Line  1008 | Depth:  8 | <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5">
+Line  1011 | Depth:  7 | </div>
+Line  1012 | Depth:  6 | </div>
+Line  1013 | Depth:  5 | </div>
+Line  1016 | Depth:  6 | <div className="flex-1 py-12 flex items-center justify-center border-2 border-dashed border-white/5 
+Line  1018 | Depth:  5 | </div>
+Line  1020 | Depth:  4 | </div>
+Line  1028 | Depth:  5 | <div className="flex flex-col gap-3">
+Line  1030 | Depth:  6 | <div key={req.id} className="bg-black/40 border border-white/5 p-4 rounded-[2rem] flex items-center 
+Line  1031 | Depth:  7 | <div className="w-12 h-12 flex items-center justify-center bg-black/40 rounded-2xl border border-whi
+Line  1033 | Depth:  6 | </div>
+Line  1034 | Depth:  7 | <div className="flex-1 min-w-0">
+Line  1035 | Depth:  8 | <div className="flex items-center gap-4 mb-0.5">
+Line  1036 | Depth:  8 | <div className="text-xl font-bold text-white truncate uppercase tracking-tight font-bungee group-hov
+Line  1037 | Depth:  8 | <div className="text-sm text-slate-500 uppercase tracking-widest font-righteous">/ {req.artist}</div
+Line  1038 | Depth:  7 | </div>
+Line  1039 | Depth:  7 | <div className="text-xs font-black text-[var(--neon-pink)] uppercase tracking-[0.2em] font-righteous
+Line  1040 | Depth:  6 | </div>
+Line  1042 | Depth:  7 | <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5 opacity-0 group-hover:op
+Line  1044 | Depth:  6 | </div>
+Line  1045 | Depth:  5 | </div>
+Line  1048 | Depth:  6 | <div className="flex-1 py-8 flex items-center justify-center border-2 border-dashed border-white/5 r
+Line  1050 | Depth:  5 | </div>
+Line  1052 | Depth:  4 | </div>
+Line  1060 | Depth:  5 | <div className="space-y-10">
+Line  1061 | Depth:  6 | <div className="p-6 bg-black/40 rounded-3xl border border-white/5 space-y-6">
+Line  1062 | Depth:  7 | <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+Line  1065 | Depth:  6 | </div>
+Line  1074 | Depth:  7 | <div className="flex justify-between text-xs font-black text-slate-600 font-righteous uppercase trac
+Line  1077 | Depth:  6 | </div>
+Line  1078 | Depth:  5 | </div>
+Line  1080 | Depth:  6 | <div>
+Line  1084 | Depth:  7 | <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar custom-scrollbar-h">
+Line  1086 | Depth:  8 | <div key={req.id} className="bg-black/60 p-5 rounded-[2rem] border border-white/10 flex flex-col jus
+Line  1087 | Depth:  9 | <div className="min-w-0 mb-4 cursor-pointer" onClick={() => handleSongSearch(req.songName, req.artis
+Line  1088 | Depth:  9 | <div className="text-2xl font-black text-white truncate uppercase tracking-tight font-bungee group-h
+Line  1089 | Depth:  9 | <div className="text-base text-slate-500 uppercase tracking-widest mt-1 font-righteous opacity-60 tr
+Line  1090 | Depth:  8 | </div>
+Line  1091 | Depth:  9 | <div className="flex items-center justify-between border-t border-white/5 pt-4">
+Line  1093 | Depth: 10 | <div className="flex gap-2">
+Line  1096 | Depth:  9 | </div>
+Line  1097 | Depth:  8 | </div>
+Line  1098 | Depth:  7 | </div>
+Line  1101 | Depth:  6 | </div>
+Line  1102 | Depth:  5 | </div>
+Line  1104 | Depth:  6 | <div className="pt-6 border-t border-white/5">
+Line  1109 | Depth:  7 | <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar custom-scrollbar-h">
+Line  1111 | Depth:  8 | <div key={v.id} className="bg-black/80 p-5 rounded-[2rem] border border-white/5 flex flex-col justif
+Line  1112 | Depth:  9 | <div className="min-w-0 mb-4">
+Line  1113 | Depth:  9 | <div className="text-2xl font-bold text-white uppercase truncate tracking-tight group-hover:text-[va
+Line  1114 | Depth:  9 | <div className="text-sm text-slate-600 uppercase truncate tracking-widest font-righteous font-bold">
+Line  1115 | Depth:  8 | </div>
+Line  1116 | Depth:  9 | <div className="flex items-center justify-between border-t border-white/5 pt-4">
+Line  1117 | Depth: 10 | <div className="flex gap-1">
+Line  1120 | Depth:  9 | </div>
+Line  1121 | Depth: 10 | <div className="flex gap-2 shrink-0">
+Line  1135 | Depth:  9 | </div>
+Line  1136 | Depth:  8 | </div>
+Line  1137 | Depth:  7 | </div>
+Line  1140 | Depth:  6 | </div>
+Line  1141 | Depth:  5 | </div>
+Line  1142 | Depth:  4 | </div>
+Line  1144 | Depth:  3 | </div>
+Line  1145 | Depth:  2 | </div>
+Line  1147 | Depth:  3 | <div className="lg:col-span-4 space-y-8">
+Line  1149 | Depth:  4 | <div className="flex justify-between items-center mb-6 px-2">
+Line  1151 | Depth:  5 | <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+Line  1152 | Depth:  5 | <div className="w-2 h-2 rounded-full bg-[var(--neon-cyan)] animate-pulse"></div>
+Line  1154 | Depth:  4 | </div>
+Line  1155 | Depth:  3 | </div>
+Line  1156 | Depth:  4 | <div className="space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
+Line  1163 | Depth:  5 | <div key={p.id} className={`flex items-center justify-between p-4 rounded-[1.5rem] transition-all bo
+Line  1164 | Depth:  6 | <div className="min-w-0 flex items-center gap-4">
+Line  1169 | Depth:  7 | <div className="min-w-0">
+Line  1177 | Depth:  6 | </div>
+Line  1178 | Depth:  5 | </div>
+Line  1179 | Depth:  6 | <div className="flex gap-1">
+Line  1184 | Depth:  5 | </div>
+Line  1185 | Depth:  4 | </div>
+Line  1188 | Depth:  4 | {session.participants.length === 0 && <div className="text-center py-20 opacity-20"><p className="te
+Line  1189 | Depth:  3 | </div>
+Line  1193 | Depth:  4 | <div className="flex justify-between items-center mb-6 px-2">
+Line  1200 | Depth:  3 | </div>
+Line  1201 | Depth:  4 | <div className="space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
+Line  1203 | Depth:  5 | <div key={i} className="bg-black/40 p-4 rounded-2xl border border-white/5 flex flex-col group hover:
+Line  1204 | Depth:  6 | <div className="flex justify-between items-start mb-2">
+Line  1205 | Depth:  7 | <div className="min-w-0 pr-2">
+Line  1206 | Depth:  7 | <div className="text-xl font-bold text-white uppercase truncate tracking-tight group-hover:text-[var
+Line  1207 | Depth:  7 | <div className="text-sm text-slate-600 uppercase truncate tracking-widest font-righteous">{item.arti
+Line  1208 | Depth:  6 | </div>
+Line  1209 | Depth:  7 | <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+Line  1213 | Depth:  6 | </div>
+Line  1214 | Depth:  5 | </div>
+Line  1215 | Depth:  6 | <div className="flex items-center justify-between mt-2 border-t border-white/5 pt-2">
+Line  1223 | Depth:  5 | </div>
+Line  1224 | Depth:  4 | </div>
+Line  1226 | Depth:  4 | {session.history.length === 0 && <div className="text-center py-16 opacity-20"><p className="text-lg
+Line  1227 | Depth:  3 | </div>
+Line  1229 | Depth:  2 | </div>
+Line  1230 | Depth:  1 | </div>
+Line  1237 | Depth:  2 | <div className="space-y-16 animate-in slide-in-from-bottom-2 pb-32">
+Line  1240 | Depth:  3 | <div className="flex items-center gap-8 mb-12">
+Line  1241 | Depth:  3 | <div className="w-8 h-8 bg-[var(--neon-green)] rounded-full animate-ping shadow-[0_0_25px_var(--neon
+Line  1243 | Depth:  2 | </div>
+Line  1244 | Depth:  3 | <div className="flex flex-col gap-4">
+Line  1251 | Depth:  4 | <div
+Line  1259 | Depth:  4 | <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_49%,rgba(255,255,255,0.03)_50
+Line  1262 | Depth:  5 | <div className="flex items-center gap-6 min-w-0 flex-1 z-10">
+Line  1264 | Depth:  6 | <div className="w-16 h-full flex flex-col justify-center items-center border-r border-white/10 pr-4 
+Line  1269 | Depth:  5 | </div>
+Line  1272 | Depth:  6 | <div className="flex items-baseline gap-6 min-w-0 flex-1">
+Line  1276 | Depth:  7 | <div className="flex items-center gap-3 opacity-80 shrink-0">
+Line  1280 | Depth:  6 | </div>
+Line  1281 | Depth:  5 | </div>
+Line  1282 | Depth:  4 | </div>
+Line  1285 | Depth:  5 | <div className="flex items-center gap-3 z-10 pl-6 border-l border-white/10 bg-gradient-to-l from-bla
+Line  1287 | Depth:  6 | <div className="px-3 py-1 bg-[var(--neon-green)] text-black text-[10px] font-black uppercase trackin
+Line  1289 | Depth:  5 | </div>
+Line  1291 | Depth:  6 | <div className="flex gap-2">
+Line  1321 | Depth:  5 | </div>
+Line  1322 | Depth:  4 | </div>
+Line  1323 | Depth:  3 | </div>
+Line  1326 | Depth:  2 | </div>
+Line  1331 | Depth:  3 | <div className="flex items-center gap-6 mb-10">
+Line  1332 | Depth:  3 | <div className="w-4 h-4 bg-[var(--neon-cyan)] shadow-[0_0_20px_var(--neon-cyan)] rounded-full animat
+Line  1334 | Depth:  2 | </div>
+Line  1335 | Depth:  3 | <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
+Line  1337 | Depth:  4 | <div key={req.id} className="relative group perspective-1000">
+Line  1338 | Depth:  4 | <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-purple)] to-[var(--neon-blue)] ro
+Line  1339 | Depth:  5 | <div className="relative bg-[#101015] p-8 rounded-[2.5rem] border border-white/10 flex justify-betwe
+Line  1340 | Depth:  6 | <div className="min-w-0 pr-6 flex-1">
+Line  1341 | Depth:  6 | <div className="text-white font-black uppercase truncate text-4xl font-bungee tracking-tight mb-2 gr
+Line  1342 | Depth:  7 | <div className="text-lg text-slate-500 uppercase flex items-center gap-3 font-righteous tracking-[0.
+Line  1346 | Depth:  6 | </div>
+Line  1347 | Depth:  5 | </div>
+Line  1348 | Depth:  6 | <div className="flex gap-3 shrink-0 flex-col">
+Line  1351 | Depth:  5 | </div>
+Line  1352 | Depth:  4 | </div>
+Line  1353 | Depth:  3 | </div>
+Line  1356 | Depth:  4 | <div className="col-span-full py-32 text-center border-4 border-dashed border-white/5 rounded-[4rem]
+Line  1358 | Depth:  3 | </div>
+Line  1360 | Depth:  2 | </div>
+Line  1362 | Depth:  1 | </div>
+Line  1368 | Depth:  2 | <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 animate-in slide-in-from-bottom-2 pb-32">
+Line  1370 | Depth:  3 | <div className="flex justify-between items-center mb-10 px-2">
+Line  1372 | Depth:  4 | <div className="flex items-center gap-4 px-6 py-2 bg-black/40 border border-[var(--neon-cyan)]/30 ro
+Line  1373 | Depth:  4 | <div className="w-2 h-2 rounded-full bg-[var(--neon-cyan)] animate-pulse"></div>
+Line  1375 | Depth:  3 | </div>
+Line  1376 | Depth:  2 | </div>
+Line  1377 | Depth:  3 | <div className="grid gap-6">
+Line  1384 | Depth:  4 | <div key={p.id} className={`flex items-center justify-between p-6 rounded-[2rem] transition-all bord
+Line  1385 | Depth:  5 | <div className="min-w-0 flex items-center gap-6 text-left">
+Line  1390 | Depth:  5 | {isReady && <div className="w-4 h-4 bg-white rounded-full animate-pulse"></div>}
+Line  1392 | Depth:  6 | <div className="min-w-0">
+Line  1399 | Depth:  6 | {approvedCount > 0 && <div className="text-base font-bold text-[var(--neon-cyan)] uppercase mt-1 tra
+Line  1400 | Depth:  5 | </div>
+Line  1401 | Depth:  4 | </div>
+Line  1402 | Depth:  5 | <div className="flex gap-4 items-center">
+Line  1407 | Depth:  4 | </div>
+Line  1408 | Depth:  3 | </div>
+Line  1411 | Depth:  3 | {session.participants.length === 0 && <div className="py-32 text-center border-4 border-dashed borde
+Line  1412 | Depth:  2 | </div>
+Line  1416 | Depth:  3 | <div className="flex justify-between items-center mb-10 px-2">
+Line  1419 | Depth:  2 | </div>
+Line  1420 | Depth:  3 | <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+Line  1424 | Depth:  4 | <div key={i} className="bg-black/40 p-5 rounded-[1.5rem] border border-white/5 group hover:border-[v
+Line  1425 | Depth:  5 | <div className="flex justify-between items-start mb-3">
+Line  1426 | Depth:  6 | <div className="min-w-0 pr-4">
+Line  1427 | Depth:  6 | <div className="text-2xl font-black text-white uppercase truncate font-bungee tracking-tight group-h
+Line  1428 | Depth:  6 | <div className="text-sm text-slate-600 font-bold uppercase truncate font-righteous tracking-widest m
+Line  1429 | Depth:  5 | </div>
+Line  1431 | Depth:  4 | </div>
+Line  1432 | Depth:  5 | <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-1">
+Line  1435 | Depth:  4 | </div>
+Line  1436 | Depth:  3 | </div>
+Line  1438 | Depth:  3 | {session.history.length === 0 && <div className="text-center py-20 opacity-20"><p className="text-lg
+Line  1439 | Depth:  2 | </div>
+Line  1443 | Depth:  3 | <div className="flex justify-between items-center mb-10 px-2">
+Line  1445 | Depth:  3 | <div className="text-[var(--neon-cyan)]/40 text-sm font-black uppercase tracking-[0.4em] font-righte
+Line  1446 | Depth:  2 | </div>
+Line  1448 | Depth:  3 | <div className="grid gap-12">
+Line  1463 | Depth:  4 | <div className="text-center py-24 border-4 border-dashed border-white/5 rounded-[2.5rem] opacity-20"
+Line  1465 | Depth:  3 | </div>
+Line  1470 | Depth:  4 | <div key={timestamp} className="bg-[#050510] border-2 border-white/5 rounded-[2.5rem] p-8 relative g
+Line  1471 | Depth:  5 | <div className="absolute top-0 left-10 py-1 px-4 bg-[var(--neon-cyan)] text-black text-[10px] font-b
+Line  1473 | Depth:  4 | </div>
+Line  1475 | Depth:  5 | <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+Line  1477 | Depth:  6 | <div key={song.id} className="flex flex-col p-4 bg-black/40 rounded-2xl border border-white/5 group/
+Line  1478 | Depth:  7 | <div className="flex justify-between items-start mb-2">
+Line  1479 | Depth:  7 | <div className="text-lg font-black text-white uppercase truncate font-bungee tracking-tight group-ho
+Line  1481 | Depth:  6 | </div>
+Line  1482 | Depth:  7 | <div className="flex items-center justify-between">
+Line  1485 | Depth:  6 | </div>
+Line  1486 | Depth:  5 | </div>
+Line  1488 | Depth:  4 | </div>
+Line  1489 | Depth:  3 | </div>
+Line  1492 | Depth:  2 | </div>
+Line  1494 | Depth:  1 | </div>
+Line  1501 | Depth:  2 | <div className="sticky top-0 z-40 pt-4 -mt-4">
+Line  1502 | Depth:  3 | <div className="relative group p-1 rounded-[2.5rem] bg-[#050510]/90 shadow-2xl backdrop-blur-xl bord
+Line  1503 | Depth:  3 | <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-pink)]/20 via-[var(--neon-purple)
+Line  1514 | Depth:  4 | <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-2">
+Line  1521 | Depth:  3 | </div>
+Line  1522 | Depth:  2 | </div>
+Line  1523 | Depth:  1 | </div>
+Line  1525 | Depth:  2 | <div className="flex flex-col gap-3">
+Line  1542 | Depth:  3 | <div className="col-span-full text-center py-40 opacity-30 border-4 border-dashed border-white/5 rou
+Line  1543 | Depth:  3 | <div className="text-8xl mb-6 opacity-50 grayscale animate-pulse">{librarySearchQuery ? '🚫' : '📡'}</
+Line  1545 | Depth:  2 | </div>
+Line  1550 | Depth:  3 | <div key={idx} className="bg-[#101015] border-2 border-white/5 p-4 rounded-[2rem] flex items-center 
+Line  1551 | Depth:  4 | <div className="flex items-center gap-6 flex-1 min-w-0">
+Line  1552 | Depth:  4 | <div className="w-12 h-12 flex items-center justify-center bg-black rounded-lg border border-white/1
+Line  1553 | Depth:  5 | <div className="min-w-0 pr-4">
+Line  1554 | Depth:  6 | <div className="flex items-center gap-3">
+Line  1556 | Depth:  6 | <div className="px-2 py-0.5 bg-[var(--neon-pink)] text-black rounded-full text-[10px] font-black upp
+Line  1560 | Depth:  5 | </div>
+Line  1561 | Depth:  4 | </div>
+Line  1562 | Depth:  3 | </div>
+Line  1564 | Depth:  4 | <div className="flex items-center gap-4 shrink-0">
+Line  1565 | Depth:  5 | <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+Line  1573 | Depth:  4 | </div>
+Line  1574 | Depth:  5 | <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5 ml-4">
+Line  1575 | Depth:  6 | <div className="relative group/assign">
+Line  1579 | Depth:  7 | <div className="absolute bottom-full right-0 mb-4 bg-[#0a0a0a] border-2 border-[var(--neon-cyan)]/30
+Line  1581 | Depth:  8 | <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+Line  1598 | Depth:  7 | </div>
+Line  1599 | Depth:  6 | </div>
+Line  1600 | Depth:  5 | </div>
+Line  1602 | Depth:  6 | <div className="relative group/star">
+Line  1604 | Depth:  7 | <div className="absolute bottom-full right-0 mb-4 bg-[#0a0a0a] border-2 border-[var(--neon-pink)]/30
+Line  1606 | Depth:  8 | <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+Line  1616 | Depth:  7 | </div>
+Line  1617 | Depth:  6 | </div>
+Line  1618 | Depth:  5 | </div>
+Line  1619 | Depth:  4 | </div>
+Line  1620 | Depth:  3 | </div>
+Line  1621 | Depth:  2 | </div>
+Line  1624 | Depth:  1 | </div>
+Line  1631 | Depth:  2 | <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-6 z-[100] backdrop-blur
+Line  1632 | Depth:  3 | <div className="w-full max-w-2xl bg-[#0a0a0a] border-4 border-[var(--neon-pink)]/30 rounded-[3rem] p
+Line  1633 | Depth:  4 | <div className="flex justify-between items-start mb-8">
+Line  1636 | Depth:  3 | </div>
+Line  1637 | Depth:  3 | <div className="mb-8 text-lg text-[var(--neon-cyan)] font-bold uppercase tracking-widest font-righte
+Line  1639 | Depth:  4 | <div className="space-y-4 mb-10 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
+Line  1657 | Depth:  5 | <div key={p.id} className={`flex items-center justify-between p-4 rounded-[1.5rem] border-2 transiti
+Line  1658 | Depth:  6 | <div className="flex items-center gap-4 min-w-0">
+Line  1663 | Depth:  6 | {isReady && <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>}
+Line  1665 | Depth:  7 | <div className="min-w-0">
+Line  1666 | Depth:  7 | <div className={`font-bold uppercase text-2xl truncate tracking-tight font-bungee ${isReady ? 'text-
+Line  1669 | Depth:  8 | <div className="text-[var(--neon-cyan)] text-base font-black uppercase tracking-[0.2em] font-righteo
+Line  1671 | Depth:  7 | </div>
+Line  1673 | Depth:  7 | <div className="text-rose-500 text-sm font-black uppercase tracking-[0.1em] font-righteous mt-0.5">⚠
+Line  1676 | Depth:  7 | <div className="text-slate-700 text-sm font-black uppercase tracking-[0.2em] font-righteous mt-0.5">
+Line  1678 | Depth:  6 | </div>
+Line  1679 | Depth:  5 | </div>
+Line  1680 | Depth:  5 | {isReady && song && <div className="shrink-0 text-sm bg-[var(--neon-cyan)] text-black px-4 py-1.5 ro
+Line  1681 | Depth:  4 | </div>
+Line  1692 | Depth:  5 | <div className="space-y-4">
+Line  1693 | Depth:  6 | <div className="p-4 bg-white/5 rounded-xl border border-dashed border-white/10 text-center">
+Line  1695 | Depth:  5 | </div>
+Line  1697 | Depth:  6 | <div key={song.id} className="flex items-center justify-between p-4 rounded-[1.5rem] border-2 bg-[#0
+Line  1698 | Depth:  7 | <div className="min-w-0">
+Line  1699 | Depth:  7 | <div className="text-[var(--neon-blue)] text-xl font-black uppercase tracking-tight font-bungee">{so
+Line  1700 | Depth:  7 | <div className="text-slate-500 text-sm font-bold uppercase tracking-widest font-righteous">{song.art
+Line  1701 | Depth:  6 | </div>
+Line  1702 | Depth:  6 | <div className="text-xs font-black uppercase tracking-widest text-[var(--neon-pink)] font-righteous"
+Line  1703 | Depth:  5 | </div>
+Line  1705 | Depth:  4 | </div>
+Line  1710 | Depth:  5 | <div className="text-center py-24 bg-black/20 rounded-[2.5rem] border-4 border-dashed border-white/5
+Line  1712 | Depth:  4 | </div>
+Line  1716 | Depth:  3 | </div>
+Line  1718 | Depth:  4 | <div className="flex gap-4">
+Line  1740 | Depth:  4 | <div className="w-1.5 h-1.5 bg-current rounded-full animate-ping"></div>
+Line  1747 | Depth:  3 | </div>
+Line  1749 | Depth:  4 | <div className="bg-[#151520] p-6 rounded-[2rem] border border-white/5 mt-8">
+Line  1753 | Depth:  5 | <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+Line  1766 | Depth:  6 | <div className="font-bold font-righteous uppercase tracking-wider relative z-10">
+Line  1768 | Depth:  5 | </div>
+Line  1769 | Depth:  6 | <div className="text-[10px] uppercase font-mono mt-1 opacity-60 relative z-10">
+Line  1775 | Depth:  5 | </div>
+Line  1777 | Depth:  5 | <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[var(--neon-green)] animate-pulse"></
+Line  1781 | Depth:  4 | </div>
+Line  1782 | Depth:  3 | </div>
+Line  1783 | Depth:  2 | </div>
+Line  1784 | Depth:  1 | </div>
+Line  1790 | Depth:  2 | <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur
+Line  1791 | Depth:  3 | <div className="w-full max-w-md bg-[#050510] border-4 border-rose-500/30 rounded-[3rem] p-10 text-ce
+Line  1792 | Depth:  3 | <div className="absolute top-0 left-0 w-full h-1 bg-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.8)]">
+Line  1793 | Depth:  3 | <div className="w-20 h-20 bg-rose-500/10 text-rose-500 rounded-[2rem] border-2 border-rose-500/20 fl
+Line  1798 | Depth:  4 | <div className="flex gap-4">
+Line  1801 | Depth:  3 | </div>
+Line  1802 | Depth:  2 | </div>
+Line  1803 | Depth:  1 | </div>
+Line  1809 | Depth:  2 | <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[70] backdrop-blur-
+Line  1810 | Depth:  3 | <div className="w-full max-w-6xl bg-[#0a0a0a] border-4 border-white/10 rounded-[4rem] overflow-hidde
+Line  1811 | Depth:  3 | <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(-
+Line  1812 | Depth:  4 | <div className="p-8 border-b-2 border-white/5 flex justify-between items-center bg-black/40 backdrop
+Line  1813 | Depth:  5 | <div>
+Line  1816 | Depth:  4 | </div>
+Line  1817 | Depth:  5 | <div className="flex gap-3">
+Line  1828 | Depth:  4 | </div>
+Line  1829 | Depth:  3 | </div>
+Line  1831 | Depth:  4 | <div className="p-6 border-b-2 border-white/5 bg-black/20">
+Line  1832 | Depth:  5 | <div className="relative group max-w-2xl mx-auto">
+Line  1843 | Depth:  4 | </div>
+Line  1844 | Depth:  3 | </div>
+Line  1846 | Depth:  4 | <div className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar bg-black/20">
+Line  1848 | Depth:  5 | <div className="animate-in slide-in-from-right-4 duration-500 grid lg:grid-cols-12 gap-8">
+Line  1849 | Depth:  6 | <div className="lg:col-span-4 space-y-6">
+Line  1850 | Depth:  7 | <div className="bg-[#101015] border-2 border-white/5 rounded-[3rem] p-8 shadow-2xl relative overflow
+Line  1852 | Depth:  8 | <div className="relative z-10 flex flex-col items-center text-center">
+Line  1853 | Depth:  9 | <div className="scale-125 mb-4">
+Line  1855 | Depth:  8 | </div>
+Line  1856 | Depth:  9 | <div className="mt-4">
+Line  1857 | Depth:  9 | <div className="text-sm font-bold text-[var(--neon-cyan)] uppercase tracking-widest mb-2 font-righte
+Line  1859 | Depth:  8 | </div>
+Line  1861 | Depth:  9 | <div className="w-full mt-8 space-y-3 pt-6 border-t border-white/5">
+Line  1862 | Depth: 10 | <div className="flex justify-between items-center text-sm uppercase font-black font-righteous tracki
+Line  1865 | Depth:  9 | </div>
+Line  1866 | Depth: 10 | <div className="flex justify-between items-center text-sm uppercase font-black font-righteous tracki
+Line  1871 | Depth:  9 | </div>
+Line  1872 | Depth:  8 | </div>
+Line  1874 | Depth:  9 | <div className="w-full mt-10 space-y-3">
+Line  1879 | Depth:  8 | </div>
+Line  1880 | Depth:  7 | </div>
+Line  1881 | Depth:  6 | </div>
+Line  1882 | Depth:  5 | </div>
+Line  1884 | Depth:  6 | <div className="lg:col-span-8 space-y-6">
+Line  1885 | Depth:  7 | <div className="grid md:grid-cols-2 gap-6">
+Line  1886 | Depth:  8 | <div className="bg-[#101015] border-2 border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden">
+Line  1888 | Depth:  9 | <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+Line  1890 | Depth: 10 | <div key={fav.id} className="bg-black/40 border border-white/5 p-4 rounded-xl flex justify-between i
+Line  1891 | Depth: 11 | <div className="min-w-0 pr-4">
+Line  1892 | Depth: 11 | <div className="text-xl font-black text-white truncate uppercase tracking-tight font-righteous group
+Line  1893 | Depth: 11 | <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-0.5 font-righteous opa
+Line  1894 | Depth: 10 | </div>
+Line  1895 | Depth: 11 | <div className="flex gap-2 shrink-0">
+Line  1899 | Depth: 10 | </div>
+Line  1900 | Depth:  9 | </div>
+Line  1902 | Depth:  9 | {managedProfile.favorites.length === 0 && <div className="flex flex-col items-center py-20 opacity-2
+Line  1903 | Depth:  8 | </div>
+Line  1904 | Depth:  7 | </div>
+Line  1906 | Depth:  8 | <div className="bg-[#101015] border-2 border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden">
+Line  1908 | Depth:  9 | <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+Line  1910 | Depth: 10 | <div key={i} className="bg-black/40 border border-white/5 p-4 rounded-xl group hover:border-[var(--n
+Line  1911 | Depth: 11 | <div className="flex justify-between items-start">
+Line  1912 | Depth: 12 | <div className="min-w-0 pr-4">
+Line  1913 | Depth: 12 | <div className="text-xl font-bold text-white truncate uppercase tracking-tight font-righteous group-
+Line  1914 | Depth: 12 | <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-0.5 font-righteous opa
+Line  1915 | Depth: 11 | </div>
+Line  1916 | Depth: 12 | <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 
+Line  1919 | Depth: 11 | </div>
+Line  1920 | Depth: 10 | </div>
+Line  1921 | Depth: 11 | <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5">
+Line  1929 | Depth: 10 | </div>
+Line  1930 | Depth:  9 | </div>
+Line  1932 | Depth:  9 | {managedProfile.personalHistory.filter(h => h.sessionId === session.id).length === 0 && <div classNa
+Line  1933 | Depth:  8 | </div>
+Line  1934 | Depth:  7 | </div>
+Line  1935 | Depth:  6 | </div>
+Line  1936 | Depth:  5 | </div>
+Line  1944 | Depth:  6 | <div className="space-y-6">
+Line  1945 | Depth:  7 | <div>
+Line  1948 | Depth:  6 | </div>
+Line  1951 | Depth:  7 | <div className="mb-4 animate-pulse">
+Line  1955 | Depth:  6 | </div>
+Line  1957 | Depth:  5 | </div>
+Line  1958 | Depth:  6 | <div className="flex gap-4 pt-4">
+Line  1961 | Depth:  5 | </div>
+Line  1966 | Depth:  6 | <div className="space-y-6">
+Line  1967 | Depth:  7 | <div>
+Line  1970 | Depth:  6 | </div>
+Line  1973 | Depth:  7 | <div className="mb-4 animate-pulse">
+Line  1977 | Depth:  6 | </div>
+Line  1979 | Depth:  7 | <div>
+Line  1982 | Depth:  6 | </div>
+Line  1983 | Depth:  5 | </div>
+Line  1984 | Depth:  6 | <div className="flex gap-4 pt-4">
+Line  1987 | Depth:  5 | </div>
+Line  1990 | Depth:  6 | <div className="space-y-16">
+Line  2005 | Depth:  7 | <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+Line  2006 | Depth:  8 | <div className="flex items-center gap-6">
+Line  2008 | Depth:  8 | <div className="h-[2px] w-full bg-gradient-to-r from-[var(--neon-green)]/30 to-transparent"></div>
+Line  2009 | Depth:  7 | </div>
+Line  2010 | Depth:  8 | <div className="flex flex-col gap-4">
+Line  2012 | Depth:  9 | <div key={user.id} className="bg-[#151520] border-2 border-white/5 rounded-[2rem] p-4 flex items-cen
+Line  2013 | Depth: 10 | <div className="flex items-center gap-6 min-w-0 pr-4">
+Line  2015 | Depth: 11 | <div className="min-w-0">
+Line  2022 | Depth: 12 | <div className="flex items-center gap-3 mt-1">
+Line  2025 | Depth: 11 | </div>
+Line  2026 | Depth: 10 | </div>
+Line  2027 | Depth:  9 | </div>
+Line  2029 | Depth: 10 | <div className="flex items-center gap-4 shrink-0">
+Line  2030 | Depth: 11 | <div className="flex items-center gap-4 py-2 px-4 bg-black/40 rounded-2xl border border-white/5">
+Line  2045 | Depth: 10 | </div>
+Line  2047 | Depth:  9 | </div>
+Line  2048 | Depth:  8 | </div>
+Line  2050 | Depth:  7 | </div>
+Line  2051 | Depth:  6 | </div>
+Line  2054 | Depth:  7 | <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+Line  2055 | Depth:  8 | <div className="flex items-center gap-6">
+Line  2057 | Depth:  8 | <div className="h-[1px] w-full bg-white/5"></div>
+Line  2058 | Depth:  7 | </div>
+Line  2059 | Depth:  8 | <div className="flex flex-col gap-4">
+Line  2063 | Depth:  9 | <div key={user.id} className={`bg-[#101015] border-2 ${isActive ? 'border-[var(--neon-cyan)] shadow-
+Line  2064 | Depth: 10 | <div className="flex justify-between items-start gap-4 mb-3">
+Line  2065 | Depth: 11 | <div className="flex items-center gap-4 min-w-0">
+Line  2066 | Depth: 12 | <div className="relative">
+Line  2067 | Depth: 13 | <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black border-2
+Line  2069 | Depth: 12 | </div>
+Line  2070 | Depth: 12 | {user.isAdmin && <div className="absolute -top-2 -right-2 bg-[var(--neon-pink)] text-black text-[10p
+Line  2071 | Depth: 11 | </div>
+Line  2072 | Depth: 12 | <div className="min-w-0">
+Line  2073 | Depth: 13 | <div className="flex justify-between items-start gap-2">
+Line  2080 | Depth: 12 | </div>
+Line  2084 | Depth: 11 | </div>
+Line  2085 | Depth: 10 | </div>
+Line  2091 | Depth: 11 | <div className="w-6 h-6 flex flex-col justify-between items-center p-0.5">
+Line  2092 | Depth: 11 | <div className="w-full h-[2px] bg-current"></div>
+Line  2093 | Depth: 12 | <div className="w-full flex justify-between">
+Line  2094 | Depth: 12 | <div className="w-[2px] h-[2px] bg-current"></div>
+Line  2095 | Depth: 12 | <div className="w-[2px] h-[2px] bg-current"></div>
+Line  2096 | Depth: 11 | </div>
+Line  2097 | Depth: 11 | <div className="w-full h-[2px] bg-current"></div>
+Line  2098 | Depth: 12 | <div className="w-full flex justify-between">
+Line  2099 | Depth: 12 | <div className="w-[2px] h-[2px] bg-current"></div>
+Line  2100 | Depth: 12 | <div className="w-[2px] h-[2px] bg-current"></div>
+Line  2101 | Depth: 11 | </div>
+Line  2102 | Depth: 11 | <div className="w-full h-[2px] bg-current"></div>
+Line  2103 | Depth: 10 | </div>
+Line  2105 | Depth:  9 | </div>
+Line  2107 | Depth: 10 | <div className="grid grid-cols-1 gap-2">
+Line  2108 | Depth: 11 | <div className="flex gap-2">
+Line  2117 | Depth: 10 | </div>
+Line  2118 | Depth: 11 | <div className="flex gap-2">
+Line  2126 | Depth: 10 | </div>
+Line  2127 | Depth:  9 | </div>
+Line  2128 | Depth:  8 | </div>
+Line  2131 | Depth:  7 | </div>
+Line  2133 | Depth:  8 | <div className="text-center py-24 bg-black/20 rounded-[3rem] border-2 border-dashed border-white/5">
+Line  2135 | Depth:  7 | </div>
+Line  2137 | Depth:  6 | </div>
+Line  2141 | Depth:  5 | </div>
+Line  2144 | Depth:  4 | </div>
+Line  2145 | Depth:  3 | </div>
+Line  2146 | Depth:  2 | </div>
+Line  2154 | Depth:  3 | <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[100] backdrop-blur
+Line  2155 | Depth:  4 | <div className="w-full max-w-md">
+Line  2205 | Depth:  3 | </div>
+Line  2206 | Depth:  2 | </div>
+Line  2216 | Depth:  3 | <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur
+Line  2217 | Depth:  4 | <div className="w-full max-w-sm bg-[#0a0a0a] border-4 border-white/10 rounded-[3rem] p-8 relative ov
+Line  2218 | Depth:  4 | <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-cyan)] via-[var(-
+Line  2220 | Depth:  5 | <div className="flex justify-between items-start mb-8">
+Line  2221 | Depth:  6 | <div>
+Line  2226 | Depth:  5 | </div>
+Line  2228 | Depth:  4 | </div>
+Line  2230 | Depth:  5 | <div className="bg-white p-4 rounded-3xl mb-8 transform hover:scale-105 transition-transform duratio
+Line  2244 | Depth:  4 | </div>
+Line  2246 | Depth:  5 | <div className="text-center space-y-4">
+Line  2250 | Depth:  6 | <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
+Line  2254 | Depth:  5 | </div>
+Line  2255 | Depth:  4 | </div>
+Line  2257 | Depth:  3 | </div>
+Line  2258 | Depth:  2 | </div>
+Line  2263 | Depth:  3 | <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur
+Line  2264 | Depth:  4 | <div className="w-full max-w-xl bg-[#050510] border-4 border-white/10 p-12 rounded-[3.5rem] shadow-[
+Line  2265 | Depth:  4 | <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(-
+Line  2269 | Depth:  5 | <div className="space-y-8">
+Line  2270 | Depth:  6 | <div className="bg-black/40 p-8 rounded-[2rem] border-2 border-white/5 border-dashed">
+Line  2272 | Depth:  7 | <div className="text-xl text-[var(--neon-cyan)] font-mono font-black tracking-widest">
+Line  2274 | Depth:  6 | </div>
+Line  2275 | Depth:  5 | </div>
+Line  2277 | Depth:  6 | <div>
+Line  2286 | Depth:  5 | </div>
+Line  2288 | Depth:  6 | <div className="bg-[var(--neon-pink)]/5 border border-[var(--neon-pink)]/10 p-6 rounded-2xl">
+Line  2292 | Depth:  5 | </div>
+Line  2294 | Depth:  6 | <div className="flex gap-4 pt-6">
+Line  2307 | Depth:  5 | </div>
+Line  2308 | Depth:  4 | </div>
+Line  2311 | Depth:  3 | </div>
+Line  2312 | Depth:  2 | </div>
+Line  2317 | Depth:  3 | <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur
+Line  2318 | Depth:  4 | <div className="w-full max-w-4xl bg-[#0a0a0a] border-4 border-white/10 rounded-[4rem] overflow-hidde
+Line  2319 | Depth:  4 | <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(-
+Line  2320 | Depth:  5 | <div className="p-8 border-b-2 border-white/5 flex justify-between items-center bg-black/40 backdrop
+Line  2321 | Depth:  6 | <div>
+Line  2324 | Depth:  5 | </div>
+Line  2326 | Depth:  4 | </div>
+Line  2328 | Depth:  5 | <div className="p-6 bg-black/20 border-b-2 border-white/5">
+Line  2329 | Depth:  6 | <div className="relative group">
+Line  2340 | Depth:  5 | </div>
+Line  2341 | Depth:  4 | </div>
+Line  2343 | Depth:  5 | <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+Line  2345 | Depth:  6 | <div className="text-center py-20 opacity-50">
+Line  2347 | Depth:  5 | </div>
+Line  2350 | Depth:  6 | <div className="text-center py-20 opacity-50">
+Line  2352 | Depth:  5 | </div>
+Line  2354 | Depth:  6 | <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+Line  2356 | Depth:  7 | <div key={song.id} className="bg-black/40 border-2 border-white/5 rounded-2xl p-4 relative overflow-
+Line  2359 | Depth:  8 | <div className="flex gap-2">
+Line  2372 | Depth:  7 | </div>
+Line  2373 | Depth:  6 | </div>
+Line  2375 | Depth:  5 | </div>
+Line  2376 | Depth:  4 | </div>
+Line  2378 | Depth:  5 | <div className="p-6 border-t-2 border-white/5 flex justify-end bg-black/40 backdrop-blur-xl">
+Line  2385 | Depth:  4 | </div>
+Line  2386 | Depth:  3 | </div>
+Line  2387 | Depth:  2 | </div>
+Line  2432 | Depth:  3 | <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+Line  2433 | Depth:  4 | <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/5 shadow-2
+Line  2434 | Depth:  4 | <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-green)]/10 rounded-full bl
+Line  2436 | Depth:  5 | <div className="flex justify-between items-center mb-10 relative z-10">
+Line  2437 | Depth:  6 | <div>
+Line  2442 | Depth:  5 | </div>
+Line  2443 | Depth:  4 | </div>
+Line  2445 | Depth:  5 | <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+Line  2447 | Depth:  6 | <div key={s.id} className="bg-black/40 border-2 border-white/5 rounded-[2rem] p-6 relative overflow-
+Line  2448 | Depth:  7 | <div className="flex justify-between items-start mb-4">
+Line  2449 | Depth:  8 | <div className="w-12 h-12 bg-black rounded-xl border border-white/10 flex items-center justify-cente
+Line  2451 | Depth:  7 | </div>
+Line  2452 | Depth:  8 | <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${s.id
+Line  2454 | Depth:  7 | </div>
+Line  2455 | Depth:  6 | </div>
+Line  2469 | Depth:  5 | </div>
+Line  2472 | Depth:  6 | <div className="col-span-full text-center py-20 opacity-50">
+Line  2474 | Depth:  5 | </div>
+Line  2476 | Depth:  4 | </div>
+Line  2478 | Depth:  3 | </div>
+Line  2479 | Depth:  2 | </div>
+Line  2485 | Depth:  3 | <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+Line  2486 | Depth:  4 | <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/5 shadow-2
+Line  2487 | Depth:  4 | <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-purple)]/10 rounded-full b
+Line  2489 | Depth:  5 | <div className="flex justify-between items-center mb-10 relative z-10">
+Line  2490 | Depth:  6 | <div>
+Line  2497 | Depth:  5 | </div>
+Line  2498 | Depth:  6 | <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
+Line  2501 | Depth:  5 | </div>
+Line  2502 | Depth:  4 | </div>
+Line  2504 | Depth:  5 | <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+Line  2512 | Depth:  6 | <div key={device.id} className={`p-6 rounded-[2rem] border transition-all relative overflow-hidden g
+Line  2517 | Depth:  6 | <div className={`absolute top-6 right-6 w-3 h-3 rounded-full ${isConnected ? 'bg-[var(--neon-green)]
+Line  2519 | Depth:  7 | <div className="flex items-start gap-4 mb-6">
+Line  2520 | Depth:  8 | <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg ${assigne
+Line  2525 | Depth:  7 | </div>
+Line  2526 | Depth:  8 | <div>
+Line  2530 | Depth:  9 | <div className="text-xs font-mono text-slate-500 mt-1 truncate max-w-[150px]" title={device.peerId}>
+Line  2532 | Depth:  8 | </div>
+Line  2533 | Depth:  9 | <div className={`mt-2 text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded inline-block $
+Line  2536 | Depth:  8 | </div>
+Line  2537 | Depth:  7 | </div>
+Line  2538 | Depth:  6 | </div>
+Line  2540 | Depth:  7 | <div className="space-y-4">
+Line  2541 | Depth:  8 | <div className="p-4 bg-black/40 rounded-xl border border-white/5">
+Line  2542 | Depth:  9 | <div className="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-1">
+Line  2544 | Depth:  8 | </div>
+Line  2545 | Depth:  9 | <div className="text-white font-medium truncate">
+Line  2547 | Depth:  8 | </div>
+Line  2548 | Depth:  7 | </div>
+Line  2550 | Depth:  8 | <div className="flex gap-2">
+Line  2579 | Depth:  7 | </div>
+Line  2580 | Depth:  6 | </div>
+Line  2581 | Depth:  5 | </div>
+Line  2586 | Depth:  6 | <div className="col-span-full py-20 text-center text-slate-500 font-mono">
+Line  2588 | Depth:  5 | </div>
+Line  2590 | Depth:  4 | </div>
+Line  2591 | Depth:  3 | </div>
+Line  2592 | Depth:  2 | </div>
+Line  2596 | Depth:  1 | </div >
+
+Final Depth: 1

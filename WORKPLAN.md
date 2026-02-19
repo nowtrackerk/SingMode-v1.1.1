@@ -99,3 +99,15 @@ Items marked **TRUE** are currently implemented. Items marked **FALSE** require 
 14. **TRUE** - The Super User Admin name is:
     *   14.1 - User - SingMaster
     *   14.2 - Password - Organized
+
+---
+
+## Recent Bug Fixes & Refinements (v1.1.1 Review)
+
+1. **TRUE** - Resolved `FirebaseError` in `registerSession` by ensuring no undefined fields are sent to Firestore.
+2. **TRUE** - Fixed 404 errors for `grid.svg` and `favicon.svg` by creating these assets in the public folder.
+3. **TRUE** - Refined Participant login button label from "ENTER AS GUEST" to "SIGN IN" for existing users.
+4. **TRUE** - Updated DJ Console empty library message from "DATABASE OFFLINE" to "SONGBOOK EMPTY" for clarity.
+5. **TRUE** - Verified end-to-end request flow from Guest signup to DJ approval.
+113. **TRUE** - Implemented Administrative Cleanup Tool in Admin Portal.
+114. **TRUE** - Successfully purged all guest accounts and duplicate stage name entries from the database.
