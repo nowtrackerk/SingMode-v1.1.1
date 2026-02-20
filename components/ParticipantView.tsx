@@ -509,13 +509,13 @@ const ParticipantView: React.FC = () => {
 
                   {/* Main Info */}
                   <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-6 min-w-0 flex-1">
-                    <h3 className={`text-2xl sm:text-3xl font-black uppercase truncate font-righteous tracking-tight ${i === 0 ? 'text-white' : 'text-slate-300'}`}>
+                    <h3 className={`text-xl sm:text-2xl font-black uppercase font-righteous tracking-tight leading-tight ${i === 0 ? 'text-white' : 'text-slate-300'}`}>
                       {song.songName}
                     </h3>
                     <div className="flex items-center gap-2 sm:gap-3 opacity-80 shrink-0">
-                      <span className="text-sm sm:text-xl font-bold font-righteous text-[var(--neon-cyan)] uppercase tracking-wider truncate max-w-[150px]">{song.artist}</span>
+                      <span className="text-sm sm:text-lg font-bold font-righteous text-[var(--neon-cyan)] uppercase tracking-wider">{song.artist}</span>
                       <span className="text-slate-600 font-mono text-lg hidden sm:inline">/</span>
-                      <span className="text-sm sm:text-xl font-bold font-righteous text-[var(--neon-pink)] uppercase tracking-wider truncate max-w-[150px]">@{song.participantName}</span>
+                      <span className="text-sm sm:text-lg font-bold font-righteous text-[var(--neon-pink)] uppercase tracking-wider">@{song.participantName}</span>
                     </div>
                   </div>
                 </div>

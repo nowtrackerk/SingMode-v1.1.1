@@ -842,7 +842,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
 
                               {/* Main Info */}
                               <div className="flex items-baseline gap-6 min-w-0 flex-1">
-                                <h3 className={`text-3xl font-black uppercase truncate font-righteous tracking-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>
+                                <h3 className={`text-2xl font-black uppercase font-righteous tracking-tight leading-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>
                                   {song.songName}
                                 </h3>
                                 <div className="flex items-center gap-3 opacity-80 shrink-0">
