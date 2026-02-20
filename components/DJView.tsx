@@ -835,9 +835,8 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                             <div className="flex items-center gap-6 min-w-0 flex-1 z-10">
                               {/* ID Box */}
                               <div className="w-16 h-full flex flex-col justify-center items-center border-r border-white/10 pr-4 shrink-0">
-                                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest hidden sm:block">SEQ_ID</span>
                                 <span className={`text-xl font-bold font-mono tracking-tighter ${isActive ? 'text-[var(--neon-green)]' : 'text-slate-400'}`}>
-                                  {String(song.requestNumber).padStart(3, '0')}
+                                  {song.requestNumber}
                                 </span>
                               </div>
 
@@ -1263,9 +1262,8 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                           <div className="flex items-center gap-6 min-w-0 flex-1 z-10">
                             {/* ID Box */}
                             <div className="w-16 h-full flex flex-col justify-center items-center border-r border-white/10 pr-4 shrink-0">
-                              <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">SEQ_ID</span>
                               <span className={`text-xl font-bold font-mono tracking-tighter ${isActive ? 'text-[var(--neon-green)]' : 'text-slate-400'}`}>
-                                {String(song.requestNumber).padStart(3, '0')}
+                                {song.requestNumber}
                               </span>
                             </div>
 
