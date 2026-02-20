@@ -197,6 +197,24 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
   // Admin Session Management
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
 
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    message: string;
+    onConfirm: () => void | Promise<void>;
+  }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => { }
+  });
+
+  const askConfirm = (message: string, onConfirm: () => void | Promise<void>) => {
+    setConfirmState({
+      isOpen: true,
+      message,
+      onConfirm
+    });
+  };
+
   useEffect(() => {
     const unsubscribe = subscribeToSessions((sessions) => {
       setActiveSessions(sessions);
@@ -763,11 +781,11 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
             )}
 
             <button
-              onClick={async () => {
-                if (confirm('Are you sure you want to sign out?')) {
+              onClick={() => {
+                askConfirm('Are you sure you want to sign out?', async () => {
                   await logoutUser();
                   window.location.reload();
-                }
+                });
               }}
               title="SIGN OUT"
               className="px-6 h-14 flex items-center justify-center gap-3 text-rose-500 border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500 hover:text-white transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(244,63,94,0.1)] group ml-2"
@@ -895,11 +913,11 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                               </button>
 
                               <button
-                                onClick={async () => {
-                                  if (confirm('Remove from active round?')) {
+                                onClick={() => {
+                                  askConfirm('Remove from active round?', async () => {
                                     await deleteRequest(song.id);
                                     await refresh();
-                                  }
+                                  });
                                 }}
                                 className="w-8 h-8 flex items-center justify-center rounded bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all border border-rose-500/20"
                                 title="REMOVE"
@@ -961,7 +979,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                         </div>
                         <div className="flex gap-2 bg-black/40 p-1 rounded-2xl border border-white/5">
                           <button onClick={async () => { await approveRequest(req.id); await refresh(); }} className="px-6 py-3 bg-[var(--neon-blue)] text-black text-sm font-black uppercase hover:bg-white transition-all rounded-xl tracking-[0.1em] shadow-[0_0_20px_rgba(5,217,232,0.3)]">ACCEPT</button>
-                          <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="w-11 h-11 flex items-center justify-center text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all">✕</button>
+                          <button onClick={() => { askConfirm('Delete pending request?', async () => { await deleteRequest(req.id); await refresh(); }); }} className="w-11 h-11 flex items-center justify-center text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all">✕</button>
                         </div>
                       </div>
                     </div>
@@ -1021,7 +1039,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                           </div>
                           <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5">
                             <button onClick={() => handlePromoteToStage(req.id)} className="px-4 py-2 bg-[var(--neon-yellow)] text-black text-sm font-black uppercase rounded-lg hover:bg-white transition-all shadow-[0_0_15px_rgba(255,200,87,0.3)] tracking-wider">STAGE</button>
-                            <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="w-9 h-9 flex items-center justify-center text-rose-500/20 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all">✕</button>
+                            <button onClick={() => { askConfirm('Remove from queue?', async () => { await deleteRequest(req.id); await refresh(); }); }} className="w-9 h-9 flex items-center justify-center text-rose-500/20 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all">✕</button>
                           </div>
                         </div>
                       </div>
@@ -1106,7 +1124,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                               <VideoLink url={req.youtubeUrl} />
                               <div className="flex gap-2">
                                 <button onClick={() => handlePromoteToStage(req.id)} className="px-4 py-2 bg-[var(--neon-purple)] text-white text-sm font-black uppercase rounded-lg hover:bg-white hover:text-black transition-all shadow-[0_0_10px_var(--neon-purple)] tracking-[0.1em]">BOOST</button>
-                                <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="text-rose-500/20 hover:text-rose-500 p-2 font-black">✕</button>
+                                <button onClick={() => { askConfirm('Remove from atmosphere?', async () => { await deleteRequest(req.id); await refresh(); }); }} className="text-rose-500/20 hover:text-rose-500 p-2 font-black">✕</button>
                               </div>
                             </div>
                           </div>
@@ -1145,7 +1163,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                                 >
                                   PUSH
                                 </button>
-                                <button onClick={async () => { if (confirm('Delete verified song?')) { await deleteVerifiedSong(v.id); await refresh(); } }} className="text-rose-500/20 hover:text-rose-500 px-1 font-black">✕</button>
+                                <button onClick={() => { askConfirm('Delete verified song?', async () => { await deleteVerifiedSong(v.id); await refresh(); }); }} className="text-rose-500/20 hover:text-rose-500 px-1 font-black">✕</button>
                               </div>
                             </div>
                           </div>
@@ -1194,7 +1212,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                           <button onClick={() => setPrefilledSinger(p)} className="p-2 hover:text-[var(--neon-cyan)] transition-colors text-slate-600">
                             +
                           </button>
-                          <button onClick={async () => { if (confirm(`Remove ${p.name}?`)) { await removeParticipant(p.id); await refresh(); } }} className="p-2 text-rose-500/20 hover:text-rose-500 transition-colors">✕</button>
+                          <button onClick={() => { askConfirm(`Remove ${p.name}?`, async () => { await removeParticipant(p.id); await refresh(); }); }} className="p-2 text-rose-500/20 hover:text-rose-500 transition-colors">✕</button>
                         </div>
                       </div>
                     );
@@ -1416,7 +1434,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                           <button onClick={() => setPrefilledSinger(p)} className="px-6 py-3 bg-[var(--neon-cyan)]/10 text-[var(--neon-cyan)] rounded-xl border border-[var(--neon-cyan)]/50 transition-all font-righteous text-base font-black uppercase tracking-[0.2em] hover:bg-[var(--neon-cyan)] hover:text-black hover:shadow-[0_0_20px_var(--neon-cyan)]">
                             ADD TRACK
                           </button>
-                          <button onClick={async () => { if (confirm(`Remove ${p.name}?`)) { await removeParticipant(p.id); await refresh(); } }} className="text-rose-500/30 hover:text-rose-500 p-3 transition-colors text-3xl font-black">✕</button>
+                          <button onClick={() => { askConfirm(`Remove ${p.name}?`, async () => { await removeParticipant(p.id); await refresh(); }); }} className="text-rose-500/30 hover:text-rose-500 p-3 transition-colors text-3xl font-black">✕</button>
                         </div>
                       </div>
                     );
@@ -1832,8 +1850,8 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                     <button onClick={() => setManagedProfile(null)} className="px-6 py-3 bg-black border border-white/10 text-white rounded-xl text-sm font-black uppercase tracking-widest font-righteous hover:bg-white/10 transition-all">← ALL ACCOUNTS</button>
                   )}
                   <button
-                    onClick={async () => {
-                      if (confirm('DANGER: This will permanently delete ALL GUEST ACCOUNTS and DUPLICATE ENTRIES from the Firestore database. Proceed?')) {
+                    onClick={() => {
+                      askConfirm('DANGER: This will permanently delete ALL GUEST ACCOUNTS and DUPLICATE ENTRIES from the Firestore database. Proceed?', async () => {
                         const res = await administrativeCleanup();
                         if (res.success) {
                           alert(`DATABASE CLEANUP SUCCESS: Removed ${res.deletedCount} orphan records.`);
@@ -1841,7 +1859,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                         } else {
                           alert(`CLEANUP FAILED: ${res.error}`);
                         }
-                      }
+                      });
                     }}
                     className="px-6 py-3 bg-rose-500/10 border border-rose-500/50 text-rose-500 rounded-xl text-sm font-black uppercase tracking-widest font-righteous hover:bg-rose-500 hover:text-white transition-all hover:scale-105"
                   >
@@ -1903,10 +1921,10 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                           <div className="w-full mt-10 space-y-3">
                             <button onClick={() => startChangePassword(managedProfile)} className="w-full py-3 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous">CHANGE PASSWORD</button>
                             <button onClick={async () => { await joinSession(managedProfile.id); await refresh(); }} className="w-full py-3 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)] font-righteous hover:bg-white">SYNC QR CODE</button>
-                             <div className="pt-2 border-t border-white/5 mt-2 space-y-2">
-                               {/* Ban functionality removed as requested */}
-                             </div>
-                            <button onClick={async () => { if (confirm('Permanently delete this account?')) { await deleteAccount(managedProfile.id); setManagedProfile(null); await refresh(); } }} className="w-full py-3 bg-rose-500/5 hover:bg-rose-500 text-rose-500/40 hover:text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all border border-transparent hover:border-rose-500/30 font-righteous mt-2">TERMINATE ACCOUNT</button>
+                            <div className="pt-2 border-t border-white/5 mt-2 space-y-2">
+                              {/* Ban functionality removed as requested */}
+                            </div>
+                            <button onClick={() => { askConfirm('Permanently delete this account?', async () => { await deleteAccount(managedProfile.id); setManagedProfile(null); await refresh(); }); }} className="w-full py-3 bg-rose-500/5 hover:bg-rose-500 text-rose-500/40 hover:text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all border border-transparent hover:border-rose-500/30 font-righteous mt-2">TERMINATE ACCOUNT</button>
                           </div>
                         </div>
                       </div>
@@ -1926,7 +1944,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                                 <div className="flex gap-2 shrink-0">
                                   <button onClick={async () => { await addRequest({ participantId: managedProfile!.id, participantName: managedProfile!.name, songName: fav.songName, artist: fav.artist, youtubeUrl: fav.youtubeUrl, type: fav.type }); await refresh(); }} className="px-3 py-1.5 bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] rounded-lg text-xs font-black uppercase font-righteous hover:bg-[var(--neon-cyan)] hover:text-black transition-all">ADD</button>
                                   <button onClick={() => setProfileItemToEdit({ type: 'favorite', itemId: fav.id })} className="p-1.5 text-slate-700 hover:text-white transition-colors">✏️</button>
-                                  <button onClick={async () => { await removeUserFavorite(managedProfile!.id, fav.id); await refresh(); }} className="p-1.5 text-rose-500/30 hover:text-rose-500 transition-colors">✕</button>
+                                  <button onClick={() => { askConfirm('Remove from stars?', async () => { await removeUserFavorite(managedProfile!.id, fav.id); await refresh(); }); }} className="p-1.5 text-rose-500/30 hover:text-rose-500 transition-colors">✕</button>
                                 </div>
                               </div>
                             ))}
@@ -1946,7 +1964,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                                   </div>
                                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
                                     <button onClick={() => setProfileItemToEdit({ type: 'history', itemId: h.id })} className="p-1.5 text-slate-700 hover:text-white transition-colors">✏️</button>
-                                    <button onClick={async () => { await removeUserHistoryItem(managedProfile!.id, h.id); await refresh(); }} className="p-1.5 text-rose-500/30 hover:text-rose-500 transition-colors">✕</button>
+                                    <button onClick={() => { askConfirm('Erase from history?', async () => { await removeUserHistoryItem(managedProfile!.id, h.id); await refresh(); }); }} className="p-1.5 text-rose-500/30 hover:text-rose-500 transition-colors">✕</button>
                                   </div>
                                 </div>
                                 <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5">
@@ -2075,7 +2093,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                                           MANUAL
                                         </button>
                                       </div>
-                                      <button onClick={async () => { if (confirm('Terminate temporary link?')) { await deleteAccount(user.id); await refresh(); } }} className="w-10 h-10 flex items-center justify-center text-rose-500/20 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all font-black">✕</button>
+                                      <button onClick={() => { askConfirm('Terminate temporary link?', async () => { await deleteAccount(user.id); await refresh(); }); }} className="w-10 h-10 flex items-center justify-center text-rose-500/20 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all font-black">✕</button>
                                     </div>
                                   </div>
                                 ))}
@@ -2154,7 +2172,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                                         >
                                           MANUAL SELECT
                                         </button>
-                                        <button onClick={async () => { if (confirm('Erase this record permanently?')) { await deleteAccount(user.id); await refresh(); } }} className="flex-1 py-2.5 bg-rose-500/5 text-rose-500/20 hover:text-rose-500 border border-transparent hover:border-rose-500/30 rounded-lg transition-all flex items-center justify-center">✕</button>
+                                        <button onClick={() => { askConfirm('Erase this record permanently?', async () => { await deleteAccount(user.id); await refresh(); }); }} className="flex-1 py-2.5 bg-rose-500/5 text-rose-500/20 hover:text-rose-500 border border-transparent hover:border-rose-500/30 rounded-lg transition-all flex items-center justify-center">✕</button>
                                       </div>
                                     </div>
                                   </div>
@@ -2488,10 +2506,10 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                     <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-6 font-righteous">HOST: {s.hostName} • ID: {s.id}</p>
 
                     <button
-                      onClick={async () => {
-                        if (confirm(`Force close session "${s.venueName}"? This cannot be undone.`)) {
+                      onClick={() => {
+                        askConfirm(`Force close session "${s.venueName}"? This cannot be undone.`, async () => {
                           await unregisterSession(s.id);
-                        }
+                        });
                       }}
                       className="w-full py-3 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/30 rounded-xl font-black uppercase tracking-widest text-xs transition-all font-righteous"
                     >
@@ -2597,11 +2615,11 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                             {assignedUser ? 'CHANGE' : 'LINK USER'}
                           </button>
                           <button
-                            onClick={async () => {
-                              if (confirm("Forget this device?")) {
+                            onClick={() => {
+                              askConfirm("Forget this device?", async () => {
                                 await removeDevice(device.id);
                                 refresh();
-                              }
+                              });
                             }}
                             className="px-4 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 transition-all"
                           >
@@ -2623,6 +2641,36 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
           </div>
         )
       }
+
+      {confirmState.isOpen && (
+        <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[300] backdrop-blur-3xl animate-in fade-in duration-300">
+          <div className="w-full max-w-md bg-[#050510] border-4 border-[var(--neon-pink)]/30 rounded-[3rem] p-10 text-center shadow-[0_0_100px_rgba(255,42,109,0.3)] animate-in zoom-in-95 duration-300 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-1 bg-[var(--neon-pink)] shadow-[0_0_20px_rgba(255,42,109,0.8)]"></div>
+            <div className="w-20 h-20 bg-[var(--neon-pink)]/10 text-[var(--neon-pink)] rounded-[2rem] border-2 border-[var(--neon-pink)]/20 flex items-center justify-center mx-auto mb-6 text-4xl font-black shadow-[0_0_30px_rgba(255,42,109,0.2)] animate-pulse">⚠️</div>
+            <h2 className="text-5xl font-black text-white uppercase mb-4 tracking-tight font-bungee neon-text-glow-pink">CONFIRM</h2>
+            <p className="text-slate-400 text-lg mb-8 leading-relaxed font-black font-righteous uppercase tracking-widest">
+              {confirmState.message}
+            </p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+                className="flex-1 py-4 bg-black border-2 border-white/10 text-white rounded-xl text-base font-black uppercase tracking-widest font-righteous transition-all hover:bg-white/5"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={async () => {
+                  setConfirmState(prev => ({ ...prev, isOpen: false }));
+                  await confirmState.onConfirm();
+                }}
+                className="flex-[2] py-4 bg-[var(--neon-pink)] text-white rounded-xl text-base font-black uppercase tracking-widest font-righteous shadow-[0_0_30px_rgba(255,42,109,0.4)] transition-all hover:bg-rose-400 hover:scale-105"
+              >
+                PROCEED
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div >
   );
