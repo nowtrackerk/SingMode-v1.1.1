@@ -179,5 +179,6 @@ export interface ActiveSession {
   venueName?: string;
   isActive: boolean;
   startedAt: number;
+  lastHeartbeat: number;
   participantsCount: number;
 }

@@ -2296,6 +2296,14 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                 <p className="text-slate-400 font-bold uppercase tracking-widest text-xs font-righteous">
                   {qrTargetUser ? 'SCAN TO LINK DEVICE TO PROFILE' : 'SCAN TO JOIN SESSION'}
                 </p>
+                {getNetworkUrl().includes('localhost') && (
+                  <div className="p-3 bg-amber-500/20 border border-amber-500/50 rounded-xl mb-4">
+                    <p className="text-amber-500 text-[10px] font-black uppercase tracking-widest leading-tight">
+                      ⚠️ LOCALHOST DETECTED<br />
+                      MOBILE DEVICES CANNOT CONNECT TO LOCALHOST. USE NETWORK IP.
+                    </p>
+                  </div>
+                )}
                 <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
                   <p className="text-[var(--neon-cyan)] font-black uppercase tracking-widest text-sm font-righteous break-all">
                     {qrTargetUser ? 'AUTO-LOGIN ENABLED' : `ROOM ID: ${roomId}`}

@@ -54,6 +54,7 @@ const ParticipantView: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [showSessionScanner, setShowSessionScanner] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connecting');
 
   const roomId = syncService.getRoomId();
   const roomJoinUrl = getNetworkUrl() + (roomId ? `?room=${roomId}` : '');
@@ -101,15 +102,14 @@ const ParticipantView: React.FC = () => {
         const found = sess.participants.find(p => p.id === profile.id);
         if (found) {
           setParticipant(found);
-          // If in a remote session (roomId exists), force join to announce presence to DJ
-          if (roomId) {
-            joinSession(profile.id).catch(console.error);
-          }
-        } else if (roomId) {
-          // Automatic Re-entry for returning users
+        } else {
           console.log(`[Participant] Auto-joining session ${roomId} for profile ${profile.id}`);
-          const newPart = await joinSession(profile.id);
-          setParticipant(newPart);
+          try {
+            const newPart = await joinSession(profile.id);
+            setParticipant(newPart);
+          } catch (e) {
+            console.error("Auto-join failed:", e);
+          }
         }
       } else {
         const sess = await getSession();
@@ -117,6 +117,10 @@ const ParticipantView: React.FC = () => {
       }
     };
     init();
+
+    syncService.onConnectionStatus = (status) => {
+      setConnectionStatus(status);
+    };
   }, [roomId]);
 
   /* 
@@ -433,7 +437,7 @@ const ParticipantView: React.FC = () => {
             <div className="absolute inset-0 rounded-full bg-[var(--neon-pink)]/20 blur-xl"></div>
             <img src="IGK.jpeg" alt="Logo" className="w-full h-full rounded-full object-cover relative z-10" />
             <div className="absolute bottom-0 right-0 w-6 h-6 bg-black rounded-full flex items-center justify-center border-2 border-black z-20">
-              <div className="w-3 h-3 bg-[var(--neon-green)] rounded-full animate-pulse shadow-[0_0_10px_rgba(0,255,157,0.8)]"></div>
+              <div className={`w-3 h-3 rounded-full animate-pulse shadow-[0_0_10px_currentColor] ${connectionStatus === 'connected' ? 'bg-[var(--neon-green)] text-[var(--neon-green)]' : connectionStatus === 'connecting' ? 'bg-[var(--neon-yellow)] text-[var(--neon-yellow)]' : 'bg-rose-500 text-rose-500'}`}></div>
             </div>
           </div>
 

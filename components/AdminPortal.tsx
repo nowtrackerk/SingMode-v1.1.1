@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { KaraokeSession } from '../types';
-import { getSession, saveSession, logoutUser, administrativeCleanup } from '../services/sessionManager';
+import { getSession, saveSession, logoutUser, administrativeCleanup, cleanupStaleSessions } from '../services/sessionManager';
 
 interface AdminPortalProps {
     onBack: () => void;
@@ -188,6 +188,26 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onBack }) => {
                                     className="px-6 py-3 bg-rose-500/10 border border-rose-500 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
                                 >
                                     PURGE GUESTS & DUPLICATES
+                                </button>
+                            </div>
+
+                            <div className="flex-1 p-6 bg-white/5 rounded-2xl border border-white/5">
+                                <h4 className="text-xs font-black uppercase tracking-widest mb-1 text-white">Signal Maintenance</h4>
+                                <p className="text-[9px] text-slate-500 uppercase font-bold mb-4">Cleans up dead or abandoned stage signals</p>
+                                <button
+                                    onClick={() => {
+                                        askConfirm('This will remove all inactive or stale stage sessions from the public list. Proceed?', async () => {
+                                            const res = await cleanupStaleSessions();
+                                            if (res.success) {
+                                                alert(`Signal cleanup complete. Removed ${res.deletedCount} stale sessions.`);
+                                            } else {
+                                                alert(`Cleanup failed: ${res.error}`);
+                                            }
+                                        });
+                                    }}
+                                    className="px-6 py-3 bg-[var(--neon-purple)]/10 border border-[var(--neon-purple)] hover:bg-[var(--neon-purple)] text-[var(--neon-purple)] hover:text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                                >
+                                    PURGE STALE SIGNALS
                                 </button>
                             </div>
                         </div>

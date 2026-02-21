@@ -177,8 +177,14 @@ export const initializeSync = async (role: 'DJ' | 'PARTICIPANT', room?: string) 
       startedAt: Date.now()
     });
 
+    // Heartbeat every 2 minutes
+    const heartbeatTimer = setInterval(() => {
+      heartbeatSession(peerId);
+    }, 2 * 60 * 1000);
+
     // Cleanup on close
     window.addEventListener('beforeunload', () => {
+      clearInterval(heartbeatTimer);
       unregisterSession(peerId);
     });
 
@@ -1485,15 +1491,15 @@ export const cleanupExpiredGuestAccounts = async () => {
   }
 };
 
-export const registerSession = async (metadata: Omit<ActiveSession, 'participantsCount'>) => {
+export const registerSession = async (metadata: Omit<ActiveSession, 'participantsCount' | 'lastHeartbeat'>) => {
   try {
-    // Ensure no undefined fields are sent to Firestore
     const sessionData: ActiveSession = {
       id: metadata.id,
       hostName: metadata.hostName || "SingMode DJ",
       hostUid: metadata.hostUid || "anonymous-host",
       isActive: metadata.isActive ?? true,
       startedAt: metadata.startedAt || Date.now(),
+      lastHeartbeat: Date.now(),
       participantsCount: 0,
       venueName: metadata.venueName || "SingMode Venue"
     };
@@ -1501,6 +1507,15 @@ export const registerSession = async (metadata: Omit<ActiveSession, 'participant
     await setDoc(doc(db, "sessions", metadata.id), sessionData);
   } catch (e) {
     console.error("Error registering session:", e);
+  }
+};
+
+export const heartbeatSession = async (sessionId: string) => {
+  try {
+    const sessionDoc = doc(db, "sessions", sessionId);
+    await updateDoc(sessionDoc, { lastHeartbeat: Date.now() });
+  } catch (e) {
+    console.error("Error sending heartbeat:", e);
   }
 };
 
@@ -1520,14 +1535,54 @@ export const getActiveSessions = async (): Promise<ActiveSession[]> => {
     const sessionsRef = collection(db, "sessions");
     const q = query(sessionsRef, where("isActive", "==", true));
     const snapshot = await getDocs(q);
-    const sessions: ActiveSession[] = [];
+    const sessionMap = new Map<string, ActiveSession>();
+    const now = Date.now();
+    const heartbeatLimit = 5 * 60 * 1000; // 5 minutes
+
     snapshot.forEach(doc => {
-      sessions.push(doc.data() as ActiveSession);
+      const data = doc.data() as ActiveSession;
+      const isFresh = data.lastHeartbeat && (now - data.lastHeartbeat < heartbeatLimit);
+
+      if (isFresh) {
+        const key = data.hostUid || `${data.hostName}-${data.venueName}`;
+        const existing = sessionMap.get(key);
+        if (!existing || (data.lastHeartbeat > existing.lastHeartbeat)) {
+          sessionMap.set(key, data);
+        }
+      }
     });
-    return sessions;
+
+    return Array.from(sessionMap.values()).sort((a, b) => b.lastHeartbeat - a.lastHeartbeat);
   } catch (e) {
     console.error("Error fetching sessions:", e);
     return [];
+  }
+};
+
+
+export const cleanupStaleSessions = async () => {
+  try {
+    const sessionsRef = collection(db, "sessions");
+    const snapshot = await getDocs(sessionsRef);
+    const now = Date.now();
+    const heartbeatLimit = 30 * 60 * 1000; // 30 minutes for hard deletion
+    let deletedCount = 0;
+
+    for (const d of snapshot.docs) {
+      const data = d.data() as ActiveSession;
+      if (data.lastHeartbeat && (now - data.lastHeartbeat > heartbeatLimit)) {
+        await deleteDoc(d.ref);
+        deletedCount++;
+      } else if (!data.lastHeartbeat && (now - data.startedAt > heartbeatLimit)) {
+        // Fallback for sessions that never got a heartbeat
+        await deleteDoc(d.ref);
+        deletedCount++;
+      }
+    }
+    return { success: true, deletedCount };
+  } catch (e) {
+    console.error("Cleanup failed:", e);
+    return { success: false, error: String(e) };
   }
 };
 
@@ -1535,10 +1590,26 @@ export const subscribeToSessions = (callback: (sessions: ActiveSession[]) => voi
   const sessionsRef = collection(db, "sessions");
   const q = query(sessionsRef, where("isActive", "==", true));
   return onSnapshot(q, (snapshot) => {
-    const sessions: ActiveSession[] = [];
+    const sessionMap = new Map<string, ActiveSession>();
+    const now = Date.now();
+    const heartbeatLimit = 5 * 60 * 1000; // 5 minutes
+
     snapshot.forEach(doc => {
-      sessions.push(doc.data() as ActiveSession);
+      const data = doc.data() as ActiveSession;
+      const isFresh = data.lastHeartbeat && (now - data.lastHeartbeat < heartbeatLimit);
+
+      if (isFresh) {
+        // Deduplicate by hostUid or composite key
+        const key = data.hostUid || `${data.hostName}-${data.venueName}`;
+        const existing = sessionMap.get(key);
+        if (!existing || (data.lastHeartbeat > existing.lastHeartbeat)) {
+          sessionMap.set(key, data);
+        }
+      }
     });
+
+    // Convert map to array and sort by heartbeat
+    const sessions = Array.from(sessionMap.values()).sort((a, b) => b.lastHeartbeat - a.lastHeartbeat);
     callback(sessions);
   });
 };
