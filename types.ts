@@ -146,6 +146,7 @@ export interface KaraokeSession {
     secondaryNeon: string; // e.g. #05d9e8
     accentNeon: string; // e.g. #feff3f
   }; // Metadata for B.2
+  logs?: { timestamp: number; message: string; type: 'info' | 'warn' | 'error' }[];
 }
 
 export type ViewRole = 'DJ' | 'PARTICIPANT' | 'STAGE' | 'SELECT' | 'FEATURES' | 'ADMIN';
@@ -181,4 +182,5 @@ export interface ActiveSession {
   startedAt: number;
   lastHeartbeat: number;
   participantsCount: number;
+  endedAt?: number;
 }

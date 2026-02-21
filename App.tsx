@@ -24,18 +24,19 @@ const App: React.FC = () => {
       // Auto-detect view from URL
       const params = new URLSearchParams(window.location.search);
       const view = params.get('view')?.toUpperCase();
+      const sincUserId = params.get('userId');
       const room = params.get('room');
 
-      // Track if user joined via QR code (has room parameter)
-      if (room) {
+      // Track if user joined via QR code (has room or userId parameter)
+      if (room || sincUserId) {
         setIsQRCodeUser(true);
       }
 
       try {
         if (view === 'DJ') {
           setRole('DJ');
-          await initializeSync('DJ', room || undefined);
-        } else if (view === 'PARTICIPANT' || view === 'STAGE' || room) {
+          // DJs now explicitly open sessions in the DJView
+        } else if (view === 'PARTICIPANT' || view === 'STAGE' || room || sincUserId) {
           setRole('PARTICIPANT');
           await initializeSync('PARTICIPANT', room || undefined);
         } else {
@@ -65,7 +66,7 @@ const App: React.FC = () => {
     setError(null);
     try {
       setRole(newRole);
-      if (newRole === 'DJ' || newRole === 'PARTICIPANT') {
+      if (newRole === 'PARTICIPANT') {
         await initializeSync(newRole);
       }
     } catch (err: any) {
@@ -131,7 +132,7 @@ const App: React.FC = () => {
               </div>
             </div>
             <h1 className="text-6xl md:text-9xl font-bold font-bungee text-white mb-6 uppercase tracking-tight neon-text-glow-purple leading-none drop-shadow-2xl">
-              SINGMODE
+              Singmode v.2
             </h1>
             <p className="text-[var(--neon-yellow)] text-xl md:text-2xl font-bold tracking-widest uppercase neon-glow-yellow font-righteous">KARAOKE_LOUNGE_SYSTEM</p>
           </div>
@@ -258,7 +259,7 @@ const App: React.FC = () => {
             <div className="w-10 h-10 rounded-full border-2 border-[var(--neon-pink)] p-0.5 group-hover:shadow-[0_0_20px_rgba(255,0,127,0.4)] transition-all">
               <img src="IGK.jpeg" alt="Logo" className="w-full h-full rounded-full" />
             </div>
-            <span className="font-bungee text-xl text-white tracking-widest group-hover:text-[var(--neon-cyan)] transition-colors">SINGMODE</span>
+            <span className="font-bungee text-xl text-white tracking-widest group-hover:text-[var(--neon-cyan)] transition-colors">Singmode v.2</span>
           </div>
           <div className="flex items-center gap-6">
             <button

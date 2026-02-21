@@ -95,19 +95,20 @@ Items marked **TRUE** are currently implemented. Items marked **FALSE** require 
 10. **TRUE** - The App should work on LAN mode too (wiFi) even if the DJ Controller UI is connected to the private side of the network.
 11. **TRUE** - The App will auto arrange the queue with a sequence of One song each participating performer.
 12. **TRUE** - New Performer requests are added on the first position in the Queue.
-13. **TRUE** - The app can be called SingMode.
-14. **TRUE** - The Super User Admin name is:
+98. **TRUE** - The app can be called Singmode v.2.
+99. **TRUE** - The Super User Admin name is:
     *   14.1 - User - SingMaster
     *   14.2 - Password - Organized
 
 ---
 
-## Recent Bug Fixes & Refinements (v1.1.1 Review)
+## Recent Bug Fixes & Refinements (v.2.0.0 Review)
 
 1. **TRUE** - Resolved `FirebaseError` in `registerSession` by ensuring no undefined fields are sent to Firestore.
 2. **TRUE** - Fixed 404 errors for `grid.svg` and `favicon.svg` by creating these assets in the public folder.
 3. **TRUE** - Refined Participant login button label from "ENTER AS GUEST" to "SIGN IN" for existing users.
 4. **TRUE** - Updated DJ Console empty library message from "DATABASE OFFLINE" to "SONGBOOK EMPTY" for clarity.
 5. **TRUE** - Verified end-to-end request flow from Guest signup to DJ approval.
-113. **TRUE** - Implemented Administrative Cleanup Tool in Admin Portal.
-114. **TRUE** - Successfully purged all guest accounts and duplicate stage name entries from the database.
+6. **TRUE** - Implemented Administrative Cleanup Tool in Admin Portal.
+7. **TRUE** - Successfully purged all guest accounts and duplicate stage name entries from the database.
+8. **TRUE** - Full rebranding to Singmode v.2 (Version 2.0.0).

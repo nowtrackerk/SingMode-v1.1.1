@@ -49,7 +49,7 @@ const FeaturesView: React.FC<FeaturesViewProps> = ({ onBack, onAdminLogin }) => 
                         {/* Replaced SingModeLogo with direct img for consistency if needed, but keeping component is fine if it aligns */}
                         <div className="flex items-center gap-3">
                             <img src="IGK.jpeg" alt="Logo" className="w-10 h-10 rounded-full border border-[var(--neon-pink)]" />
-                            <span className="font-bungee text-xl text-white tracking-widest">SINGMODE</span>
+                            <span className="font-bungee text-xl text-white tracking-widest">Singmode v.2</span>
                         </div>
                     </div>
                     <button
@@ -66,7 +66,7 @@ const FeaturesView: React.FC<FeaturesViewProps> = ({ onBack, onAdminLogin }) => 
                         The ultimate <span className="text-[var(--neon-cyan)]">karaoke</span> os
                     </h1>
                     <p className="text-[10px] md:text-xs text-[var(--neon-cyan)]/80 font-bold uppercase tracking-[0.4em] font-righteous leading-relaxed max-w-2xl mx-auto border-y border-[var(--neon-cyan)]/20 py-4">
-                        SingMode transforms any arena into a high-fidelity visual theater.
+                        Singmode v.2 transforms any arena into a high-fidelity visual theater.
                         Connect instantly, dominate the queue, and emit your signal.
                     </p>
                 </div>

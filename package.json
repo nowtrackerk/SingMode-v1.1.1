@@ -1,14 +1,15 @@
 {
-  "name": "singmode-karaoke",
+  "name": "singmode-v.2",
   "private": true,
-  "version": "1.1.1",
+  "version": "2.0.0",
+  "homepage": "https://nowtrackerk.github.io/SingMode-v.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist -r https://github.com/nowtrackerk/SingMode-v.2.git"
   },
   "dependencies": {
     "firebase": "^12.9.0",

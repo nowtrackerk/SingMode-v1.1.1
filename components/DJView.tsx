@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import QRCode from "react-qr-code";
-import { KaraokeSession, RequestStatus, ParticipantStatus, SongRequest, Participant, RequestType, UserProfile, FavoriteSong, VerifiedSong, QueueStrategy } from '../types';
+import { KaraokeSession, RequestStatus, ParticipantStatus, SongRequest, Participant, RequestType, UserProfile, FavoriteSong, VerifiedSong, QueueStrategy, ActiveSession } from '../types';
 import {
   getSession, approveRequest, promoteToStage, deleteRequest, reorderRequest,
   generateRound, finishRound, addRequest, updateRequest,
@@ -13,7 +13,7 @@ import {
   reorderCurrentRound, reorderRequests, reorderPendingRequests,
   banUser, setMaxRequestsPerUser, markRequestAsDone, logoutUser,
   assignUserToDevice, removeDevice, setQueueStrategy, unregisterSession, subscribeToSessions,
-  administrativeCleanup
+  administrativeCleanup, getSessionHistory, initializeSync
 } from '../services/sessionManager';
 import SongRequestForm from './SongRequestForm';
 import { syncService } from '../services/syncService';
@@ -23,7 +23,7 @@ interface DJViewProps {
   onAdminAccess?: () => void;
 }
 
-type DJTab = 'COMMAND' | 'ROTATION' | 'PERFORMERS' | 'LIBRARY' | 'NETWORK' | 'ADMIN';
+type DJTab = 'COMMAND' | 'ROTATION' | 'PERFORMERS' | 'LIBRARY' | 'SESSION' | 'ADMIN';
 
 const QUICK_SET_POOL = [
   { songName: "Bohemian Rhapsody", artist: "Queen" },
@@ -157,6 +157,10 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
 
   const [intro, setIntro] = useState<{ [key: string]: string }>({});
   const [showNetworkConfig, setShowNetworkConfig] = useState(false);
+  const [showSessionHistory, setShowSessionHistory] = useState(false);
+  const [sessionHistory, setSessionHistory] = useState<ActiveSession[]>([]);
+  const [sessionName, setSessionName] = useState('DAY_SHOW');
+  const [isOpeningSession, setIsOpeningSession] = useState(false);
   const [networkIpInput, setNetworkIpInput] = useState(getStoredNetworkIp() || '');
   const [directorySearch, setDirectorySearch] = useState('');
   const [micActive, setMicActive] = useState(false);
@@ -248,7 +252,23 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
       stopMicMonitoring();
     };
   }, [refresh]);
+  useEffect(() => {
+    if (showSessionHistory) {
+      getSessionHistory().then(setSessionHistory).catch(console.error);
+    }
+  }, [showSessionHistory]);
 
+  const handleOpenSession = async () => {
+    setIsOpeningSession(true);
+    try {
+      await initializeSync('DJ', sessionName);
+      refresh();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setIsOpeningSession(false);
+    }
+  };
   // Reset doneRequests when a new round starts
   useEffect(() => {
     if (!session?.currentRound || session.currentRound.length === 0) {
@@ -721,7 +741,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
             </div>
             <div>
               <h1 className="text-8xl font-bold font-bungee text-white flex items-center gap-6 uppercase tracking-tight neon-glow-pink leading-none">
-                SINGMODE <span className="text-[var(--neon-blue)] neon-glow-cyan text-5xl font-righteous translate-y-2">beta</span>
+                Singmode v.2 <span className="text-[var(--neon-blue)] neon-glow-cyan text-5xl font-righteous translate-y-2">beta</span>
               </h1>
               <div className="flex items-center gap-4 mt-4">
                 <span className="px-4 py-1.5 rounded-full bg-[var(--neon-pink)]/10 border border-[var(--neon-pink)]/30 text-[var(--neon-pink)] text-lg font-bold uppercase tracking-widest font-righteous">DJ CONSOLE</span>
@@ -742,75 +762,145 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
         </div>
       </header>
 
-      {/* Retro Control Deck */}
-      <div className="sticky top-4 z-50">
-        <div className="glass-panel p-4 rounded-[2.5rem] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-wrap items-center gap-4 backdrop-blur-3xl">
-          <div className="flex gap-3 p-2 bg-black/40 rounded-[2rem] border border-white/5">
-            <button onClick={() => setIsAddingRequest(true)} className="px-8 py-4 bg-[var(--neon-pink)] text-black font-black hover:bg-white transition-all active:scale-95 rounded-[1.5rem] shadow-[0_0_25px_rgba(255,42,109,0.4)] text-lg uppercase tracking-[0.2em] font-righteous flex items-center gap-3 group">
-              <span className="text-3xl group-hover:rotate-90 transition-transform">＋</span> ADD SONG
-            </button>
-
-            <button
-              onClick={() => { setShowRoundConfirm(true); refresh(); }}
-              className="px-8 py-4 bg-[var(--neon-blue)] text-black font-black hover:bg-white transition-all uppercase tracking-[0.2em] text-lg active:scale-95 rounded-[1.5rem] shadow-[0_0_25px_rgba(5,217,232,0.4)] font-righteous flex items-center gap-3 group"
-            >
-              <span className="text-3xl group-hover:animate-spin">↻</span> NEXT ROUND
-            </button>
+      {/* === DAY_SHOW SESSION TOP BAR === */}
+      <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[2.5rem] p-6 border border-white/5 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[var(--neon-purple)]/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+          {/* Left: Title + Status */}
+          <div className="flex items-center gap-5">
+            <span className="text-4xl">📡</span>
+            <div>
+              <h2 className="text-2xl font-bold font-bungee text-white uppercase neon-glow-purple">DAY_SHOW SESSION</h2>
+              <div className="flex items-center gap-3 mt-1">
+                <span className={`text-xs font-black uppercase tracking-widest font-righteous ${roomId ? 'text-[var(--neon-green)]' : 'text-slate-500'
+                  }`}>
+                  {roomId ? '● ACTIVE' : '○ OFFLINE'}
+                </span>
+                {roomId && <span className="text-slate-400 font-mono text-xs">ROOM: <span className="text-white font-bold">{roomId}</span></span>}
+              </div>
+            </div>
           </div>
 
-          <div className="w-[1px] h-12 bg-white/10 mx-2"></div>
-
-          <div className="flex gap-2">
-            <button onClick={() => setShowQrModal(true)} className="w-14 h-14 flex items-center justify-center text-[var(--neon-yellow)] border border-[var(--neon-yellow)]/30 bg-[var(--neon-yellow)]/5 hover:bg-[var(--neon-yellow)] hover:text-black transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(255,200,87,0.1)] group">
-              <span className="text-4xl group-hover:scale-110 transition-transform">📱</span>
-            </button>
-
-            <button onClick={() => setShowUserManager(true)} className="w-14 h-14 flex items-center justify-center text-[var(--neon-blue)] border border-[var(--neon-blue)]/30 bg-[var(--neon-blue)]/5 hover:bg-[var(--neon-blue)] hover:text-black transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(5,217,232,0.1)] group">
-              <span className="text-4xl group-hover:scale-110 transition-transform">👥</span>
-            </button>
-
-            <button onClick={() => setShowResetConfirm(true)} className="w-14 h-14 flex items-center justify-center text-rose-500 border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500 hover:text-white transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(244,63,94,0.1)] group">
-              <span className="text-4xl group-hover:rotate-12 transition-transform">☢️</span>
-            </button>
-
-            {onAdminAccess && (
-              <button onClick={onAdminAccess} title="ADMIN PORTAL" className="w-14 h-14 flex items-center justify-center text-[var(--neon-purple)] border border-[var(--neon-purple)]/30 bg-[var(--neon-purple)]/5 hover:bg-[var(--neon-purple)] hover:text-black transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(147,51,234,0.1)] group ml-4 relative">
-                <span className="text-4xl group-hover:scale-110 transition-transform">⚙️</span>
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--neon-pink)] rounded-full animate-pulse border-2 border-black"></span>
+          {/* Right: Open button or history toggle */}
+          <div className="flex gap-3">
+            {!roomId && (
+              <button
+                onClick={() => setActiveTab('SESSION')}
+                className="px-6 py-3 bg-[var(--neon-purple)] text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-fuchsia-500 transition-all font-righteous shadow-[0_0_20px_rgba(180,0,255,0.3)]"
+              >
+                📡 OPEN BROADCAST
               </button>
             )}
-
             <button
-              onClick={() => {
-                askConfirm('Are you sure you want to sign out?', async () => {
-                  await logoutUser();
-                  window.location.reload();
-                });
-              }}
-              title="SIGN OUT"
-              className="px-6 h-14 flex items-center justify-center gap-3 text-rose-500 border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500 hover:text-white transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(244,63,94,0.1)] group ml-2"
+              onClick={() => setShowSessionHistory(!showSessionHistory)}
+              className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl font-black text-xs uppercase tracking-widest font-righteous text-slate-400 hover:text-white transition-all"
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-              <span className="text-[10px] font-black uppercase tracking-widest font-righteous">SIGN_OUT</span>
+              {showSessionHistory ? '▲ HIDE HISTORY' : '📜 SESSION HISTORY'}
             </button>
           </div>
+        </div>
 
-          <div className="flex-1"></div>
+        {/* Inline History */}
+        {showSessionHistory && (
+          <div className="mt-6 pt-6 border-t border-white/5">
+            {sessionHistory.length === 0 ? (
+              <p className="text-slate-600 font-black uppercase tracking-widest text-xs font-righteous py-4 text-center">NO PREVIOUS SESSIONS RECORDED</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {sessionHistory.slice().reverse().map((s) => (
+                  <div key={s.id} className="p-4 bg-white/5 border border-white/5 rounded-2xl hover:border-white/10 transition-all">
+                    <div className="text-white font-bold font-bungee text-sm truncate">{s.hostName || 'DAY_SHOW'}</div>
+                    <div className="text-[var(--neon-cyan)] font-mono text-[10px] mt-1">{new Date(s.startedAt).toLocaleString()}</div>
+                    {s.endedAt && (
+                      <div className="text-slate-500 text-[10px] font-righteous mt-0.5">
+                        DURATION: {Math.round((s.endedAt - s.startedAt) / 60000)}m
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
-          <div className="flex gap-2 p-2 bg-black/40 rounded-[2rem] border border-white/5 overflow-x-auto no-scrollbar">
-            {(['COMMAND', 'ROTATION', 'PERFORMERS', 'LIBRARY', 'NETWORK'] as DJTab[]).map((tab) => (
+      {/* Retro Control Deck */}
+      <div className="sticky top-4 z-50">
+        <div className="glass-panel p-4 rounded-[2.5rem] border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col gap-3 backdrop-blur-3xl">
+
+          {/* Row 1: Action Buttons + Icon Buttons */}
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex gap-3 p-2 bg-black/40 rounded-[2rem] border border-white/5">
+              <button onClick={() => setIsAddingRequest(true)} className="px-8 py-4 bg-[var(--neon-pink)] text-black font-black hover:bg-white transition-all active:scale-95 rounded-[1.5rem] shadow-[0_0_25px_rgba(255,42,109,0.4)] text-lg uppercase tracking-[0.2em] font-righteous flex items-center gap-3 group">
+                <span className="text-3xl group-hover:rotate-90 transition-transform">＋</span> ADD SONG
+              </button>
+
+              <button
+                onClick={() => { setShowRoundConfirm(true); refresh(); }}
+                className="px-8 py-4 bg-[var(--neon-blue)] text-black font-black hover:bg-white transition-all uppercase tracking-[0.2em] text-lg active:scale-95 rounded-[1.5rem] shadow-[0_0_25px_rgba(5,217,232,0.4)] font-righteous flex items-center gap-3 group"
+              >
+                <span className="text-3xl group-hover:animate-spin">↻</span> NEXT ROUND
+              </button>
+            </div>
+
+            <div className="w-[1px] h-12 bg-white/10 mx-2"></div>
+
+            <div className="flex gap-2">
+              <button onClick={() => setShowQrModal(true)} className="w-14 h-14 flex items-center justify-center text-[var(--neon-yellow)] border border-[var(--neon-yellow)]/30 bg-[var(--neon-yellow)]/5 hover:bg-[var(--neon-yellow)] hover:text-black transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(255,200,87,0.1)] group">
+                <span className="text-4xl group-hover:scale-110 transition-transform">📱</span>
+              </button>
+
+              <button onClick={() => setShowUserManager(true)} className="w-14 h-14 flex items-center justify-center text-[var(--neon-blue)] border border-[var(--neon-blue)]/30 bg-[var(--neon-blue)]/5 hover:bg-[var(--neon-blue)] hover:text-black transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(5,217,232,0.1)] group">
+                <span className="text-4xl group-hover:scale-110 transition-transform">👥</span>
+              </button>
+
+              <button onClick={() => setShowResetConfirm(true)} className="w-14 h-14 flex items-center justify-center text-rose-500 border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500 hover:text-white transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(244,63,94,0.1)] group">
+                <span className="text-4xl group-hover:rotate-12 transition-transform">☢️</span>
+              </button>
+
+              {onAdminAccess && (
+                <button onClick={onAdminAccess} title="ADMIN PORTAL" className="w-14 h-14 flex items-center justify-center text-[var(--neon-purple)] border border-[var(--neon-purple)]/30 bg-[var(--neon-purple)]/5 hover:bg-[var(--neon-purple)] hover:text-black transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(147,51,234,0.1)] group ml-4 relative">
+                  <span className="text-4xl group-hover:scale-110 transition-transform">⚙️</span>
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--neon-pink)] rounded-full animate-pulse border-2 border-black"></span>
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  askConfirm('Are you sure you want to sign out?', async () => {
+                    await logoutUser();
+                    window.location.reload();
+                  });
+                }}
+                title="SIGN OUT"
+                className="px-6 h-14 flex items-center justify-center gap-3 text-rose-500 border border-rose-500/30 bg-rose-500/5 hover:bg-rose-500 hover:text-white transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(244,63,94,0.1)] group ml-2"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                <span className="text-[10px] font-black uppercase tracking-widest font-righteous">SIGN_OUT</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Row 2: Tab Pills */}
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar border-t border-white/5 pt-3">
+            {(['COMMAND', 'ROTATION', 'PERFORMERS', 'LIBRARY', 'SESSION'] as DJTab[]).map((tab) => (
               <button
                 key={tab}
-                onClick={() => { setActiveTab(tab); }}
-                className={`px-8 py-3 text-base font-bold uppercase tracking-widest transition-all rounded-[1.2rem] font-righteous ${activeTab === tab
-                  ? 'bg-white text-black shadow-[0_0_30px_rgba(255,255,255,0.4)] scale-105'
-                  : 'text-slate-500 hover:text-white hover:bg-white/5'
+                onClick={() => setActiveTab(tab)}
+                className={`px-6 py-2.5 rounded-full font-bungee text-sm tracking-widest transition-all whitespace-nowrap border-2 ${activeTab === tab
+                  ? 'bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.3)]'
+                  : 'bg-transparent text-slate-400 border-white/20 hover:border-white/40 hover:text-white'
                   }`}
               >
-                {tab === 'COMMAND' ? 'CONTROLS' : tab === 'ROTATION' ? 'STAGE' : tab === 'PERFORMERS' ? 'SINGERS' : tab === 'LIBRARY' ? 'SONGBOOK' : 'NETWORK'}
+                {tab === 'COMMAND' ? 'DECK'
+                  : tab === 'ROTATION' ? 'ROTATION'
+                    : tab === 'PERFORMERS' ? 'PERFORMERS'
+                      : tab === 'LIBRARY' ? 'LIBRARY'
+                        : 'SESSION'}
               </button>
             ))}
           </div>
+
         </div>
       </div>
 
@@ -2263,10 +2353,10 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
 
         (showQrModal || qrTargetUser) && (
           <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-500">
-            <div className="w-full max-w-sm bg-[#0a0a0a] border-4 border-white/10 rounded-[3rem] p-8 relative overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-500">
+            <div className="w-full max-w-2xl bg-[#0a0a0a] border-4 border-white/10 rounded-[3rem] p-8 relative overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-500">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-cyan)] via-[var(--neon-purple)] to-[var(--neon-pink)] animate-gradient-x"></div>
 
-              <div className="flex justify-between items-start mb-8">
+              <div className="flex justify-between items-start mb-6">
                 <div>
                   <h2 className="text-3xl font-black text-white uppercase tracking-tight font-bungee neon-glow-white">
                     {qrTargetUser ? 'USER SINC' : 'JOIN ROOM'}
@@ -2276,39 +2366,52 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                 <button onClick={() => { setShowQrModal(false); setQrTargetUser(null); }} className="text-slate-600 hover:text-white p-2 font-black text-3xl transition-colors">✕</button>
               </div>
 
-              <div className="bg-white p-4 rounded-3xl mb-8 transform hover:scale-105 transition-transform duration-500 hover:rotate-1 shadow-[0_0_50px_rgba(255,255,255,0.1)]">
-                <QRCode
-                  value={(() => {
-                    // Always use network URL for QR codes to ensure phone connectivity
-                    const baseUrl = getNetworkUrl();
-                    if (qrTargetUser) {
-                      return `${baseUrl}?userId=${qrTargetUser.id}&room=${roomId || ''}`;
-                    }
-                    return `${baseUrl}?room=${roomId || ''}`;
-                  })()}
-                  size={400} // Increased size
-                  style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                  viewBox={`0 0 256 256`}
-                />
-              </div>
-
-              <div className="text-center space-y-4">
-                <p className="text-slate-400 font-bold uppercase tracking-widest text-xs font-righteous">
-                  {qrTargetUser ? 'SCAN TO LINK DEVICE TO PROFILE' : 'SCAN TO JOIN SESSION'}
-                </p>
-                {getNetworkUrl().includes('localhost') && (
-                  <div className="p-3 bg-amber-500/20 border border-amber-500/50 rounded-xl mb-4">
-                    <p className="text-amber-500 text-[10px] font-black uppercase tracking-widest leading-tight">
-                      ⚠️ LOCALHOST DETECTED<br />
-                      MOBILE DEVICES CANNOT CONNECT TO LOCALHOST. USE NETWORK IP.
-                    </p>
-                  </div>
-                )}
-                <div className="p-4 bg-white/5 rounded-2xl border border-white/5">
-                  <p className="text-[var(--neon-cyan)] font-black uppercase tracking-widest text-sm font-righteous break-all">
-                    {qrTargetUser ? 'AUTO-LOGIN ENABLED' : `ROOM ID: ${roomId}`}
+              <div className="flex flex-col items-center gap-4">
+                {/* QR: Manual IP input */}
+                <p className="text-[var(--neon-yellow)] font-black uppercase tracking-[0.2em] text-[10px] font-righteous self-start">NETWORK IP — SCAN TO JOIN</p>
+                <div className="bg-white p-4 rounded-2xl w-full max-w-sm mx-auto shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:scale-105 transition-transform">
+                  <QRCode
+                    value={(() => {
+                      const ip = networkIpInput.trim();
+                      if (!ip) return 'http://enter-ip-below';
+                      const base = ip.startsWith('http') ? ip : `http://${ip}:5173/SingMode-v.2/`;
+                      if (qrTargetUser) return `${base}?userId=${qrTargetUser.id}&room=${roomId || ''}`;
+                      return `${base}?room=${roomId || ''}`;
+                    })()}
+                    size={300}
+                    style={{ height: 'auto', maxWidth: '100%', width: '100%' }}
+                    viewBox="0 0 256 256"
+                  />
+                </div>
+                <div className="w-full p-3 bg-black/60 border border-white/10 rounded-xl">
+                  <p className="text-[10px] font-mono text-[var(--neon-cyan)] break-all text-center">
+                    {(() => {
+                      const ip = networkIpInput.trim();
+                      if (!ip) return 'Enter IP below to generate URL';
+                      const base = ip.startsWith('http') ? ip : `http://${ip}:5173/SingMode-v.2/`;
+                      return qrTargetUser ? `${base}?userId=${qrTargetUser.id}&room=${roomId || ''}` : `${base}?room=${roomId || ''}`;
+                    })()}
                   </p>
                 </div>
+                <input
+                  type="text"
+                  value={networkIpInput}
+                  onChange={(e) => setNetworkIpInput(e.target.value)}
+                  placeholder="e.g. 192.168.0.160"
+                  className="w-full bg-black border-2 border-[var(--neon-yellow)]/40 focus:border-[var(--neon-yellow)] rounded-xl px-4 py-3 text-white font-mono text-sm outline-none transition-all placeholder:text-slate-600"
+                />
+                <button
+                  onClick={() => { setNetworkIp(networkIpInput.trim()); }}
+                  className="w-full py-3 bg-[var(--neon-yellow)] text-black rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white transition-all font-righteous"
+                >
+                  SAVE & USE THIS IP
+                </button>
+              </div>
+
+              <div className="mt-6 p-3 bg-white/5 rounded-2xl border border-white/5 text-center">
+                <p className="text-[var(--neon-cyan)] font-black uppercase tracking-widest text-sm font-righteous">
+                  {qrTargetUser ? 'AUTO-LOGIN ENABLED' : `ROOM ID: ${roomId}`}
+                </p>
               </div>
 
             </div>
@@ -2538,7 +2641,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
       }
 
       {
-        activeTab === 'NETWORK' && (
+        activeTab === 'SESSION' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/5 shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-purple)]/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
@@ -2546,119 +2649,254 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
               <div className="flex justify-between items-center mb-10 relative z-10">
                 <div>
                   <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-purple">
-                    <span className="text-5xl">📡</span> NETWORK ACTIVITY
+                    <span className="text-5xl">📡</span> DAY_SHOW SESSION
                   </h2>
                   <p className="text-slate-400 mt-2 font-mono">
-                    Monitor all connected devices and manage sessions.
+                    Monitor all connected devices and manage active synchronization.
                   </p>
                 </div>
-                <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
-                  <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Total Connections</span>
-                  <span className="text-2xl font-black text-white">{session.deviceConnections?.length || 0}</span>
+                <div className="flex gap-4">
+                  <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
+                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest font-righteous">STATUS</span>
+                    <span className={`text-xl font-black ${roomId ? 'text-[var(--neon-green)]' : 'text-rose-500'} uppercase font-bungee`}>
+                      {roomId ? 'ACTIVE' : 'OFFLINE'}
+                    </span>
+                  </div>
+                  <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
+                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest font-righteous">ROOM</span>
+                    <span className="text-2xl font-black text-white font-mono">{roomId || '----'}</span>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {session.deviceConnections?.map((device) => {
-                  const isConnected = device.status === 'connected';
-                  const assignedUser = device.userId ?
-                    (accounts.find(a => a.id === device.userId) ||
-                      session.participants?.find(p => p.id === device.userId)) : null;
-                  const isGuest = device.isGuest || (assignedUser && 'isGuest' in assignedUser ? (assignedUser as any).isGuest : false);
+              {!roomId ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="max-w-xl w-full bg-[#0a0a0a] border-4 border-dashed border-white/5 rounded-[4rem] p-16 text-center">
+                    <div className="w-24 h-24 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)] rounded-[2.5rem] flex items-center justify-center text-5xl mx-auto mb-10 shadow-[0_0_50px_rgba(180,0,255,0.2)] animate-pulse">📡</div>
+                    <h2 className="text-4xl font-black text-white uppercase mb-4 font-bungee tracking-tight">OPEN BROADCAST</h2>
+                    <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mb-10 font-righteous leading-relaxed">
+                      ACTIVATE THE WORLDWIDE SYNC PROTOCOL. <br />ALLOW SINGER CONNECTIONS AND REMOTE COMMANDS.
+                    </p>
 
-                  return (
+                    <button
+                      onClick={() => setShowSessionHistory(true)}
+                      className="mb-10 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center gap-3 text-xs font-black text-slate-400 hover:text-white transition-all uppercase tracking-[0.2em] font-righteous mx-auto shadow-inner"
+                    >
+                      📜 VIEW SESSION HISTORY
+                    </button>
 
-                    <div key={device.id} className={`p-6 rounded-[2rem] border transition-all relative overflow-hidden group ${isConnected
-                      ? 'bg-[#151520] border-[var(--neon-purple)]/30 hover:border-[var(--neon-purple)]'
-                      : 'bg-[#05050A] border-white/5 opacity-60'
-                      }`}>
-                      {/* Status Dot */}
-                      <div className={`absolute top-6 right-6 w-3 h-3 rounded-full ${isConnected ? 'bg-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-rose-500'}`}></div>
-
-                      <div className="flex items-start gap-4 mb-6">
-                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg ${assignedUser
-                          ? (isGuest ? 'bg-[var(--neon-orange)]/20 text-[var(--neon-orange)]' : 'bg-[var(--neon-blue)]/20 text-[var(--neon-blue)]')
-                          : 'bg-white/5 text-slate-500'
-                          }`}>
-                          {assignedUser ? (isGuest ? '👽' : '👤') : '📱'}
-                        </div>
-                        <div>
-                          <h3 className="text-xl font-bold text-white font-righteous tracking-wide flex items-center gap-3">
-                            {device.id}
-                            {isGuest && (
-                              <span className="px-2 py-0.5 rounded bg-rose-500 text-[8px] font-black text-white">GUEST</span>
-                            )}
-                          </h3>
-                          <div className="text-xs font-mono text-slate-500 mt-1 flex flex-col gap-1">
-                            <div className="truncate max-w-[150px]" title={device.peerId}>{device.peerId}</div>
-                            {device.userAgent && (
-                              <div className="text-[10px] text-[var(--neon-cyan)]/60 font-black uppercase flex items-center gap-1">
-                                {device.userAgent.toLowerCase().includes('mobile') ? '📱 MOBILE' : '💻 DESKTOP'}
-                              </div>
-                            )}
-                          </div>
-                          <div className={`mt-2 text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded inline-block ${isConnected ? 'bg-[var(--neon-green)]/10 text-[var(--neon-green)]' : 'bg-rose-500/10 text-rose-500'
-                            }`}>
-                            {device.status}
-                          </div>
-                        </div>
+                    <div className="space-y-6">
+                      <div>
+                        <label className="block text-[10px] font-black text-[var(--neon-purple)] uppercase tracking-[0.3em] mb-3 font-righteous">SESSION NAME / ROOM ID</label>
+                        <input
+                          type="text"
+                          value={sessionName}
+                          onChange={(e) => setSessionName(e.target.value.toUpperCase().replace(/\s+/g, '_'))}
+                          className="w-full bg-black border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-mono text-center text-2xl tracking-widest focus:border-[var(--neon-purple)] outline-none transition-all"
+                        />
                       </div>
 
-                      <div className="space-y-4">
-                        <div className="p-4 bg-black/40 rounded-xl border border-white/5">
-                          <div className="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-1">
-                            Assigned Session
-                          </div>
-                          <div className="text-white font-medium truncate">
-                            {assignedUser ? assignedUser.name : <span className="text-slate-600 italic">Unassigned</span>}
-                          </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              const userName = prompt("Enter User Name to link (must exist in Directory):");
-                              if (userName) {
-                                const user = accounts.find(a => a.name.toLowerCase() === userName.toLowerCase());
-                                if (user) {
-                                  assignUserToDevice(device.id, user.id, user.isGuest);
-                                  refresh();
-                                } else {
-                                  alert("User not found!");
-                                }
-                              }
-                            }}
-                            className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-sm font-bold text-white transition-all"
-                          >
-                            {assignedUser ? 'CHANGE' : 'LINK USER'}
-                          </button>
-                          <button
-                            onClick={() => {
-                              askConfirm("Forget this device?", async () => {
-                                await removeDevice(device.id);
-                                refresh();
-                              });
-                            }}
-                            className="px-4 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 transition-all"
-                          >
-                            Forget
-                          </button>
-                        </div>
-                      </div>
+                      <button
+                        onClick={handleOpenSession}
+                        disabled={isOpeningSession || !sessionName}
+                        className="w-full py-6 bg-[var(--neon-purple)] text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xl shadow-[0_0_40px_rgba(180,0,255,0.4)] hover:scale-105 hover:bg-fuchsia-500 transition-all disabled:opacity-50 disabled:scale-100 font-righteous"
+                      >
+                        {isOpeningSession ? 'INITIALIZING...' : 'OPEN DAY_SHOW SESSION'}
+                      </button>
                     </div>
-                  );
-                })}
-
-                {(!session.deviceConnections || session.deviceConnections.length === 0) && (
-                  <div className="col-span-full py-20 text-center text-slate-500 font-mono">
-                    No devices detected yet. Scan the QR code to connect.
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {session.deviceConnections?.map((device) => {
+                    const isConnected = device.status === 'connected';
+                    const assignedUser = device.userId ?
+                      (accounts.find(a => a.id === device.userId) ||
+                        session.participants?.find(p => p.id === device.userId)) : null;
+                    const isGuest = device.isGuest || (assignedUser && 'isGuest' in assignedUser ? (assignedUser as any).isGuest : false);
+
+                    return (
+
+                      <div key={device.id} className={`p-6 rounded-[2rem] border transition-all relative overflow-hidden group ${isConnected
+                        ? 'bg-[#151520] border-[var(--neon-purple)]/30 hover:border-[var(--neon-purple)]'
+                        : 'bg-[#05050A] border-white/5 opacity-60'
+                        }`}>
+                        {/* Status Dot */}
+                        <div className={`absolute top-6 right-6 w-3 h-3 rounded-full ${isConnected ? 'bg-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-rose-500'}`}></div>
+
+                        <div className="flex items-start gap-4 mb-6">
+                          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg ${assignedUser
+                            ? (isGuest ? 'bg-[var(--neon-orange)]/20 text-[var(--neon-orange)]' : 'bg-[var(--neon-blue)]/20 text-[var(--neon-blue)]')
+                            : 'bg-white/5 text-slate-500'
+                            }`}>
+                            {assignedUser ? (isGuest ? '👽' : '👤') : '📱'}
+                          </div>
+                          <div>
+                            <h3 className="text-xl font-bold text-white font-righteous tracking-wide flex items-center gap-3">
+                              {device.id}
+                              {isGuest && (
+                                <span className="px-2 py-0.5 rounded bg-rose-500 text-[8px] font-black text-white">GUEST</span>
+                              )}
+                            </h3>
+                            <div className="text-xs font-mono text-slate-500 mt-1 flex flex-col gap-1">
+                              <div className="truncate max-w-[150px]" title={device.peerId}>{device.peerId}</div>
+                              {device.userAgent && (
+                                <div className="text-[10px] text-[var(--neon-cyan)]/60 font-black uppercase flex items-center gap-1">
+                                  {device.userAgent.toLowerCase().includes('mobile') ? '📱 MOBILE' : '💻 DESKTOP'}
+                                </div>
+                              )}
+                            </div>
+                            <div className={`mt-2 text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded inline-block ${isConnected ? 'bg-[var(--neon-green)]/10 text-[var(--neon-green)]' : 'bg-rose-500/10 text-rose-500'
+                              }`}>
+                              {device.status}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="p-4 bg-black/40 rounded-xl border border-white/5">
+                            <div className="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-1">
+                              Assigned Session
+                            </div>
+                            <div className="text-white font-medium truncate">
+                              {assignedUser ? assignedUser.name : <span className="text-slate-600 italic">Unassigned</span>}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                const userName = prompt("Enter User Name to link (must exist in Directory):");
+                                if (userName) {
+                                  const user = accounts.find(a => a.name.toLowerCase() === userName.toLowerCase());
+                                  if (user) {
+                                    assignUserToDevice(device.id, user.id, user.isGuest);
+                                    refresh();
+                                  } else {
+                                    alert("User not found!");
+                                  }
+                                }
+                              }}
+                              className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-sm font-bold text-white transition-all"
+                            >
+                              {assignedUser ? 'CHANGE' : 'LINK USER'}
+                            </button>
+                            <button
+                              onClick={() => {
+                                askConfirm("Forget this device?", async () => {
+                                  await removeDevice(device.id);
+                                  refresh();
+                                });
+                              }}
+                              className="px-4 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 transition-all"
+                            >
+                              Forget
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {(!session.deviceConnections || session.deviceConnections.length === 0) && (
+                    <div className="col-span-full py-20 text-center text-slate-500 font-mono">
+                      No devices detected yet. Scan the QR code to connect.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {roomId && (
+                <div className="mt-10 p-8 bg-black/40 rounded-[2.5rem] border border-white/5 relative overflow-hidden animate-in slide-in-from-bottom-4 duration-700">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--neon-cyan)]/5 blur-[80px] rounded-full -mr-32 -mt-32 pointer-events-none"></div>
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-xl font-black text-white uppercase tracking-tight font-bungee neon-text-glow-cyan">Live Session Log</h3>
+                    <span className="px-3 py-1 rounded-full bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 text-[9px] font-black text-[var(--neon-cyan)] uppercase tracking-widest animate-pulse">
+                      ● REALTIME_FEED
+                    </span>
+                  </div>
+                  <div className="space-y-3 max-h-64 overflow-y-auto pr-4 no-scrollbar custom-scrollbar">
+                    {session.logs?.slice().reverse().map((log, i) => (
+                      <div key={i} className="flex gap-4 items-start animate-in slide-in-from-left-2 duration-300 group">
+                        <span className="text-[10px] font-mono text-slate-600 shrink-0 mt-0.5 group-hover:text-slate-400 transition-colors">
+                          [{new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]
+                        </span>
+                        <span className={`text-xs font-righteous uppercase tracking-wide px-2 py-0.5 rounded ${log.type === 'error' ? 'text-rose-500 bg-rose-500/5' :
+                          log.type === 'warn' ? 'text-[var(--neon-yellow)] bg-[var(--neon-yellow)]/5' :
+                            'text-slate-300 group-hover:text-white transition-colors'
+                          }`}>
+                          {log.message}
+                        </span>
+                      </div>
+                    ))}
+                    {(!session.logs || session.logs.length === 0) && (
+                      <div className="text-center py-10 text-slate-700 font-black uppercase tracking-widest text-[10px] italic">
+                        AWAITING_INITIAL_SYNC_EVENTS...
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )
       }
+
+      {/* Session History Modal */}
+      {showSessionHistory && (
+        <div className="fixed inset-0 bg-black/98 flex items-center justify-center p-6 z-[400] backdrop-blur-3xl animate-in fade-in duration-300">
+          <div className="w-full max-w-4xl bg-[#050510] border-4 border-[var(--neon-purple)]/30 rounded-[4rem] p-12 shadow-[0_0_100px_rgba(180,0,255,0.2)] flex flex-col max-h-[85vh] relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-[var(--neon-purple)]/5 blur-[100px] rounded-full -mr-48 -mt-48 pointer-events-none"></div>
+
+            <div className="flex justify-between items-center mb-12">
+              <div>
+                <h2 className="text-5xl font-black text-white uppercase tracking-tight font-bungee neon-text-glow-purple">SESSION_HISTORY</h2>
+                <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-xs mt-2 font-righteous">ARCHIVE OF PREVIOUS SINGMODE V.2 BROADCASTS</p>
+              </div>
+              <button
+                onClick={() => setShowSessionHistory(false)}
+                className="w-16 h-16 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-2xl transition-all"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto pr-4 space-y-4 no-scrollbar">
+              {sessionHistory.length === 0 ? (
+                <div className="py-32 text-center text-slate-600 font-black uppercase tracking-widest font-righteous italic">
+                  NO PREVIOUS SESSIONS RECORDED
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {sessionHistory.map((s) => (
+                    <div key={s.id} className="p-8 bg-white/5 rounded-[2.5rem] border border-white/5 hover:border-white/10 transition-all group flex items-center justify-between">
+                      <div className="flex items-center gap-8">
+                        <div className="w-20 h-20 rounded-2xl bg-[var(--neon-purple)]/10 border border-[var(--neon-purple)]/20 flex flex-col items-center justify-center">
+                          <span className="text-2xl">📡</span>
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-black text-white uppercase tracking-tight font-righteous">{s.venueName || 'Main Lounge'}</h3>
+                          <div className="flex items-center gap-4 mt-1 text-slate-500 font-mono text-sm">
+                            <span>ID: {s.id}</span>
+                            <span>•</span>
+                            <span>{new Date(s.startedAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 font-righteous">Duration</div>
+                        <div className="text-white font-mono text-xl">
+                          {s.endedAt ? Math.floor((s.endedAt - s.startedAt) / (60 * 1000)) + ' MINS' : '---'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {confirmState.isOpen && (
         <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[300] backdrop-blur-3xl animate-in fade-in duration-300">

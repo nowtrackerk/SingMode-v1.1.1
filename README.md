@@ -1,20 +1,31 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Singmode v.2
 
-# Run and deploy your AI Studio app
+The next generation of the ultimate karaoke lounge system. Singmode v.2 provides a professional-grade experience for hosting karaoke parties with real-time synchronization, mobile device connectivity, and advanced queue management.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/drive/1PKnEHv7XKDozufQu24VkLFEqJsJUt_1j
+- **DAY_SHOW Session Hub**: Manage active broadcasts with custom Room IDs.
+- **Mobile Connectivity**: Guests can join instantly via QR code using their own smartphones.
+- **Session History**: Archive and browse previous broadcasts.
+- **Live Activity Feed**: Monitor connections and system events in real-time.
+- **Robust Sync**: Hardened P2P synchronization via PeerJS (STUN/TURN).
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+**Prerequisites:** Node.js (v18+)
 
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+2. **Environment Configuration:**
+   Ensure the `.env` file contains the correct Firebase configuration.
+
+3. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Access the App:**
+   Open [http://localhost:5173](http://localhost:5173) in your browser.

@@ -14,7 +14,7 @@ export const SingModeLogo: React.FC<{ size?: 'sm' | 'md' | 'lg', className?: str
             </div>
             <div className="font-bungee tracking-tighter flex flex-col leading-none">
                 <span className="text-pink-500 text-[0.5em] tracking-[0.5em] mb-1 font-righteous uppercase">Terminal</span>
-                <span className="text-white uppercase group-hover:neon-glow-pink transition-all">SingMode</span>
+                <span className="text-white uppercase group-hover:neon-glow-pink transition-all">Singmode v.2</span>
             </div>
         </div>
     );

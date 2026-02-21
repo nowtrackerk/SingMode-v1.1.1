@@ -104,6 +104,7 @@ async function handleRemoteAction(action: RemoteAction) {
         }
       }
       await joinSession(id);
+      addSessionLog(`${profile?.name || id} joined the session`, 'info');
 
       // Link Device
       await runSessionUpdate((s) => {
@@ -227,6 +228,7 @@ export const initializeSync = async (role: 'DJ' | 'PARTICIPANT', room?: string) 
     // Device Tracking Events
     syncService.onDeviceConnected = (peerId) => {
       trackDeviceConnection(peerId);
+      addSessionLog(`New device connected: ${peerId.substr(0, 8)}...`, 'info');
     };
 
     syncService.onDeviceDisconnected = async (peerId) => {
@@ -234,9 +236,11 @@ export const initializeSync = async (role: 'DJ' | 'PARTICIPANT', room?: string) 
       if (session.deviceConnections) {
         const idx = session.deviceConnections.findIndex(d => d.peerId === peerId);
         if (idx > -1) {
+          const deviceId = session.deviceConnections[idx].id;
           session.deviceConnections[idx].status = 'disconnected';
           session.deviceConnections[idx].lastSeen = Date.now();
           await saveSession(session);
+          addSessionLog(`Device disconnected: ${deviceId}`, 'warn');
         }
       }
     };
@@ -294,6 +298,7 @@ export const getSession = async (): Promise<KaraokeSession> => {
   if (session.maxRequestsPerUser === undefined) session.maxRequestsPerUser = 5;
   if (!session.bannedUsers) session.bannedUsers = [];
   if (!session.deviceConnections) session.deviceConnections = [];
+  if (!session.logs) session.logs = [];
   if (!session.queueStrategy) session.queueStrategy = QueueStrategy.FRESH_MEAT;
   return session;
 };
@@ -301,6 +306,21 @@ export const getSession = async (): Promise<KaraokeSession> => {
 export const saveSession = async (session: KaraokeSession) => {
   await storage.set(STORAGE_KEY, session);
   syncService.broadcastState(session);
+};
+
+export const addSessionLog = async (message: string, type: 'info' | 'warn' | 'error' = 'info') => {
+  await runSessionUpdate((session) => {
+    if (!session.logs) session.logs = [];
+    session.logs.push({
+      timestamp: Date.now(),
+      message,
+      type
+    });
+    // Keep only last 100 logs
+    if (session.logs.length > 100) {
+      session.logs = session.logs.slice(-100);
+    }
+  });
 };
 
 const updateVerifiedSongbook = (session: KaraokeSession, song: { songName: string, artist: string, youtubeUrl?: string, type: RequestType }) => {
@@ -1546,11 +1566,28 @@ export const heartbeatSession = async (sessionId: string) => {
 export const unregisterSession = async (sessionId: string) => {
   try {
     const sessionDoc = doc(db, "sessions", sessionId);
-    // Determine if we should delete or just mark inactive
-    // For now delete to keep clean
-    await deleteDoc(sessionDoc);
+    await updateDoc(sessionDoc, {
+      isActive: false,
+      endedAt: Date.now()
+    });
   } catch (e) {
     console.error("Error unregistering session:", e);
+  }
+};
+
+export const getSessionHistory = async (): Promise<ActiveSession[]> => {
+  try {
+    const sessionsRef = collection(db, "sessions");
+    const q = query(sessionsRef, where("isActive", "==", false));
+    const snapshot = await getDocs(q);
+    const sessions: ActiveSession[] = [];
+    snapshot.forEach(doc => {
+      sessions.push(doc.data() as ActiveSession);
+    });
+    return sessions.sort((a, b) => (b.endedAt || 0) - (a.endedAt || 0));
+  } catch (e) {
+    console.error("Error fetching session history:", e);
+    return [];
   }
 };
 

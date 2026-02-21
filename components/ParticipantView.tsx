@@ -313,7 +313,7 @@ const ParticipantView: React.FC = () => {
         </div>
 
         <h1 className="text-6xl md:text-8xl font-bold font-bungee text-white mb-6 uppercase tracking-tight neon-text-glow-purple leading-none">
-          SINGMODE
+          Singmode v.2
         </h1>
         <p className="text-[var(--neon-cyan)] font-righteous mb-16 uppercase tracking-[0.6em] text-lg font-black neon-glow-cyan">SINGER LOGIN</p>
 
