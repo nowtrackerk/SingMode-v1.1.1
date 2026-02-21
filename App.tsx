@@ -5,7 +5,6 @@ import ParticipantView from './components/ParticipantView';
 import { getSession, initializeSync, cleanupExpiredGuestAccounts } from './services/sessionManager';
 import { syncService } from './services/syncService';
 import { SingModeLogo } from './components/common/SingModeLogo';
-import { SingModeLogo } from './components/common/SingModeLogo';
 
 import FeaturesView from './components/FeaturesView';
 import AdminPortal from './components/AdminPortal';
