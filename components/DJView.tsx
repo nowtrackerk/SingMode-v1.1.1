@@ -2561,8 +2561,10 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {session.deviceConnections?.map((device) => {
                   const isConnected = device.status === 'connected';
-                  const assignedUser = device.userId ? accounts.find(a => a.id === device.userId) : null;
-                  const isGuest = device.isGuest || assignedUser?.isGuest;
+                  const assignedUser = device.userId ?
+                    (accounts.find(a => a.id === device.userId) ||
+                      session.participants?.find(p => p.id === device.userId)) : null;
+                  const isGuest = device.isGuest || (assignedUser && 'isGuest' in assignedUser ? (assignedUser as any).isGuest : false);
 
                   return (
 
