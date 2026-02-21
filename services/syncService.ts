@@ -89,7 +89,9 @@ class SyncService {
 
       this.peer.on('open', (peerId) => {
         console.log(`[Sync] Peer opened with ID: ${peerId}`);
-        this.hostId = peerId;
+        if (this.isHost) {
+          this.hostId = peerId;
+        }
         this.retryCount = 0;
         this.startHeartbeat();
 

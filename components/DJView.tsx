@@ -175,6 +175,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
   const [pickerSearch, setPickerSearch] = useState('');
   const [qrTargetUser, setQrTargetUser] = useState<UserProfile | null>(null); // For User SINC QR
   const [librarySearchQuery, setLibrarySearchQuery] = useState('');
+  const [lastSessionName, setLastSessionName] = useState<string | null>(localStorage.getItem('singmode_last_session_name'));
 
   // Audio Refs for Monitoring
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -258,10 +259,13 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
     }
   }, [showSessionHistory]);
 
-  const handleOpenSession = async () => {
+  const handleOpenSession = async (reconnectName?: string) => {
     setIsOpeningSession(true);
+    const targetName = reconnectName || sessionName;
     try {
-      await initializeSync('DJ', sessionName);
+      await initializeSync('DJ', targetName);
+      localStorage.setItem('singmode_last_session_name', targetName);
+      setLastSessionName(targetName);
       refresh();
     } catch (e: any) {
       alert(e.message);
@@ -2010,7 +2014,12 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
 
                           <div className="w-full mt-10 space-y-3">
                             <button onClick={() => startChangePassword(managedProfile)} className="w-full py-3 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous">CHANGE PASSWORD</button>
-                            <button onClick={async () => { await joinSession(managedProfile.id); await refresh(); }} className="w-full py-3 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)] font-righteous hover:bg-white">SYNC QR CODE</button>
+                            <button onClick={async () => {
+                              setQrTargetUser(managedProfile);
+                              setShowQrModal(true);
+                              await joinSession(managedProfile.id);
+                              await refresh();
+                            }} className="w-full py-3 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)] font-righteous hover:bg-white">SYNC QR CODE</button>
                             <div className="pt-2 border-t border-white/5 mt-2 space-y-2">
                               {/* Ban functionality removed as requested */}
                             </div>
@@ -2721,12 +2730,22 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                       </div>
 
                       <button
-                        onClick={handleOpenSession}
+                        onClick={() => handleOpenSession()}
                         disabled={isOpeningSession || !sessionName}
                         className="w-full py-6 bg-[var(--neon-purple)] text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xl shadow-[0_0_40px_rgba(180,0,255,0.4)] hover:scale-105 hover:bg-fuchsia-500 transition-all disabled:opacity-50 disabled:scale-100 font-righteous"
                       >
                         {isOpeningSession ? 'INITIALIZING...' : 'OPEN DAY_SHOW SESSION'}
                       </button>
+
+                      {lastSessionName && lastSessionName !== sessionName && (
+                        <button
+                          onClick={() => handleOpenSession(lastSessionName)}
+                          disabled={isOpeningSession}
+                          className="w-full py-4 bg-black border-2 border-[var(--neon-cyan)] text-[var(--neon-cyan)] rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-sm shadow-[0_0_20px_rgba(0,229,255,0.2)] hover:bg-[var(--neon-cyan)]/10 transition-all font-righteous mt-4"
+                        >
+                          RECONNECT TO PREVIOUS: {lastSessionName}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
