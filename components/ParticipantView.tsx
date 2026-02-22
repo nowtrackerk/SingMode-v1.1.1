@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Participant, KaraokeSession, ParticipantStatus, RequestType, RequestStatus, SongRequest, UserProfile, FavoriteSong } from '../types';
+import { Participant, KaraokeSession, ParticipantStatus, RequestType, RequestStatus, SongRequest, UserProfile, FavoriteSong, RemoteAction } from '../types';
 // Fixed: Removed non-existent 'isFavorite' from imports.
 import {
   getSession, joinSession, updateParticipantStatus, addRequest, deleteRequest,
