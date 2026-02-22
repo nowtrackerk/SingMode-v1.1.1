@@ -42,6 +42,10 @@ class SyncService {
   private persistQueue() {
     try {
       localStorage.setItem('singmode_pending_actions', JSON.stringify(this.actionQueue));
+      // Notify UI of local queue change
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('kstar_sync'));
+      }
     } catch (e) {
       console.warn('[Sync] Failed to persist pending actions:', e);
     }

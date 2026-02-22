@@ -283,6 +283,7 @@ const ParticipantView: React.FC = () => {
     if (editingRequest) {
       await updateRequest(editingRequest.id, { songName: data.songName, artist: data.artist, youtubeUrl: data.youtubeUrl, type: data.type, message: data.message });
       setEditingRequest(null);
+      await refresh();
     } else {
       await addRequest({
         participantId: participant.id,
@@ -294,6 +295,7 @@ const ParticipantView: React.FC = () => {
         message: data.message
       });
       setShowRequestForm(false);
+      await refresh();
       // Auto-set status to READY upon request
       if (participant.status !== ParticipantStatus.READY) {
         await updateParticipantStatus(participant.id, ParticipantStatus.READY);
