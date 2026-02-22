@@ -208,14 +208,13 @@ class SyncService {
       console.log(`[Sync] Data connection established with: ${conn.peer}`);
       this.connections.set(conn.peer, conn);
 
-      // Flush Action Queue if we are a client connecting to host
+      // Process Action Queue if we are a client connecting to host
       if (!this.isHost && this.actionQueue.length > 0) {
-        console.log(`[Sync] Flushing ${this.actionQueue.length} queued actions to host.`);
+        console.log(`[Sync] Resending ${this.actionQueue.length} queued actions to host.`);
         this.actionQueue.forEach(action => {
           conn.send(action);
         });
-        this.actionQueue = [];
-        this.persistQueue();
+        // Remove: this.actionQueue = []; (Let applyIncomingState handle cleanup once received)
       }
 
       if (this.onConnectionStatus) this.onConnectionStatus('connected');
@@ -277,42 +276,38 @@ class SyncService {
   async sendAction(action: RemoteAction) {
     if (this.isHost) return;
 
-    // Check if we have any open connection to host
-    let sent = false;
-    this.connections.forEach(conn => {
-      if (conn.open) {
-        conn.send(action);
-        sent = true;
-      }
-    });
+    // 1. ALWAYS persist locally first (Robustness Phase)
+    const alreadyQueued = this.actionQueue.some(q =>
+      q.type === action.type &&
+      JSON.stringify(q.payload) === JSON.stringify(action.payload)
+    );
 
-    if (!sent) {
-      console.log('[Sync] No connection to host. Queuing action locally and buffering to Firestore:', action.type);
+    if (!alreadyQueued) {
+      console.log('[Sync] Queuing new action locally:', action.type);
+      this.actionQueue.push(action);
+      this.persistQueue();
 
-      // Only keep in memory queue and perform buffering if not already queued
-      // (Basic deduplication for rapid retries/refresh loops)
-      const alreadyQueued = this.actionQueue.some(q => JSON.stringify(q.payload) === JSON.stringify(action.payload) && q.type === action.type);
-
-      if (!alreadyQueued) {
-        this.actionQueue.push(action);
-        this.persistQueue();
-
-        // Robustness Upgrade: If we have a roomId, buffer the action to Firestore
-        // This ensures the DJ receives it even if PeerJS signaling fails and we are using the fallback sync
-        if (this.hostId) {
-          try {
-            const bufferRef = collection(db, "sessions", this.hostId, "pending_actions");
-            await addDoc(bufferRef, {
-              ...action,
-              bufferedAt: Date.now()
-            });
-            console.log(`[Sync] Action ${action.type} buffered successfully to Firestore.`);
-          } catch (e) {
-            console.error('[Sync] Failed to buffer action to Firestore:', e);
-          }
-        }
+      // 2. Buffer to Firestore ASYNCHRONOUSLY (Don't wait for internet)
+      if (this.hostId) {
+        collection(db, "sessions", this.hostId, "pending_actions"); // Reference creation is fine
+        addDoc(collection(db, "sessions", this.hostId, "pending_actions"), {
+          ...action,
+          bufferedAt: Date.now()
+        }).then(() => {
+          console.log(`[Sync] Action ${action.type} buffered successfully to Firestore.`);
+        }).catch(e => {
+          console.warn('[Sync] Firestore buffering delayed (will sync when online):', e.message);
+        });
       }
     }
+
+    // 3. Attempt direct transmission if connected
+    this.connections.forEach(conn => {
+      if (conn.open) {
+        console.log('[Sync] Sending action directly via PeerJS:', action.type);
+        conn.send(action);
+      }
+    });
   }
 
   getRoomId(): string | null {
@@ -330,10 +325,11 @@ class SyncService {
         if (q.type === 'ADD_REQUEST') {
           const payload = q.payload as any;
           // If this song/artist for this participant is already in session, it reached the host
+          // Robust comparison: trim and lowercase
           return !state.requests.some(r =>
             r.participantId === payload.participantId &&
-            r.songName === payload.songName &&
-            r.artist === payload.artist
+            r.songName.toLowerCase().trim() === payload.songName.toLowerCase().trim() &&
+            r.artist.toLowerCase().trim() === payload.artist.toLowerCase().trim()
           );
         }
         return true;
@@ -355,7 +351,8 @@ class SyncService {
     if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
     this.connections.forEach(c => c.close());
     this.connections.clear();
-    this.actionQueue = [];
+    // Fix: Stop clearing actionQueue here, we want it to persist across re-initializations
+    // this.actionQueue = []; 
     if (this.peer) {
       this.peer.destroy();
       this.peer = null;

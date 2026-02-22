@@ -1129,9 +1129,20 @@ export const addRequest = async (request: Omit<SongRequest, 'id' | 'createdAt' |
     isInRound: false
   };
   // A.7.1 Enforce Max Requests Per User
-  const totalUserRequests = session.requests.filter(r => r.participantId === request.participantId && r.status === RequestStatus.PENDING).length;
-  if (session.maxRequestsPerUser && totalUserRequests >= session.maxRequestsPerUser) {
+  const userRequests = session.requests.filter(r => r.participantId === request.participantId && r.status === RequestStatus.PENDING);
+
+  if (session.maxRequestsPerUser && userRequests.length >= session.maxRequestsPerUser) {
     throw new Error(`Request limit reached. Max ${session.maxRequestsPerUser} requests allowed per performer.`);
+  }
+
+  // Duplicate Check: Avoid same song/artist for same user in pending state
+  const isDuplicate = userRequests.some(r =>
+    r.songName.toLowerCase().trim() === request.songName.toLowerCase().trim() &&
+    r.artist.toLowerCase().trim() === request.artist.toLowerCase().trim()
+  );
+  if (isDuplicate) {
+    console.log("[SessionManager] Duplicate request detected, skipping:", request.songName);
+    return null;
   }
 
   // D.12: New Performer requests are added on the first position in the Queue (LIFO? The description says 'first position in the Queue', traditionally this means highest priority)

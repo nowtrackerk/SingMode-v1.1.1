@@ -134,6 +134,7 @@ const ParticipantView: React.FC = () => {
         const sess = await getSession(currentRoom || undefined);
         setSession(sess);
       }
+      refresh();
     };
     init();
 
@@ -164,14 +165,14 @@ const ParticipantView: React.FC = () => {
           picture: payload.picture,
           googleId: payload.sub
         };
-  
+   
         const result = await registerUser({
           name: googleProfile.name,
           email: googleProfile.email,
           picture: googleProfile.picture,
           googleId: googleProfile.googleId
         }, true);
-  
+   
         if (result.success && result.profile) {
           const newPart = await joinSession(result.profile.id);
           setParticipant(newPart);
@@ -182,13 +183,13 @@ const ParticipantView: React.FC = () => {
         setAuthError('Google Sign-in failed. Please try again.');
       }
     };
-  
+   
     if ((window as any).google) {
       (window as any).google.accounts.id.initialize({
         client_id: 'YOUR_GOOGLE_CLIENT_ID', // Requires valid Client ID
         callback: handleGoogleCallback,
       });
-  
+   
       // Render button if in login/unauthenticated state
       const buttonDiv = document.getElementById('google-signin-btn');
       if (buttonDiv && !participant) {
