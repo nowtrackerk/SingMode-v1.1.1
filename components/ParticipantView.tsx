@@ -149,8 +149,20 @@ const ParticipantView: React.FC = () => {
 
     syncService.onConnectionStatus = (status) => {
       setConnectionStatus(status);
+      if (status === 'connected' && effectiveRoomId) {
+        localStorage.setItem('kstar_last_room', effectiveRoomId);
+      }
     };
   }, [roomId]);
+
+  const handleReconnect = () => {
+    const lastRoom = localStorage.getItem('kstar_last_room');
+    if (lastRoom) {
+      window.location.search = `?room=${lastRoom}`;
+    } else {
+      setShowSessionScanner(true);
+    }
+  };
 
   /* 
   // Google Sign-In is currently disabled as it requires a valid Client ID.
@@ -954,24 +966,28 @@ const ParticipantView: React.FC = () => {
       </main>
 
 
-      <footer className="fixed bottom-6 left-6 right-6 z-40 flex gap-4">
-        <button
-          onClick={() => setShowSessionScanner(true)}
-          className="flex-1 bg-[#101015] border-2 border-[var(--neon-green)]/30 p-4 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl hover:bg-[var(--neon-green)] hover:text-black hover:border-[var(--neon-green)] transition-all group"
-        >
-          <span className="text-sm font-black uppercase tracking-[0.3em] font-righteous group-hover:text-black text-[var(--neon-green)]">RECONNECT</span>
-          <span className="text-2xl group-hover:scale-125 transition-transform">📡</span>
-        </button>
+      <footer className="fixed bottom-6 left-6 right-6 z-40 flex gap-4 pointer-events-none">
+        <div className="flex-1 pointer-events-auto">
+          {connectionStatus !== 'connected' && (
+            <button
+              onClick={handleReconnect}
+              className="w-full bg-[#101015] border-2 border-[var(--neon-green)]/30 p-4 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl hover:bg-[var(--neon-green)] hover:text-black hover:border-[var(--neon-green)] transition-all group"
+            >
+              <span className="text-sm font-black uppercase tracking-[0.3em] font-righteous group-hover:text-black text-[var(--neon-green)]">RECONNECT</span>
+              <span className="text-2xl group-hover:scale-125 transition-transform">📡</span>
+            </button>
+          )}
+        </div>
 
-        <button
-          onClick={() => setShowQrModal(true)}
-          className="flex-1 bg-[#101015] border-2 border-white/10 p-4 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl hover:border-[var(--neon-pink)] transition-all group"
-        >
-          <span className="text-sm text-[var(--neon-pink)] font-black uppercase tracking-[0.3em] font-righteous">SYSTEM_LINK</span>
-          <div className="flex items-center gap-3">
-            <span className="text-2xl group-hover:scale-125 transition-transform">📲</span>
-          </div>
-        </button>
+        <div className="shrink-0 pointer-events-auto">
+          <button
+            onClick={() => setShowQrModal(true)}
+            className="w-14 h-14 bg-[#101015] border-2 border-white/10 rounded-[1.2rem] flex items-center justify-center shadow-2xl hover:border-[var(--neon-pink)] transition-all group"
+            title="SYSTEM LINK"
+          >
+            <span className="text-2xl group-hover:scale-110 transition-transform">📲</span>
+          </button>
+        </div>
       </footer>
 
       {showSessionScanner && (

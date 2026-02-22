@@ -87,7 +87,7 @@ const AdminPortal: React.FC<AdminPortalProps> = ({ onBack }) => {
                         <h1 className="text-3xl font-bungee tracking-tight">ADMIN SETTINGS</h1>
                     </div>
                     <div className="flex gap-4">
-                        <button onClick={onBack} className="px-6 py-3 bg-black border border-white/10 hover:border-white text-slate-500 hover:text-white rounded-xl text-[10px] uppercase tracking-widest transition-all">CLOSE MENU</button>
+                        <button onClick={onBack} className="px-6 py-3 bg-black border border-white/10 hover:border-white text-slate-500 hover:text-white rounded-xl text-[10px] uppercase tracking-widest transition-all">DJ VIEW</button>
                         <button
                             onClick={() => {
                                 askConfirm('Are you sure you want to sign out?', async () => {
