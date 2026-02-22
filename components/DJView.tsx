@@ -850,7 +850,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
             <div className="w-[1px] h-12 bg-white/10 mx-2"></div>
 
             <div className="flex gap-2">
-              <button onClick={() => setShowQrModal(true)} className="w-14 h-14 flex items-center justify-center text-[var(--neon-yellow)] border border-[var(--neon-yellow)]/30 bg-[var(--neon-yellow)]/5 hover:bg-[var(--neon-yellow)] hover:text-black transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(255,200,87,0.1)] group">
+              <button onClick={() => { setQrTargetUser(null); setShowQrModal(true); }} className="w-14 h-14 flex items-center justify-center text-[var(--neon-yellow)] border border-[var(--neon-yellow)]/30 bg-[var(--neon-yellow)]/5 hover:bg-[var(--neon-yellow)] hover:text-black transition-all rounded-[1.2rem] shadow-[0_0_15px_rgba(255,200,87,0.1)] group">
                 <span className="text-4xl group-hover:scale-110 transition-transform">📱</span>
               </button>
 
@@ -2233,7 +2233,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                                         </div>
                                       </div>
                                       <button
-                                        onClick={() => setQrTargetUser(user)}
+                                        onClick={() => { setQrTargetUser(user); setShowQrModal(true); }}
                                         className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-[var(--neon-cyan)]/20 hover:border-[var(--neon-cyan)] hover:text-[var(--neon-cyan)] transition-all group/qr"
                                         title="Generate SINC QR"
                                       >
