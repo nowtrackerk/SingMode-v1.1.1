@@ -968,7 +968,7 @@ const ParticipantView: React.FC = () => {
 
       <footer className="fixed bottom-6 left-6 right-6 z-40 flex gap-4 pointer-events-none">
         <div className="flex-1 pointer-events-auto">
-          {connectionStatus !== 'connected' && (
+          {connectionStatus === 'disconnected' && (
             <button
               onClick={handleReconnect}
               className="w-full bg-[#101015] border-2 border-[var(--neon-green)]/30 p-4 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl hover:bg-[var(--neon-green)] hover:text-black hover:border-[var(--neon-green)] transition-all group"
@@ -982,10 +982,18 @@ const ParticipantView: React.FC = () => {
         <div className="shrink-0 pointer-events-auto">
           <button
             onClick={() => setShowQrModal(true)}
-            className="w-14 h-14 bg-[#101015] border-2 border-white/10 rounded-[1.2rem] flex items-center justify-center shadow-2xl hover:border-[var(--neon-pink)] transition-all group"
+            className="w-14 h-14 bg-[#101015] border-2 border-white/10 rounded-[1.2rem] flex items-center justify-center shadow-2xl hover:border-[var(--neon-pink)] transition-all group relative overflow-hidden"
             title="SYSTEM LINK"
           >
-            <span className="text-2xl group-hover:scale-110 transition-transform">📲</span>
+            {/* Visual QR Code Representation */}
+            <div className="w-8 h-8 grid grid-cols-2 gap-0.5 p-1 bg-white/5 rounded-md group-hover:bg-[var(--neon-pink)]/20 transition-colors">
+              <div className="border border-white/40 rounded-[2px] bg-white/10"></div>
+              <div className="border border-white/40 rounded-[2px] bg-white/10"></div>
+              <div className="border border-white/40 rounded-[2px] bg-white/10"></div>
+              <div className="relative">
+                <div className="absolute inset-0.5 bg-[var(--neon-pink)] animate-pulse rounded-[1px]"></div>
+              </div>
+            </div>
           </button>
         </div>
       </footer>
