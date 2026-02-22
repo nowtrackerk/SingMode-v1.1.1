@@ -410,22 +410,59 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
 
   const handleQuickSet = async (user: UserProfile) => {
     await joinSession(user.id);
-    const pool = [...QUICK_SET_POOL];
-    for (let i = 0; i < 3; i++) {
-      if (pool.length === 0) break;
-      const randIdx = Math.floor(Math.random() * pool.length);
-      const song = pool.splice(randIdx, 1)[0];
+
+    // Build candidate pool with priority: 1. Stars, 2. History, 3. Songbook, 4. Hits
+    const candidates: { songName: string; artist: string; youtubeUrl?: string }[] = [];
+    const seen = new Set<string>();
+
+    const addUnique = (list: any[]) => {
+      list.forEach(item => {
+        if (candidates.length >= 3) return;
+        const key = `${item.songName.toLowerCase().trim()}|${item.artist.toLowerCase().trim()}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          candidates.push({
+            songName: item.songName,
+            artist: item.artist,
+            youtubeUrl: item.youtubeUrl || ''
+          });
+        }
+      });
+    };
+
+    // 1. Library Stars (Shuffle them)
+    addUnique([...user.favorites].sort(() => Math.random() - 0.5));
+
+    // 2. Performance Log (Shuffle history)
+    if (candidates.length < 3) {
+      addUnique([...user.personalHistory].sort(() => Math.random() - 0.5));
+    }
+
+    // 3. Verified Songbook from session
+    if (candidates.length < 3 && session?.verifiedSongbook) {
+      addUnique([...session.verifiedSongbook].sort(() => Math.random() - 0.5));
+    }
+
+    // 4. Global Hits Fallback
+    if (candidates.length < 3) {
+      addUnique([...QUICK_SET_POOL].sort(() => Math.random() - 0.5));
+    }
+
+    // Add up to 3 songs to the session
+    for (const song of candidates) {
       const newRequest = await addRequest({
         participantId: user.id,
         participantName: user.name,
         songName: song.songName,
         artist: song.artist,
+        youtubeUrl: song.youtubeUrl,
         type: RequestType.SINGING
       });
       if (newRequest) {
         await approveRequest(newRequest.id);
       }
     }
+
     await updateParticipantStatus(user.id, ParticipantStatus.READY);
     await refresh();
   };
