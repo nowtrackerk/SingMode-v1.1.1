@@ -155,12 +155,32 @@ const ParticipantView: React.FC = () => {
     };
   }, [roomId]);
 
-  const handleReconnect = () => {
-    const lastRoom = localStorage.getItem('kstar_last_room');
-    if (lastRoom) {
-      window.location.search = `?room=${lastRoom}`;
-    } else {
+  const handleReconnect = async () => {
+    setConnectionStatus('connecting');
+    try {
+      const sessions = await getActiveSessions();
+      // Filter for active SingMode DJ sessions and sort by newest startedAt
+      const latestDjSession = sessions
+        .filter(s => s.hostName === 'SingMode DJ' && s.isActive !== false)
+        .sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0))[0];
+
+      if (latestDjSession) {
+        console.log(`[Participant] Smart Reconnect joining latest session: ${latestDjSession.id}`);
+        window.location.search = `?room=${latestDjSession.id}`;
+      } else {
+        // Fallback: try last stored room if nothing found nearby
+        const lastRoom = localStorage.getItem('kstar_last_room');
+        if (lastRoom) {
+          window.location.search = `?room=${lastRoom}`;
+        } else {
+          setShowSessionScanner(true);
+        }
+        setConnectionStatus('disconnected');
+      }
+    } catch (e) {
+      console.error("Smart Reconnect failed:", e);
       setShowSessionScanner(true);
+      setConnectionStatus('disconnected');
     }
   };
 
