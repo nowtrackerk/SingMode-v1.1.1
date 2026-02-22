@@ -973,8 +973,8 @@ const ParticipantView: React.FC = () => {
               onClick={handleReconnect}
               disabled={connectionStatus === 'connecting'}
               className={`w-full border-2 p-4 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl transition-all group ${connectionStatus === 'connecting'
-                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
-                  : 'bg-[#101015] border-[var(--neon-green)]/30 text-[var(--neon-green)] hover:bg-[var(--neon-green)] hover:text-black hover:border-[var(--neon-green)]'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
+                : 'bg-[#101015] border-[var(--neon-green)]/30 text-[var(--neon-green)] hover:bg-[var(--neon-green)] hover:text-black hover:border-[var(--neon-green)]'
                 }`}
             >
               <span className="text-sm font-black uppercase tracking-[0.3em] font-righteous">
@@ -1029,11 +1029,9 @@ const ParticipantView: React.FC = () => {
           <div className="w-full max-w-sm text-center relative bg-[#050510] border-4 border-white/10 rounded-[3rem] p-10 overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
             <button onClick={() => setShowQrModal(false)} className="absolute top-6 right-6 text-slate-700 hover:text-white text-3xl transition-colors">✕</button>
-            <div className="bg-white p-4 rounded-[2rem] inline-block mb-8 shadow-[0_0_40px_rgba(255,255,255,0.1)]">
+            <div className="bg-white p-4 rounded-[2rem] inline-block shadow-[0_0_40px_rgba(255,255,255,0.1)]">
               <img src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(roomJoinUrl)}&bgcolor=ffffff`} alt="Room QR" className="w-48 h-48" />
             </div>
-            <h3 className="text-5xl font-black text-white uppercase tracking-tight mb-2 font-bungee neon-glow-white">SYNC_NODE</h3>
-            <p className="text-[var(--neon-cyan)] text-sm font-black uppercase tracking-[0.4em] font-righteous opacity-80">SCAN TO INITIALIZE CONNECTION</p>
           </div>
         </div>
       )}
