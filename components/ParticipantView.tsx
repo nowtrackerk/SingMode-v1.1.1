@@ -968,13 +968,21 @@ const ParticipantView: React.FC = () => {
 
       <footer className="fixed bottom-6 left-6 right-6 z-40 flex gap-4 pointer-events-none">
         <div className="flex-1 pointer-events-auto">
-          {connectionStatus === 'disconnected' && (
+          {connectionStatus !== 'connected' && (
             <button
               onClick={handleReconnect}
-              className="w-full bg-[#101015] border-2 border-[var(--neon-green)]/30 p-4 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl hover:bg-[var(--neon-green)] hover:text-black hover:border-[var(--neon-green)] transition-all group"
+              disabled={connectionStatus === 'connecting'}
+              className={`w-full border-2 p-4 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl transition-all group ${connectionStatus === 'connecting'
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
+                  : 'bg-[#101015] border-[var(--neon-green)]/30 text-[var(--neon-green)] hover:bg-[var(--neon-green)] hover:text-black hover:border-[var(--neon-green)]'
+                }`}
             >
-              <span className="text-sm font-black uppercase tracking-[0.3em] font-righteous group-hover:text-black text-[var(--neon-green)]">RECONNECT</span>
-              <span className="text-2xl group-hover:scale-125 transition-transform">📡</span>
+              <span className="text-sm font-black uppercase tracking-[0.3em] font-righteous">
+                {connectionStatus === 'connecting' ? 'CONNECTING...' : 'RECONNECT'}
+              </span>
+              <span className={`text-2xl transition-transform ${connectionStatus === 'connecting' ? 'animate-spin' : 'group-hover:scale-125'}`}>
+                {connectionStatus === 'connecting' ? '⌛' : '📡'}
+              </span>
             </button>
           )}
         </div>
