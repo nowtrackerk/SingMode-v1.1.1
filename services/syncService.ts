@@ -22,6 +22,7 @@ class SyncService {
   // New Event for Device Tracking
   public onDeviceConnected: ((peerId: string) => void) | null = null;
   public onDeviceDisconnected: ((peerId: string) => void) | null = null;
+  private staleCheckInterval: number | null = null;
 
   constructor() {
     this.loadQueue();
@@ -33,10 +34,29 @@ class SyncService {
       if (saved) {
         this.actionQueue = JSON.parse(saved);
         console.log(`[Sync] Loaded ${this.actionQueue.length} pending actions from storage.`);
+        this.startStaleActionCleanup();
       }
     } catch (e) {
       console.warn('[Sync] Failed to load pending actions:', e);
     }
+  }
+
+  private startStaleActionCleanup() {
+    if (this.staleCheckInterval) clearInterval(this.staleCheckInterval);
+    this.staleCheckInterval = window.setInterval(() => {
+      const now = Date.now();
+      const initialLen = this.actionQueue.length;
+      // If action is older than 30 seconds and still in queue, it likely failed or was handled without state update
+      this.actionQueue = this.actionQueue.filter(a => {
+        const bufferedAt = (a as any).bufferedAt || (a as any).timestamp || 0;
+        return bufferedAt === 0 || (now - bufferedAt < 45000);
+      });
+
+      if (this.actionQueue.length !== initialLen) {
+        console.log(`[Sync] Cleared ${initialLen - this.actionQueue.length} stale actions from queue.`);
+        this.persistQueue();
+      }
+    }, 10000);
   }
 
   private persistQueue() {

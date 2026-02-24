@@ -7,7 +7,7 @@ import {
   getSession, joinSession, updateParticipantStatus, addRequest, deleteRequest,
   updateRequest, getUserProfile, toggleFavorite, saveUserProfile, registerUser,
   loginUser, logoutUser, updateParticipantMic, reorderMyRequests, updateVocalRange, loginUserById,
-  getActiveSessions, initializeSync
+  getActiveSessions, initializeSync, subscribeToSessions
 } from '../services/sessionManager';
 import SongRequestForm from './SongRequestForm';
 import { syncService } from '../services/syncService';
@@ -59,6 +59,7 @@ const ParticipantView: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connecting');
   const [djHostName, setDjHostName] = useState<string | undefined>(undefined);
   const [pendingActions, setPendingActions] = useState<RemoteAction[]>([]);
+  const [latestSessionId, setLatestSessionId] = useState<string | null>(null);
 
   const roomId = syncService.getRoomId();
   const roomJoinUrl = getNetworkUrl() + (roomId ? `?room=${roomId}` : '');
@@ -153,19 +154,31 @@ const ParticipantView: React.FC = () => {
         localStorage.setItem('kstar_last_room', effectiveRoomId);
       }
     };
+
+    // Keep track of the latest active session
+    const unsubscribe = subscribeToSessions((sessions) => {
+      if (sessions.length > 0) {
+        setLatestSessionId(sessions[0].id);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, [roomId]);
 
   const handleReconnect = async () => {
     setConnectionStatus('connecting');
     try {
       const sessions = await getActiveSessions();
-      // Filter for active SingMode DJ sessions and sort by newest startedAt
+      // Filter for any active v.2 session (more inclusive)
       const latestDjSession = sessions
-        .filter(s => s.hostName === 'SingMode DJ' && s.isActive !== false)
-        .sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0))[0];
+        .sort((a, b) => (b.lastHeartbeat || 0) - (a.lastHeartbeat || 0))[0];
 
       if (latestDjSession) {
         console.log(`[Participant] Smart Reconnect joining latest session: ${latestDjSession.id}`);
+        // Instead of a full reload, try to re-init in place
+        localStorage.setItem('kstar_last_room', latestDjSession.id);
         window.location.search = `?room=${latestDjSession.id}`;
       } else {
         // Fallback: try last stored room if nothing found nearby
@@ -377,7 +390,7 @@ const ParticipantView: React.FC = () => {
         </div>
 
         <h1 className="text-6xl md:text-8xl font-bold font-bungee text-white mb-6 uppercase tracking-tight neon-text-glow-purple leading-none">
-          Singmode v.2
+          Singmode Beta
         </h1>
         <p className="text-[var(--neon-cyan)] font-righteous mb-16 uppercase tracking-[0.6em] text-lg font-black neon-glow-cyan">SINGER LOGIN</p>
 
@@ -525,7 +538,7 @@ const ParticipantView: React.FC = () => {
     );
   }
 
-  const myRequests = session.requests.filter(r => r.participantId === participant.id);
+  const myRequests = session.requests.filter(r => r.participantId === participant.id && r.status !== RequestStatus.DONE);
 
   // Rotation Position Logic (Interleaved sorting matching DJ and Rotation Tab)
   const approvedSingingRaw = session.requests.filter(r => r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING && !r.isInRound);
@@ -558,7 +571,7 @@ const ParticipantView: React.FC = () => {
 
   const myFirstInRotation = fullRotation.findIndex(r => r.participantId === participant.id);
   const positionInLine = myFirstInRotation + 1;
-  const isOnStage = session.currentRound?.some(r => r.participantId === participant.id);
+  const isOnStage = session.currentRound?.some(r => r.participantId === participant.id && r.status !== RequestStatus.DONE);
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-10 relative">
@@ -629,7 +642,7 @@ const ParticipantView: React.FC = () => {
             <h3 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] text-base font-righteous">ON STAGE</h3>
           </div>
           <div className="flex flex-col gap-3">
-            {session.currentRound.map((song, i) => (
+            {session.currentRound.filter(r => r.status !== RequestStatus.DONE).map((song, i) => (
               <div
                 key={song.id}
                 className={`p-3 pl-6 pr-4 rounded-xl border-l-8 transition-all duration-300 flex items-center justify-between gap-4 w-full shadow-lg relative overflow-hidden group ${i === 0
@@ -795,8 +808,11 @@ const ParticipantView: React.FC = () => {
                       </div>
                       <div className="text-base text-slate-400 font-bold uppercase tracking-[0.2em] truncate font-righteous">{(action.payload as any).artist}</div>
                     </div>
-                    <div className="shrink-0 px-3 py-1 rounded-lg border border-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] text-xs font-black uppercase tracking-widest animate-pulse">
-                      SENDING...
+                    <div className="shrink-0 flex flex-col items-end gap-2">
+                      <div className="px-3 py-1 rounded-lg border border-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] text-xs font-black uppercase tracking-widest animate-pulse">
+                        SENDING...
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Trying direct link & cloud backup</div>
                     </div>
                   </div>
                   <div className="mt-4 text-[10px] text-[var(--neon-cyan)] font-bold tracking-widest uppercase opacity-60 font-mono">
@@ -988,7 +1004,7 @@ const ParticipantView: React.FC = () => {
 
       <footer className="fixed bottom-6 left-6 right-6 z-40 flex gap-4 pointer-events-none">
         <div className="flex-1 pointer-events-auto">
-          {connectionStatus !== 'connected' && (
+          {(connectionStatus !== 'connected' || (latestSessionId && roomId !== latestSessionId)) && (
             <button
               onClick={handleReconnect}
               disabled={connectionStatus === 'connecting'}

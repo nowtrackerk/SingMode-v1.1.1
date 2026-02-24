@@ -29,9 +29,10 @@ export function getNetworkUrl(): string {
             const url = storedNetworkIp.replace(/\/$/, '');
             return url.endsWith(basePath.replace(/\/$/, '')) ? url + '/' : url + basePath;
         }
-        // Raw IP — build full URL with port and base path
+        // Raw IP — build full URL with default Vite port and base path
         const ip = storedNetworkIp.trim();
-        return `http://${ip}${port}${basePath}`;
+        const p = port || ':5173'; // Force Vite default port if missing from current location
+        return `http://${ip}${p}${basePath}`;
     }
 
     // If already accessing via network IP (not localhost), use current origin + base path

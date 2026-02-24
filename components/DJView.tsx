@@ -782,7 +782,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
             </div>
             <div>
               <h1 className="text-8xl font-bold font-bungee text-white flex items-center gap-6 uppercase tracking-tight neon-glow-pink leading-none">
-                Singmode v.2 <span className="text-[var(--neon-blue)] neon-glow-cyan text-5xl font-righteous translate-y-2">beta</span>
+                Singmode <span className="text-[var(--neon-blue)] neon-glow-cyan text-5xl font-righteous translate-y-2">beta</span>
               </h1>
               <div className="flex items-center gap-4 mt-4">
                 <span className="px-4 py-1.5 rounded-full bg-[var(--neon-pink)]/10 border border-[var(--neon-pink)]/30 text-[var(--neon-pink)] text-lg font-bold uppercase tracking-widest font-righteous">DJ CONSOLE</span>
@@ -2931,7 +2931,7 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
             <div className="flex justify-between items-center mb-12">
               <div>
                 <h2 className="text-5xl font-black text-white uppercase tracking-tight font-bungee neon-text-glow-purple">SESSION_HISTORY</h2>
-                <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-xs mt-2 font-righteous">ARCHIVE OF PREVIOUS SINGMODE V.2 BROADCASTS</p>
+                <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-xs mt-2 font-righteous">ARCHIVE OF PREVIOUS SINGMODE BETA BROADCASTS</p>
               </div>
               <button
                 onClick={() => setShowSessionHistory(false)}

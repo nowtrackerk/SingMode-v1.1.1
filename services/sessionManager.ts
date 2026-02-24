@@ -261,12 +261,28 @@ export const initializeSync = async (role: 'DJ' | 'PARTICIPANT', room?: string) 
   }
 
   // Participants: Setup direct Firestore state subscription as a robust fallback
-  if (isRemoteClient && room) {
-    console.log("[Sync] Initializing robust Firestore fallback sync for room:", room);
-    subscribeToSession(room, (newState) => {
-      console.log("[Sync] Received state update via Firestore fallback");
-      syncService.applyIncomingState(newState);
-    });
+  if (role === 'PARTICIPANT') {
+    let effectiveRoom = room;
+    if (!effectiveRoom) {
+      const activeSessions = await getActiveSessions();
+      if (activeSessions.length > 0) {
+        effectiveRoom = activeSessions[0].id; // Join latest
+        console.log("[Sync] No room provided for participant, joining latest active session:", effectiveRoom);
+      }
+    }
+
+    if (effectiveRoom) {
+      isRemoteClient = true;
+      console.log("[Sync] Initializing robust Firestore fallback sync for room:", effectiveRoom);
+      subscribeToSession(effectiveRoom, (newState) => {
+        console.log("[Sync] Received state update via Firestore fallback");
+        syncService.applyIncomingState(newState);
+      });
+      // Ensure syncService also knows about the room if it was inferred
+      if (!room) {
+        await syncService.initialize('PARTICIPANT', effectiveRoom);
+      }
+    }
   }
 };
 
@@ -844,7 +860,10 @@ export const loginUserById = async (userId: string): Promise<{ success: boolean,
     await storage.set(PROFILE_KEY, found);
     return { success: true, profile: found };
   }
-  return { success: false, error: 'User not found' };
+
+  // Auto-register as a guest if not found (SINC QR fallback)
+  console.log(`[SessionManager] User ${userId} not found, auto-registering as guest.`);
+  return await registerUser({ id: userId, name: `Scan-${userId.substring(0, 4)}` }, true);
 };
 
 
