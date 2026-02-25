@@ -40,6 +40,7 @@ export interface UserProfile {
   googleId?: string;
   favorites: FavoriteSong[];
   personalHistory: SongRequest[];
+  pendingQueue?: SongRequest[]; // Unsung approved requests persisting between sessions
   createdAt: number;
   isGuest?: boolean; // Metadata for guest users
   isAdmin?: boolean; // Metadata for Admin users

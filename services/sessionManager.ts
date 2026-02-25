@@ -476,6 +476,29 @@ export const deleteVerifiedSong = async (songId: string) => {
 
 export const resetSession = async () => {
   const current = await getSession();
+
+  // Find all approved requests that are not completed and group them by participantId
+  const pendingByParticipant: { [key: string]: SongRequest[] } = {};
+  current.requests.forEach(req => {
+    if (req.status === RequestStatus.APPROVED && !req.isInRound) {
+      if (!pendingByParticipant[req.participantId]) pendingByParticipant[req.participantId] = [];
+      pendingByParticipant[req.participantId].push(req);
+    }
+  });
+
+  // Save these pending requests to the users' profiles
+  const accounts = await getAllAccounts();
+  const updatedAccounts = [...accounts];
+  for (const participantId in pendingByParticipant) {
+    const idx = updatedAccounts.findIndex(a => a.id === participantId);
+    if (idx > -1) {
+      const existingQueue = updatedAccounts[idx].pendingQueue || [];
+      const newQueue = [...existingQueue, ...pendingByParticipant[participantId]];
+      updatedAccounts[idx] = { ...updatedAccounts[idx], pendingQueue: newQueue };
+      await updateAccount(participantId, { pendingQueue: newQueue });
+    }
+  }
+
   const emptySession: KaraokeSession = {
     ...INITIAL_SESSION,
     id: `session-${Date.now()}`,
@@ -940,6 +963,27 @@ const addParticipantToSession = async (session: KaraokeSession, profile: UserPro
     };
   } else {
     session.participants.push(newParticipant);
+  }
+
+  // Fetch the user's pending requests if they have any, and add them to the session
+  if (profile.pendingQueue && profile.pendingQueue.length > 0) {
+    let addedAny = false;
+    profile.pendingQueue.forEach(req => {
+      // Don't add if already in session (by ID or exact duplicate)
+      const existing = session.requests.find(r => r.id === req.id || (r.songName === req.songName && r.artist === req.artist && r.participantId === profile.id));
+      if (!existing) {
+        session.requests.push({
+          ...req,
+          status: RequestStatus.APPROVED, // Make sure it's approved
+          isInRound: false,
+          createdAt: Date.now() // Treat as new request time so it goes to back of queue
+        });
+        addedAny = true;
+      }
+    });
+
+    // Clear the pending queue from the profile since we just added them
+    await updateAccount(profile.id, { pendingQueue: [] });
   }
 
   // Link Device if found (try to match implicit sender or just skip if we don't have peerId here easily)

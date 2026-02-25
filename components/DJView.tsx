@@ -1677,6 +1677,33 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                     )}
                   </div>
                 </section>
+
+                <section className="bg-[#050510] border-4 border border-white/5 rounded-[3.5rem] p-8 shadow-[0_0_60px_rgba(157,0,255,0.15)] relative overflow-hidden max-w-[800px] mx-auto w-full mt-10">
+                  <div className="flex justify-between items-center mb-10 px-2">
+                    <h2 className="text-4xl font-black text-white uppercase tracking-tighter font-bungee neon-glow-purple">SESSION LOG</h2>
+                    {session.history.length > 0 && <button onClick={async () => { await clearHistory(); await refresh(); }} className="text-sm font-black text-rose-500/40 hover:text-rose-500 uppercase tracking-[0.3em] font-righteous transition-all">CLEAR ALL</button>}
+                  </div>
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                    {session.history
+                      .filter(item => (item.playedAt || 0) >= (session.startedAt || 0))
+                      .map((item, i) => (
+                        <div key={i} className="bg-black/40 p-5 rounded-[1.5rem] border border-white/5 group hover:border-[var(--neon-purple)] transition-all">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="min-w-0 pr-4">
+                              <div className="text-2xl font-black text-white uppercase truncate font-bungee tracking-tight group-hover:text-[var(--neon-purple)] transition-colors">{item.songName}</div>
+                              <div className="text-sm text-slate-600 font-bold uppercase truncate font-righteous tracking-widest mt-1">{item.artist}</div>
+                            </div>
+                            <VideoLink url={item.youtubeUrl} />
+                          </div>
+                          <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-1">
+                            <button onClick={() => viewPerformerProfile(item.participantId)} className="text-sm font-black text-[var(--neon-pink)] uppercase truncate hover:text-white font-righteous tracking-widest transition-colors mb-0">@{item.participantName}</button>
+                            <button onClick={async () => { await reAddFromHistory(item, true); await refresh(); }} className="opacity-0 group-hover:opacity-100 text-xs font-black text-[var(--neon-cyan)] hover:text-white transition-all font-righteous tracking-widest uppercase ml-auto">RELOAD</button>
+                          </div>
+                        </div>
+                      ))}
+                    {session.history.length === 0 && <div className="text-center py-20 opacity-20"><p className="text-lg italic font-righteous uppercase tracking-widest text-slate-700">EMPTY</p></div>}
+                  </div>
+                </section>
               </div>
             )
           }
@@ -1738,83 +1765,53 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                   </div>
                 </section>
 
-                <section className="lg:col-span-4 lg:sticky lg:top-36 h-fit bg-[#050510] border-4 border border-white/5 rounded-[3.5rem] p-8 shadow-[0_0_60px_rgba(157,0,255,0.15)] relative overflow-hidden">
-                  <div className="flex justify-between items-center mb-10 px-2">
-                    <h2 className="text-4xl font-black text-white uppercase tracking-tighter font-bungee neon-glow-purple">SESSION LOG</h2>
-                    {session.history.length > 0 && <button onClick={async () => { await clearHistory(); await refresh(); }} className="text-sm font-black text-rose-500/40 hover:text-rose-500 uppercase tracking-[0.3em] font-righteous transition-all">CLEAR ALL</button>}
+                <section className="lg:col-span-4 h-[800px] flex flex-col bg-[#050510] border-4 border border-white/5 rounded-[3.5rem] p-8 shadow-[0_0_60px_rgba(157,0,255,0.15)] relative overflow-hidden">
+                  <div className="flex flex-col gap-6 mb-6">
+                    <h2 className="text-4xl font-black text-white uppercase tracking-tighter font-bungee py-2 neon-glow-cyan text-center">LIBRARY</h2>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="SEARCH VERIFIED TRACKS..."
+                        value={librarySearchQuery}
+                        onChange={(e) => setLibrarySearchQuery(e.target.value)}
+                        className="w-full bg-[#151520] border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-mono focus:border-[var(--neon-cyan)] outline-none transition-all shadow-inner text-sm uppercase"
+                      />
+                      {librarySearchQuery && (
+                        <button onClick={() => setLibrarySearchQuery('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white font-black">✕</button>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                    {session.history
-                      .filter(item => (item.playedAt || 0) >= (session.startedAt || 0))
-                      .map((item, i) => (
-                        <div key={i} className="bg-black/40 p-5 rounded-[1.5rem] border border-white/5 group hover:border-[var(--neon-purple)] transition-all">
-                          <div className="flex justify-between items-start mb-3">
-                            <div className="min-w-0 pr-4">
-                              <div className="text-2xl font-black text-white uppercase truncate font-bungee tracking-tight group-hover:text-[var(--neon-purple)] transition-colors">{item.songName}</div>
-                              <div className="text-sm text-slate-600 font-bold uppercase truncate font-righteous tracking-widest mt-1">{item.artist}</div>
+                  <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
+                    {verifiedSongs
+                      .filter(s => s.songName.toLowerCase().includes(librarySearchQuery.toLowerCase()) || s.artist.toLowerCase().includes(librarySearchQuery.toLowerCase()))
+                      .map((v) => (
+                        <div key={v.id} className="bg-[#151520] p-4 rounded-2xl border border-white/10 flex flex-col group hover:border-[var(--neon-cyan)] transition-all">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="min-w-0 pr-2">
+                              <div className="text-lg font-bold text-white uppercase truncate tracking-tight group-hover:text-[var(--neon-cyan)] transition-colors font-bungee">{v.songName}</div>
+                              <div className="text-xs text-slate-500 uppercase truncate tracking-widest font-righteous">{v.artist}</div>
                             </div>
-                            <VideoLink url={item.youtubeUrl} />
                           </div>
                           <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-1">
-                            <button onClick={() => viewPerformerProfile(item.participantId)} className="text-sm font-black text-[var(--neon-pink)] uppercase truncate hover:text-white font-righteous tracking-widest transition-colors mb-0">@{item.participantName}</button>
-                            <button onClick={async () => { await reAddFromHistory(item, true); await refresh(); }} className="opacity-0 group-hover:opacity-100 text-xs font-black text-[var(--neon-cyan)] hover:text-white transition-all font-righteous tracking-widest uppercase ml-auto">RELOAD</button>
+                            <CopyUrlButton url={v.youtubeUrl} />
+                            <div className="flex gap-2 shrink-0">
+                              <button
+                                onClick={() => handleSongSearch(v.songName, v.artist, v.type)}
+                                className="px-3 py-1 bg-black border border-[var(--neon-cyan)] text-[var(--neon-cyan)] text-[10px] font-black uppercase rounded-md hover:bg-[var(--neon-cyan)] hover:text-black transition-all tracking-widest"
+                              >
+                                RUN
+                              </button>
+                              <button
+                                onClick={() => { setIsAddingRequest(true); }}
+                                className="px-3 py-1 bg-[var(--neon-pink)] text-black text-[10px] font-black uppercase rounded-md hover:bg-white transition-all shadow-lg tracking-widest"
+                              >
+                                PUSH
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
-                    {session.history.length === 0 && <div className="text-center py-20 opacity-20"><p className="text-lg italic font-righteous uppercase tracking-widest text-slate-700">EMPTY</p></div>}
-                  </div>
-                </section>
-
-                <section className="lg:col-span-12 bg-black/40 border-4 border-white/5 rounded-[3rem] p-10 mt-10 relative overflow-hidden">
-                  <div className="flex justify-between items-center mb-10 px-2">
-                    <h2 className="text-4xl font-black text-white uppercase tracking-tighter font-bungee neon-glow-cyan">COMPLETED ROUNDS</h2>
-                    <div className="text-[var(--neon-cyan)]/40 text-sm font-black uppercase tracking-[0.4em] font-righteous">HISTORY</div>
-                  </div>
-
-                  <div className="grid gap-12">
-                    {(() => {
-                      const rounds: Record<number, SongRequest[]> = {};
-                      session.history
-                        .filter(song => (song.playedAt || 0) >= (session.startedAt || 0))
-                        .forEach(song => {
-                          const time = song.playedAt || 0;
-                          if (!rounds[time]) rounds[time] = [];
-                          rounds[time].push(song);
-                        });
-
-                      const sortedTimestamps = Object.keys(rounds).map(Number).sort((a, b) => b - a);
-
-                      if (sortedTimestamps.length === 0) {
-                        return (
-                          <div className="text-center py-24 border-4 border-dashed border-white/5 rounded-[2.5rem] opacity-20">
-                            <p className="text-2xl font-black uppercase tracking-[0.4em] font-righteous text-slate-500">HISTORY_NULL</p>
-                          </div>
-                        );
-                      }
-
-                      return sortedTimestamps.map(timestamp => (
-                        <div key={timestamp} className="bg-[#050510] border-2 border-white/5 rounded-[2.5rem] p-8 relative group hover:border-[var(--neon-cyan)]/30 transition-all">
-                          <div className="absolute top-0 left-10 py-1 px-4 bg-[var(--neon-cyan)] text-black text-[10px] font-black uppercase tracking-widest rounded-b-lg font-righteous shadow-[0_0_15px_rgba(0,229,255,0.4)]">
-                            ROUND_{new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-                            {rounds[timestamp].map((song, i) => (
-                              <div key={song.id} className="flex flex-col p-4 bg-black/40 rounded-2xl border border-white/5 group/song hover:bg-white/5 transition-all">
-                                <div className="flex justify-between items-start mb-2">
-                                  <div className="text-lg font-black text-white uppercase truncate font-bungee tracking-tight group-hover/song:text-[var(--neon-cyan)] transition-colors">{song.songName}</div>
-                                  <VideoLink url={song.youtubeUrl} />
-                                </div>
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-black text-[var(--neon-pink)] uppercase tracking-widest font-righteous">@{song.participantName}</span>
-                                  <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">POS_{i + 1}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ));
-                    })()}
+                    {verifiedSongs.length === 0 && <p className="text-sm text-slate-600 italic text-center py-10 font-righteous uppercase tracking-widest">LIBRARY EMPTY</p>}
                   </div>
                 </section>
               </div>
@@ -2876,211 +2873,291 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
 
         {
           activeTab === 'SESSION' && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/5 shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-purple)]/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 animate-in slide-in-from-bottom-4 duration-500 pb-32">
+              <div className="lg:col-span-8 flex flex-col gap-10">
+                <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[3rem] p-10 border-4 border-[var(--neon-purple)]/20 shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-purple)]/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
 
-                <div className="flex justify-between items-center mb-10 relative z-10">
-                  <div>
-                    <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-purple">
-                      <span className="text-5xl">📡</span> DAY_SHOW SESSION
-                    </h2>
-                    <p className="text-slate-400 mt-2 font-mono">
-                      Monitor all connected devices and manage active synchronization.
-                    </p>
-                  </div>
-                  <div className="flex gap-4">
-                    <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
-                      <span className="text-sm font-bold text-slate-400 uppercase tracking-widest font-righteous">STATUS</span>
-                      <span className={`text-xl font-black ${roomId ? 'text-[var(--neon-green)]' : 'text-rose-500'} uppercase font-bungee`}>
-                        {roomId ? 'ACTIVE' : 'OFFLINE'}
-                      </span>
-                    </div>
-                    <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
-                      <span className="text-sm font-bold text-slate-400 uppercase tracking-widest font-righteous">ROOM</span>
-                      <span className="text-2xl font-black text-white font-mono">{roomId || '----'}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {!roomId ? (
-                  <div className="flex items-center justify-center py-20">
-                    <div className="max-w-xl w-full bg-[#0a0a0a] border-4 border-dashed border-white/5 rounded-[4rem] p-16 text-center">
-                      <div className="w-24 h-24 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)] rounded-[2.5rem] flex items-center justify-center text-5xl mx-auto mb-10 shadow-[0_0_50px_rgba(180,0,255,0.2)] animate-pulse">📡</div>
-                      <h2 className="text-4xl font-black text-white uppercase mb-4 font-bungee tracking-tight">OPEN BROADCAST</h2>
-                      <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mb-10 font-righteous leading-relaxed">
-                        ACTIVATE THE WORLDWIDE SYNC PROTOCOL. <br />ALLOW SINGER CONNECTIONS AND REMOTE COMMANDS.
+                  <div className="flex justify-between items-center mb-10 relative z-10">
+                    <div>
+                      <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-purple">
+                        <span className="text-5xl">📡</span> {session.brandIdentity?.venueName || 'KARAOKE LOUNGE'} SESSION
+                      </h2>
+                      <p className="text-slate-400 mt-2 font-mono">
+                        Monitor all connected devices and manage active synchronization.
                       </p>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
+                        <span className="text-sm font-bold text-slate-400 uppercase tracking-widest font-righteous">STATUS</span>
+                        <span className={`text-xl font-black ${roomId ? 'text-[var(--neon-green)]' : 'text-rose-500'} uppercase font-bungee`}>
+                          {roomId ? 'ACTIVE' : 'OFFLINE'}
+                        </span>
+                      </div>
+                      <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
+                        <span className="text-sm font-bold text-slate-400 uppercase tracking-widest font-righteous">ROOM</span>
+                        <span className="text-2xl font-black text-white font-mono">{roomId || '----'}</span>
+                      </div>
+                    </div>
+                  </div>
 
-                      <button
-                        onClick={() => setShowSessionHistory(true)}
-                        className="mb-10 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center gap-3 text-xs font-black text-slate-400 hover:text-white transition-all uppercase tracking-[0.2em] font-righteous mx-auto shadow-inner"
-                      >
-                        📜 VIEW SESSION HISTORY
-                      </button>
-
-                      <div className="space-y-6">
-                        <div>
-                          <label className="block text-[10px] font-black text-[var(--neon-purple)] uppercase tracking-[0.3em] mb-3 font-righteous">SESSION NAME / ROOM ID</label>
-                          <input
-                            type="text"
-                            value={sessionName}
-                            onChange={(e) => setSessionName(e.target.value.toUpperCase().replace(/\s+/g, '_'))}
-                            className="w-full bg-black border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-mono text-center text-2xl tracking-widest focus:border-[var(--neon-purple)] outline-none transition-all"
-                          />
-                        </div>
+                  {!roomId ? (
+                    <div className="flex items-center justify-center py-20">
+                      <div className="max-w-xl w-full bg-[#0a0a0a] border-4 border-dashed border-white/5 rounded-[4rem] p-16 text-center">
+                        <div className="w-24 h-24 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)] rounded-[2.5rem] flex items-center justify-center text-5xl mx-auto mb-10 shadow-[0_0_50px_rgba(180,0,255,0.2)] animate-pulse">📡</div>
+                        <h2 className="text-4xl font-black text-white uppercase mb-4 font-bungee tracking-tight">OPEN BROADCAST</h2>
+                        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mb-10 font-righteous leading-relaxed">
+                          ACTIVATE THE WORLDWIDE SYNC PROTOCOL. <br />ALLOW SINGER CONNECTIONS AND REMOTE COMMANDS.
+                        </p>
 
                         <button
-                          onClick={() => handleOpenSession()}
-                          disabled={isOpeningSession || !sessionName}
-                          className="w-full py-6 bg-[var(--neon-purple)] text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xl shadow-[0_0_40px_rgba(180,0,255,0.4)] hover:scale-105 hover:bg-fuchsia-500 transition-all disabled:opacity-50 disabled:scale-100 font-righteous"
+                          onClick={() => setShowSessionHistory(true)}
+                          className="mb-10 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center gap-3 text-xs font-black text-slate-400 hover:text-white transition-all uppercase tracking-[0.2em] font-righteous mx-auto shadow-inner"
                         >
-                          {isOpeningSession ? 'INITIALIZING...' : 'OPEN DAY_SHOW SESSION'}
+                          📜 VIEW SESSION HISTORY
                         </button>
 
-                        {lastSessionName && lastSessionName !== sessionName && (
+                        <div className="space-y-6">
+                          <div>
+                            <label className="block text-[10px] font-black text-[var(--neon-purple)] uppercase tracking-[0.3em] mb-3 font-righteous text-left ml-4">SESSION NAME / ROOM ID</label>
+                            <input
+                              type="text"
+                              value={sessionName}
+                              onChange={(e) => setSessionName(e.target.value.toUpperCase().replace(/\s+/g, '_'))}
+                              className="w-full bg-black border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-mono text-center text-2xl tracking-widest focus:border-[var(--neon-purple)] outline-none transition-all"
+                            />
+                          </div>
+
                           <button
-                            onClick={() => handleOpenSession(lastSessionName)}
-                            disabled={isOpeningSession}
-                            className="w-full py-4 bg-black border-2 border-[var(--neon-cyan)] text-[var(--neon-cyan)] rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-sm shadow-[0_0_20px_rgba(0,229,255,0.2)] hover:bg-[var(--neon-cyan)]/10 transition-all font-righteous mt-4"
+                            onClick={() => handleOpenSession()}
+                            disabled={isOpeningSession || !sessionName}
+                            className="w-full py-6 bg-[var(--neon-purple)] text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xl shadow-[0_0_40px_rgba(180,0,255,0.4)] hover:scale-105 hover:bg-fuchsia-500 transition-all disabled:opacity-50 disabled:scale-100 font-righteous"
                           >
-                            RECONNECT TO PREVIOUS: {lastSessionName}
+                            {isOpeningSession ? 'INITIALIZING...' : 'OPEN SESSION'}
                           </button>
+
+                          {lastSessionName && lastSessionName !== sessionName && (
+                            <button
+                              onClick={() => handleOpenSession(lastSessionName)}
+                              disabled={isOpeningSession}
+                              className="w-full py-4 bg-black border-2 border-[var(--neon-cyan)] text-[var(--neon-cyan)] rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-sm shadow-[0_0_20px_rgba(0,229,255,0.2)] hover:bg-[var(--neon-cyan)]/10 transition-all font-righteous mt-4"
+                            >
+                              RECONNECT TO PREVIOUS: {lastSessionName}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-8 relative z-10 w-full">
+                      <div className="flex gap-4">
+                        <button
+                          onClick={() => setShowSessionHistory(true)}
+                          className="flex-1 py-4 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center gap-3 text-xs font-black text-slate-400 hover:text-white transition-all uppercase tracking-[0.2em] font-righteous shadow-inner"
+                        >
+                          📜 VIEW ARCHIVE
+                        </button>
+                        <button
+                          onClick={() => askConfirm("Terminate current session?", () => handleConfirmReset())}
+                          className="flex-1 py-4 bg-rose-500/10 hover:bg-rose-500 rounded-2xl border border-rose-500/20 text-rose-500 hover:text-white font-black uppercase tracking-[0.3em] font-righteous transition-all shadow-[0_0_20px_rgba(244,63,94,0.1)] group flex justify-center items-center gap-2"
+                        >
+                          <span className="text-xl">⚠️</span> TERMINATE SESSION
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-3 mt-12 mb-6 border-b border-white/5 pb-4">
+                        <div className="w-2 h-2 rounded-full bg-[var(--neon-yellow)] animate-pulse"></div>
+                        <h3 className="text-xl font-bold font-bungee text-white uppercase tracking-widest neon-text-glow-yellow">DEVICE CONNECTIVITY LOG</h3>
+                        <span className="ml-auto text-slate-500 font-mono text-sm">{session.deviceConnections?.length || 0} TOTAL</span>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                        {session.deviceConnections?.map(device => {
+                          const isConnected = device.status === 'connected';
+                          const assignedUser = device.userId ?
+                            (accounts.find(a => a.id === device.userId) ||
+                              session.participants?.find(p => p.id === device.userId)) : null;
+                          const isGuest = device.isGuest || (assignedUser && 'isGuest' in assignedUser ? (assignedUser as any).isGuest : false);
+
+                          return (
+                            <div key={device.id} className={`p-6 rounded-[2rem] border transition-all relative overflow-hidden group ${isConnected
+                              ? 'bg-[#151520] border-[var(--neon-purple)]/30 hover:border-[var(--neon-purple)]'
+                              : 'bg-[#05050A] border-white/5 opacity-60'
+                              }`}>
+                              {/* Status Dot */}
+                              <div className={`absolute top-6 right-6 w-3 h-3 rounded-full ${isConnected ? 'bg-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-rose-500'}`}></div>
+
+                              <div className="flex items-start gap-4 mb-6">
+                                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg ${assignedUser
+                                  ? (isGuest ? 'bg-[var(--neon-orange)]/20 text-[var(--neon-orange)]' : 'bg-[var(--neon-blue)]/20 text-[var(--neon-blue)]')
+                                  : 'bg-white/5 text-slate-500'
+                                  }`}>
+                                  {assignedUser ? (isGuest ? '👽' : '👤') : '📱'}
+                                </div>
+                                <div>
+                                  <h3 className="text-xl font-bold text-white font-righteous tracking-wide flex items-center gap-3">
+                                    {device.id}
+                                    {isGuest && (
+                                      <span className="px-2 py-0.5 rounded bg-rose-500 text-[8px] font-black text-white">GUEST</span>
+                                    )}
+                                  </h3>
+                                  <div className="text-xs font-mono text-slate-500 mt-1 flex flex-col gap-1">
+                                    <div className="truncate max-w-[150px]" title={device.peerId}>{device.peerId}</div>
+                                    {device.userAgent && (
+                                      <div className="text-[10px] text-[var(--neon-cyan)]/60 font-black uppercase flex items-center gap-1">
+                                        {device.userAgent.toLowerCase().includes('mobile') ? '📱 MOBILE' : '💻 DESKTOP'}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className={`mt-2 text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded inline-block ${isConnected ? 'bg-[var(--neon-green)]/10 text-[var(--neon-green)]' : 'bg-rose-500/10 text-rose-500'
+                                    }`}>
+                                    {device.status}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-4">
+                                <div className="p-4 bg-black/40 rounded-xl border border-white/5">
+                                  <div className="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-1">
+                                    Assigned Session
+                                  </div>
+                                  <div className="text-white font-medium truncate">
+                                    {assignedUser ? assignedUser.name : <span className="text-slate-600 italic">Unassigned</span>}
+                                  </div>
+                                </div>
+
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => {
+                                      const userName = prompt("Enter User Name to link (must exist in Directory):");
+                                      if (userName) {
+                                        const user = accounts.find(a => a.name.toLowerCase() === userName.toLowerCase());
+                                        if (user) {
+                                          assignUserToDevice(device.id, user.id, user.isGuest);
+                                          refresh();
+                                        } else {
+                                          alert("User not found!");
+                                        }
+                                      }
+                                    }}
+                                    className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-sm font-bold text-white transition-all"
+                                  >
+                                    {assignedUser ? 'CHANGE' : 'LINK USER'}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      askConfirm("Forget this device?", async () => {
+                                        await removeDevice(device.id);
+                                        refresh();
+                                      });
+                                    }}
+                                    className="px-4 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 transition-all"
+                                  >
+                                    Forget
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {(!session.deviceConnections || session.deviceConnections.length === 0) && (
+                          <div className="col-span-full py-20 text-center text-slate-500 font-mono">
+                            No devices detected yet. Scan the QR code to connect.
+                          </div>
                         )}
                       </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {session.deviceConnections?.map((device) => {
-                      const isConnected = device.status === 'connected';
-                      const assignedUser = device.userId ?
-                        (accounts.find(a => a.id === device.userId) ||
-                          session.participants?.find(p => p.id === device.userId)) : null;
-                      const isGuest = device.isGuest || (assignedUser && 'isGuest' in assignedUser ? (assignedUser as any).isGuest : false);
 
-                      return (
-
-                        <div key={device.id} className={`p-6 rounded-[2rem] border transition-all relative overflow-hidden group ${isConnected
-                          ? 'bg-[#151520] border-[var(--neon-purple)]/30 hover:border-[var(--neon-purple)]'
-                          : 'bg-[#05050A] border-white/5 opacity-60'
-                          }`}>
-                          {/* Status Dot */}
-                          <div className={`absolute top-6 right-6 w-3 h-3 rounded-full ${isConnected ? 'bg-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-rose-500'}`}></div>
-
-                          <div className="flex items-start gap-4 mb-6">
-                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg ${assignedUser
-                              ? (isGuest ? 'bg-[var(--neon-orange)]/20 text-[var(--neon-orange)]' : 'bg-[var(--neon-blue)]/20 text-[var(--neon-blue)]')
-                              : 'bg-white/5 text-slate-500'
-                              }`}>
-                              {assignedUser ? (isGuest ? '👽' : '👤') : '📱'}
-                            </div>
-                            <div>
-                              <h3 className="text-xl font-bold text-white font-righteous tracking-wide flex items-center gap-3">
-                                {device.id}
-                                {isGuest && (
-                                  <span className="px-2 py-0.5 rounded bg-rose-500 text-[8px] font-black text-white">GUEST</span>
-                                )}
-                              </h3>
-                              <div className="text-xs font-mono text-slate-500 mt-1 flex flex-col gap-1">
-                                <div className="truncate max-w-[150px]" title={device.peerId}>{device.peerId}</div>
-                                {device.userAgent && (
-                                  <div className="text-[10px] text-[var(--neon-cyan)]/60 font-black uppercase flex items-center gap-1">
-                                    {device.userAgent.toLowerCase().includes('mobile') ? '📱 MOBILE' : '💻 DESKTOP'}
-                                  </div>
-                                )}
-                              </div>
-                              <div className={`mt-2 text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded inline-block ${isConnected ? 'bg-[var(--neon-green)]/10 text-[var(--neon-green)]' : 'bg-rose-500/10 text-rose-500'
+                      <div className="mt-10 p-8 bg-black/40 rounded-[2.5rem] border border-white/5 relative overflow-hidden animate-in slide-in-from-bottom-4 duration-700">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--neon-cyan)]/5 blur-[80px] rounded-full -mr-32 -mt-32 pointer-events-none"></div>
+                        <div className="flex justify-between items-center mb-6">
+                          <h3 className="text-xl font-black text-white uppercase tracking-tight font-bungee neon-text-glow-cyan">Live Session Log</h3>
+                          <span className="px-3 py-1 rounded-full bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 text-[9px] font-black text-[var(--neon-cyan)] uppercase tracking-widest animate-pulse">
+                            ● REALTIME_FEED
+                          </span>
+                        </div>
+                        <div className="space-y-3 max-h-64 overflow-y-auto pr-4 no-scrollbar custom-scrollbar">
+                          {session.logs?.slice().reverse().map((log, i) => (
+                            <div key={i} className="flex gap-4 items-start animate-in slide-in-from-left-2 duration-300 group">
+                              <span className="text-[10px] font-mono text-slate-600 shrink-0 mt-0.5 group-hover:text-slate-400 transition-colors">
+                                [{new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]
+                              </span>
+                              <span className={`text-xs font-righteous uppercase tracking-wide px-2 py-0.5 rounded ${log.type === 'error' ? 'text-rose-500 bg-rose-500/5' :
+                                log.type === 'warn' ? 'text-[var(--neon-yellow)] bg-[var(--neon-yellow)]/5' :
+                                  'text-slate-300 group-hover:text-white transition-colors'
                                 }`}>
-                                {device.status}
-                              </div>
+                                {log.message}
+                              </span>
                             </div>
-                          </div>
-
-                          <div className="space-y-4">
-                            <div className="p-4 bg-black/40 rounded-xl border border-white/5">
-                              <div className="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-1">
-                                Assigned Session
-                              </div>
-                              <div className="text-white font-medium truncate">
-                                {assignedUser ? assignedUser.name : <span className="text-slate-600 italic">Unassigned</span>}
-                              </div>
+                          ))}
+                          {(!session.logs || session.logs.length === 0) && (
+                            <div className="text-center py-10 text-slate-700 font-black uppercase tracking-widest text-[10px] italic">
+                              AWAITING_INITIAL_SYNC_EVENTS...
                             </div>
-
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => {
-                                  const userName = prompt("Enter User Name to link (must exist in Directory):");
-                                  if (userName) {
-                                    const user = accounts.find(a => a.name.toLowerCase() === userName.toLowerCase());
-                                    if (user) {
-                                      assignUserToDevice(device.id, user.id, user.isGuest);
-                                      refresh();
-                                    } else {
-                                      alert("User not found!");
-                                    }
-                                  }
-                                }}
-                                className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-sm font-bold text-white transition-all"
-                              >
-                                {assignedUser ? 'CHANGE' : 'LINK USER'}
-                              </button>
-                              <button
-                                onClick={() => {
-                                  askConfirm("Forget this device?", async () => {
-                                    await removeDevice(device.id);
-                                    refresh();
-                                  });
-                                }}
-                                className="px-4 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 transition-all"
-                              >
-                                Forget
-                              </button>
-                            </div>
-                          </div>
+                          )}
                         </div>
-                      );
-                    })}
-
-                    {(!session.deviceConnections || session.deviceConnections.length === 0) && (
-                      <div className="col-span-full py-20 text-center text-slate-500 font-mono">
-                        No devices detected yet. Scan the QR code to connect.
                       </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-                {roomId && (
-                  <div className="mt-10 p-8 bg-black/40 rounded-[2.5rem] border border-white/5 relative overflow-hidden animate-in slide-in-from-bottom-4 duration-700">
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--neon-cyan)]/5 blur-[80px] rounded-full -mr-32 -mt-32 pointer-events-none"></div>
-                    <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-xl font-black text-white uppercase tracking-tight font-bungee neon-text-glow-cyan">Live Session Log</h3>
-                      <span className="px-3 py-1 rounded-full bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 text-[9px] font-black text-[var(--neon-cyan)] uppercase tracking-widest animate-pulse">
-                        ● REALTIME_FEED
-                      </span>
-                    </div>
-                    <div className="space-y-3 max-h-64 overflow-y-auto pr-4 no-scrollbar custom-scrollbar">
-                      {session.logs?.slice().reverse().map((log, i) => (
-                        <div key={i} className="flex gap-4 items-start animate-in slide-in-from-left-2 duration-300 group">
-                          <span className="text-[10px] font-mono text-slate-600 shrink-0 mt-0.5 group-hover:text-slate-400 transition-colors">
-                            [{new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]
-                          </span>
-                          <span className={`text-xs font-righteous uppercase tracking-wide px-2 py-0.5 rounded ${log.type === 'error' ? 'text-rose-500 bg-rose-500/5' :
-                            log.type === 'warn' ? 'text-[var(--neon-yellow)] bg-[var(--neon-yellow)]/5' :
-                              'text-slate-300 group-hover:text-white transition-colors'
-                            }`}>
-                            {log.message}
-                          </span>
-                        </div>
-                      ))}
-                      {(!session.logs || session.logs.length === 0) && (
-                        <div className="text-center py-10 text-slate-700 font-black uppercase tracking-widest text-[10px] italic">
-                          AWAITING_INITIAL_SYNC_EVENTS...
-                        </div>
-                      )}
+              {/* COMPLETED ROUNDS SIDEBAR */}
+              <div className="lg:col-span-4 space-y-10">
+                <section className="bg-black/40 border-4 border-[var(--neon-cyan)]/20 rounded-[3rem] p-8 h-[800px] flex flex-col relative overflow-hidden shadow-[0_0_60px_rgba(0,229,255,0.1)] sticky top-36">
+                  <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-cyan)]/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+                  <div className="flex justify-between items-center mb-8 px-2 shrink-0 relative z-10">
+                    <h2 className="text-3xl font-black text-white uppercase tracking-tighter font-bungee neon-glow-cyan">COMPLETED ROUNDS</h2>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar relative z-10">
+                    <div className="grid gap-8">
+                      {(() => {
+                        const rounds: Record<number, SongRequest[]> = {};
+                        session.history
+                          .filter(song => (song.playedAt || 0) >= (session.startedAt || 0))
+                          .forEach(song => {
+                            const time = song.playedAt || 0;
+                            if (!rounds[time]) rounds[time] = [];
+                            rounds[time].push(song);
+                          });
+
+                        const sortedTimestamps = Object.keys(rounds).map(Number).sort((a, b) => b - a);
+
+                        if (sortedTimestamps.length === 0) {
+                          return (
+                            <div className="text-center py-24 border-4 border-dashed border-white/5 rounded-[2.5rem] opacity-20">
+                              <p className="text-2xl font-black uppercase tracking-[0.4em] font-righteous text-slate-500">HISTORY_NULL</p>
+                            </div>
+                          );
+                        }
+
+                        return sortedTimestamps.map((timestamp, idx) => (
+                          <div key={timestamp} className="bg-[#050510] border-2 border-[var(--neon-cyan)]/30 rounded-[2.5rem] p-6 relative group hover:border-[var(--neon-cyan)] transition-all shadow-[0_0_30px_rgba(0,229,255,0.05)]">
+                            <div className="absolute top-0 left-6 py-1 px-4 bg-[var(--neon-cyan)] text-black text-[10px] font-black uppercase tracking-widest rounded-b-lg font-righteous shadow-[0_0_15px_rgba(0,229,255,0.4)]">
+                              ROUND_{sortedTimestamps.length - idx} • {new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-4 mt-6">
+                              {rounds[timestamp].map((song, i) => (
+                                <div key={song.id} className="flex flex-col p-4 bg-black/40 rounded-2xl border border-white/5 group/song hover:bg-white/5 transition-all">
+                                  <div className="flex justify-between items-start mb-2">
+                                    <div className="text-lg font-black text-white uppercase truncate font-bungee tracking-tight group-hover/song:text-[var(--neon-cyan)] transition-colors pr-2 break-words max-w-full overflow-hidden text-ellipsis">{song.songName}</div>
+                                    <VideoLink url={song.youtubeUrl} />
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-black text-[var(--neon-pink)] uppercase tracking-widest font-righteous max-w-[150px] truncate">@{song.participantName}</span>
+                                    <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter shrink-0">POS_{i + 1}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ));
+                      })()}
                     </div>
                   </div>
-                )}
+                </section>
               </div>
             </div>
           )
