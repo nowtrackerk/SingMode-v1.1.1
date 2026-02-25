@@ -863,7 +863,7 @@ export const loginUserById = async (userId: string): Promise<{ success: boolean,
 
   // Auto-register as a guest if not found (SINC QR fallback)
   console.log(`[SessionManager] User ${userId} not found, auto-registering as guest.`);
-  return await registerUser({ id: userId, name: `Scan-${userId.substring(0, 4)}` }, true);
+  return await registerUser({ id: userId, name: `Scan-${userId.slice(-4)}` }, true);
 };
 
 
