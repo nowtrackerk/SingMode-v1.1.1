@@ -630,8 +630,8 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
   };
 
   const handleConfirmRound = async () => {
-    await generateRound();
     setShowRoundConfirm(false);
+    await generateRound();
     await refresh();
 
     const updatedSession = await getSession();
@@ -878,9 +878,13 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
 
               <button
                 onClick={() => { setShowRoundConfirm(true); refresh(); }}
-                className="px-8 py-4 bg-[var(--neon-blue)] text-black font-black hover:bg-white transition-all uppercase tracking-[0.2em] text-lg active:scale-95 rounded-[1.5rem] shadow-[0_0_25px_rgba(5,217,232,0.4)] font-righteous flex items-center gap-3 group"
+                disabled={!!(session?.currentRound && session.currentRound.length > 0)}
+                className={`px-8 py-4 font-black uppercase tracking-[0.2em] text-lg rounded-[1.5rem] flex items-center gap-3 transition-all font-righteous ${session?.currentRound && session.currentRound.length > 0
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/10'
+                    : 'bg-[var(--neon-blue)] text-black hover:bg-white active:scale-95 shadow-[0_0_25px_rgba(5,217,232,0.4)] group'
+                  }`}
               >
-                <span className="text-3xl group-hover:animate-spin">↻</span> NEXT ROUND
+                <span className={`text-3xl ${session?.currentRound && session.currentRound.length > 0 ? '' : 'group-hover:animate-spin'}`}>↻</span> NEXT ROUND
               </button>
             </div>
 

@@ -268,6 +268,12 @@ export const initializeSync = async (role: 'DJ' | 'PARTICIPANT', room?: string) 
       if (activeSessions.length > 0) {
         effectiveRoom = activeSessions[0].id; // Join latest
         console.log("[Sync] No room provided for participant, joining latest active session:", effectiveRoom);
+
+        // Fetch and apply the initial state before subscriptions or peer connection to avoid 'ghost session' layout flash
+        const session = await getSessionById(effectiveRoom);
+        if (session) {
+          syncService.applyIncomingState(session);
+        }
       }
     }
 

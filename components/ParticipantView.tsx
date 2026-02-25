@@ -146,10 +146,8 @@ const ParticipantView: React.FC = () => {
     const urlRoom = new URLSearchParams(window.location.search).get('room');
     const effectiveRoomId = roomId || urlRoom;
 
-    if (effectiveRoomId) {
-      console.log(`[Participant] Initializing sync for room: ${effectiveRoomId}`);
-      initializeSync('PARTICIPANT', effectiveRoomId);
-    }
+    console.log(`[Participant] Initializing sync. Room from URL/Storage: ${effectiveRoomId || 'None, using auto-discovery'}`);
+    initializeSync('PARTICIPANT', effectiveRoomId || undefined);
 
     syncService.onConnectionStatus = (status) => {
       setConnectionStatus(status);
@@ -189,9 +187,11 @@ const ParticipantView: React.FC = () => {
         if (lastRoom) {
           window.location.search = `?room=${lastRoom}`;
         } else {
-          setShowSessionScanner(true);
+          console.log(`[Participant] Smart Reconnect: No active session or last room found. Initializing sync for auto-discovery.`);
+          await initializeSync('PARTICIPANT');
+          // No need to show scanner immediately if auto-discovery might work
+          // setShowSessionScanner(true);
         }
-        setConnectionStatus('disconnected');
       }
     } catch (e) {
       console.error("Smart Reconnect failed:", e);
