@@ -12,6 +12,10 @@
     "deploy": "gh-pages -d dist -r https://github.com/nowtrackerk/SingMode-v.2.git"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "dnd-kit": "^0.0.2",
     "firebase": "^12.9.0",
     "peerjs": "^1.5.5",
     "react": "^19.2.4",

@@ -179,6 +179,9 @@ async function handleRemoteAction(action: RemoteAction) {
     case 'REORDER_PENDING':
       await reorderPendingRequests(action.payload);
       break;
+    case 'REORDER_PARTICIPANTS':
+      await reorderParticipants(action.payload);
+      break;
     case 'REORDER_MY_REQUESTS':
       await reorderMyRequests(action.senderId, action.payload.requestId, action.payload.direction);
       break;
@@ -1477,6 +1480,12 @@ export const reorderPendingRequests = async (newRequests: SongRequest[]) => {
   );
 
   session.requests = [...newRequests, ...otherRequests];
+  await saveSession(session);
+};
+
+export const reorderParticipants = async (newParticipants: Participant[]) => {
+  const session = await getSession();
+  session.participants = newParticipants;
   await saveSession(session);
 };
 

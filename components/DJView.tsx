@@ -10,7 +10,7 @@ import {
   addUserFavorite, getUserProfile, setStageVideoPlaying, rotateStageSong, completeStageSong,
   resetSession, removeUserHistoryItem, updateUserHistoryItem,
   addVerifiedSong, updateVerifiedSong, deleteVerifiedSong,
-  reorderCurrentRound, reorderRequests, reorderPendingRequests,
+  reorderCurrentRound, reorderRequests, reorderPendingRequests, reorderParticipants,
   banUser, setMaxRequestsPerUser, markRequestAsDone, logoutUser,
   assignUserToDevice, removeDevice, setQueueStrategy, unregisterSession, subscribeToSessions,
   administrativeCleanup, getSessionHistory, initializeSync
@@ -18,6 +18,94 @@ import {
 import SongRequestForm from './SongRequestForm';
 import { syncService } from '../services/syncService';
 import { getNetworkUrl, setNetworkIp, getStoredNetworkIp } from '../services/networkUtils';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  defaultDropAnimationSideEffects,
+  DragStartEvent,
+  DragEndEvent,
+  useDroppable,
+  useDraggable,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+const DraggingSongCard = ({ songName, artist, participantName }: { songName: string, artist: string, participantName?: string }) => (
+  <div className="bg-[#150030] border-2 border-[var(--neon-pink)] p-4 rounded-3xl shadow-[0_0_30px_rgba(255,42,109,0.5)] flex items-center gap-4 w-[350px] opacity-90 scale-105 rotate-2">
+    <div className="text-3xl animate-bounce">🎵</div>
+    <div className="flex-1 min-w-0">
+      <div className="text-xl font-black text-white uppercase truncate font-bungee leading-tight">{songName}</div>
+      <div className="text-sm text-[var(--neon-cyan)] uppercase truncate font-righteous">{artist}</div>
+    </div>
+    {participantName && <div className="text-xs font-black text-[var(--neon-pink)] uppercase font-righteous">@{participantName}</div>}
+  </div>
+);
+
+const SortableWrapper = ({ id, data, children, className }: { id: string, data?: any, children: React.ReactNode, className?: string }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, data });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={className}>
+      {children}
+    </div>
+  );
+};
+
+const DraggableWrapper = ({ id, data, children, className }: { id: string, data?: any, children: React.ReactNode, className?: string }) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id, data });
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.3 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={className}>
+      {children}
+    </div>
+  );
+};
+
+const DraggingParticipantCard = ({ name }: { name: string }) => (
+  <div className="bg-[#002a1a] border-2 border-[var(--neon-green)] p-6 rounded-[2rem] shadow-[0_0_50px_rgba(0,255,157,0.4)] flex items-center gap-6 w-[400px] opacity-90 scale-105">
+    <div className="w-12 h-12 rounded-full bg-[var(--neon-green)] flex items-center justify-center text-black font-black">👤</div>
+    <div className="text-3xl font-black text-white uppercase tracking-tight font-bungee">{name}</div>
+  </div>
+);
+
+const SortableParticipantWrapper = ({ id, data, activeData, children, className }: { id: string, data?: any, activeData?: any, children: React.ReactNode, className?: string }) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, over } = useSortable({ id, data });
+
+  // Custom logic to show highlight only when a SONG (not another participant) is over this card
+  const isSongOver = over?.id === id && activeData?.type !== 'PARTICIPANT';
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+  };
+
+  const overClass = isSongOver ? 'ring-4 ring-[var(--neon-green)] scale-[1.02] shadow-[0_0_30px_rgba(0,255,157,0.5)] z-10 transition-all' : '';
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className={`${className} ${overClass}`}>
+      {children}
+    </div>
+  );
+};
 
 interface DJViewProps {
   onAdminAccess?: () => void;
@@ -524,46 +612,88 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
     }
   };
 
-  const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
-  const [draggedListType, setDraggedListType] = useState<'ROUND' | 'QUEUE' | 'PENDING' | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeData, setActiveData] = useState<any>(null);
 
-  const handleDragStart = (e: React.DragEvent, index: number, type: 'ROUND' | 'QUEUE' | 'PENDING') => {
-    setDraggedItemIndex(index);
-    setDraggedListType(type);
-    e.dataTransfer.effectAllowed = 'move';
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragStartDnd = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+    setActiveData(event.active.data.current);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
+  const handleDragEndDnd = async (event: DragEndEvent) => {
+    setActiveId(null);
+    setActiveData(null);
+    const { active, over } = event;
+    if (!over) return;
 
-  const handleDrop = async (e: React.DragEvent, targetIndexUI: number, type: 'ROUND' | 'QUEUE' | 'PENDING') => {
-    e.preventDefault();
-    if (draggedItemIndex === null || draggedListType !== type) return;
+    const overId = String(over.id);
+    const activeIdStr = String(active.id);
 
-    if (type === 'ROUND' && session?.currentRound) {
-      const items = Array.from(session.currentRound);
-      const [reorderedItem] = items.splice(draggedItemIndex, 1);
-      items.splice(targetIndexUI, 0, reorderedItem);
-      await reorderCurrentRound(items);
-    } else if (type === 'QUEUE') {
-      const list = approvedSinging;
-      const items = Array.from(list);
-      const [reorderedItem] = items.splice(draggedItemIndex, 1);
-      items.splice(targetIndexUI, 0, reorderedItem);
-      await reorderRequests(items);
-    } else if (type === 'PENDING') {
-      const list = pendingRequests;
-      const items = Array.from(list);
-      const [reorderedItem] = items.splice(draggedItemIndex, 1);
-      items.splice(targetIndexUI, 0, reorderedItem);
-      await reorderPendingRequests(items);
+    if (overId.startsWith('drop-participant-') || (overId.startsWith('participant-') && activeData?.type !== 'PARTICIPANT')) {
+      const pId = overId.replace('participant-', '').replace('drop-participant-', '').replace('side-', '');
+      const participant = session?.participants.find(p => p.id === pId);
+      const songData = active.data.current?.item;
+      if (participant && songData) {
+        const newRequest = await addRequest({
+          participantId: participant.id,
+          participantName: participant.name,
+          songName: songData.songName,
+          artist: songData.artist,
+          youtubeUrl: songData.youtubeUrl || '',
+          type: songData.type || RequestType.SINGING,
+        });
+        if (newRequest) {
+          await approveRequest(newRequest.id);
+        }
+        await refresh();
+      }
+      return;
     }
 
-    setDraggedItemIndex(null);
-    setDraggedListType(null);
-    await refresh();
+    if (active.id !== over.id) {
+      if (activeIdStr.startsWith('participant-') && overId.startsWith('participant-')) {
+        const prefix = activeIdStr.startsWith('participant-side-') ? 'participant-side-' : 'participant-';
+        const oldIndex = session.participants.findIndex(p => `${prefix}${p.id}` === activeIdStr);
+        const newIndex = session.participants.findIndex(p => `${prefix}${p.id}` === overId);
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const newArray = arrayMove(session.participants, oldIndex, newIndex);
+          await reorderParticipants(newArray);
+          await refresh();
+        }
+      } else if (typeof active.id === 'string' && active.id.startsWith('pending-') && String(over.id).startsWith('pending-')) {
+        const oldIndex = pendingRequests.findIndex(r => `pending-${r.id}` === active.id);
+        const newIndex = pendingRequests.findIndex(r => `pending-${r.id}` === over.id);
+        const newArray = arrayMove(pendingRequests, oldIndex, newIndex);
+        await reorderPendingRequests(newArray);
+        await refresh();
+      } else if (typeof active.id === 'string' && active.id.startsWith('queue-') && String(over.id).startsWith('queue-')) {
+        const oldIndex = approvedSinging.findIndex(r => `queue-${r.id}` === active.id);
+        const newIndex = approvedSinging.findIndex(r => `queue-${r.id}` === over.id);
+        const newArray = arrayMove(approvedSinging, oldIndex, newIndex);
+        await reorderRequests(newArray);
+        await refresh();
+      } else if (typeof active.id === 'string' && active.id.startsWith('round-') && String(over.id).startsWith('round-')) {
+        if (session?.currentRound) {
+          const listPrefix = active.id.startsWith('round-rot-') ? 'round-rot-' : 'round-';
+          const oldIndex = session.currentRound.findIndex(r => `${listPrefix}${r.id}` === active.id);
+          const newIndex = session.currentRound.findIndex(r => `${listPrefix}${r.id}` === over.id);
+          const newArray = arrayMove(session.currentRound, oldIndex, newIndex);
+          await reorderCurrentRound(newArray);
+          await refresh();
+        }
+      }
+    }
   };
 
 
@@ -880,8 +1010,8 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
                 onClick={() => { setShowRoundConfirm(true); refresh(); }}
                 disabled={!!(session?.currentRound && session.currentRound.length > 0)}
                 className={`px-8 py-4 font-black uppercase tracking-[0.2em] text-lg rounded-[1.5rem] flex items-center gap-3 transition-all font-righteous ${session?.currentRound && session.currentRound.length > 0
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/10'
-                    : 'bg-[var(--neon-blue)] text-black hover:bg-white active:scale-95 shadow-[0_0_25px_rgba(5,217,232,0.4)] group'
+                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-white/10'
+                  : 'bg-[var(--neon-blue)] text-black hover:bg-white active:scale-95 shadow-[0_0_25px_rgba(5,217,232,0.4)] group'
                   }`}
               >
                 <span className={`text-3xl ${session?.currentRound && session.currentRound.length > 0 ? '' : 'group-hover:animate-spin'}`}>↻</span> NEXT ROUND
@@ -949,1680 +1079,1710 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
         </div>
       </div>
 
-      <main className="min-h-[600px] animate-in fade-in duration-500">
-        {activeTab === 'COMMAND' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in slide-in-from-bottom-2">
-            <div className="lg:col-span-8 space-y-10">
-              {session.currentRound && (
-                <section className="relative rounded-[3rem] p-1 overflow-hidden shadow-[0_0_100px_rgba(255,42,109,0.3)] zoom-in-95 duration-500">
-                  <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-orange)] opacity-20 animate-pulse"></div>
-                  <div className="relative bg-[#150030]/90 p-10 rounded-[2.8rem] backdrop-blur-xl border-2 border-[var(--neon-green)]/50">
-                    <div className="flex justify-between items-center mb-8">
-                      <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-green">
-                        <span className="text-6xl animate-pulse">▶</span> NOW PLAYING
-                      </h2>
-                      <button onClick={async () => { await finishRound(); await refresh(); }} className="px-8 py-3 bg-[var(--neon-pink)] text-black text-base font-bold uppercase hover:bg-white transition-all rounded-[1rem] tracking-widest font-righteous shadow-[0_0_20px_var(--neon-pink)] active:scale-95">
-                        END ROUND
-                      </button>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStartDnd}
+        onDragEnd={handleDragEndDnd}
+      >
+        <main className="min-h-[600px] animate-in fade-in duration-500">
+          {activeTab === 'COMMAND' && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in slide-in-from-bottom-2">
+              <div className="lg:col-span-8 space-y-10">
+                {session.currentRound && (
+                  <section className="relative rounded-[3rem] p-1 overflow-hidden shadow-[0_0_100px_rgba(255,42,109,0.3)] zoom-in-95 duration-500">
+                    <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-orange)] opacity-20 animate-pulse"></div>
+                    <div className="relative bg-[#150030]/90 p-10 rounded-[2.8rem] backdrop-blur-xl border-2 border-[var(--neon-green)]/50">
+                      <div className="flex justify-between items-center mb-8">
+                        <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-green">
+                          <span className="text-6xl animate-pulse">▶</span> NOW PLAYING
+                        </h2>
+                        <button onClick={async () => { await finishRound(); await refresh(); }} className="px-8 py-3 bg-[var(--neon-pink)] text-black text-base font-bold uppercase hover:bg-white transition-all rounded-[1rem] tracking-widest font-righteous shadow-[0_0_20px_var(--neon-pink)] active:scale-95">
+                          END ROUND
+                        </button>
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        <SortableContext items={session.currentRound.map(s => `round-${s.id}`)} strategy={verticalListSortingStrategy}>
+                          {session.currentRound.map((song, i) => {
+                            const participant = session.participants.find(p => p.id === song.participantId);
+                            const isReady = participant?.status === ParticipantStatus.READY;
+                            // Find index of first non-done song
+                            const activeIndex = session.currentRound!.findIndex(s => s.status !== RequestStatus.DONE);
+                            const isActive = i === (activeIndex === -1 ? 0 : activeIndex);
+
+                            return (
+                              <SortableWrapper
+                                key={`round-${song.id}`}
+                                id={`round-${song.id}`}
+                                data={{ item: song, type: 'ROUND' }}
+                                className={`p-3 pl-6 pr-4 rounded-xl border-l-8 transition-all duration-300 flex items-center justify-between gap-4 w-full shadow-lg relative overflow-hidden group cursor-pointer ${isActive
+                                  ? 'bg-[#001005] border-l-[var(--neon-green)] border-y border-r border-[#1a3320] z-10 scale-[1.01]'
+                                  : 'bg-[#0a0a10] border-l-slate-700 border-y border-r border-white/10 opacity-70 hover:opacity-100'
+                                  }`}
+                              >
+                                {/* Strip Background Grid Lines */}
+                                <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_49%,rgba(255,255,255,0.03)_50%,transparent_51%)] bg-[length:50px_100%] pointer-events-none"></div>
+
+                                {/* Left Side: Info Strip */}
+                                <div className="flex items-center gap-6 min-w-0 flex-1 z-10">
+                                  {/* ID Box with Copy Action */}
+                                  <div className="relative">
+                                    {isActive && (
+                                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-[var(--neon-green)] text-black text-[8px] font-black uppercase tracking-[0.2em] rounded animate-pulse shadow-[0_0_10px_var(--neon-green)] z-20">
+                                        LIVE
+                                      </div>
+                                    )}
+                                    <button
+                                      onClick={() => {
+                                        const suffix = song.type === RequestType.SINGING ? ' Karaoke' : ' Lyric';
+                                        const text = `${song.songName} ${song.artist}${suffix}`;
+                                        navigator.clipboard.writeText(text);
+                                      }}
+                                      title="Copy Command String"
+                                      className={`w-16 h-16 flex flex-col justify-center items-center border-2 rounded-2xl transition-all shrink-0 active:scale-95 ${isActive ? 'border-[var(--neon-green)] bg-[var(--neon-green)]/10 text-[var(--neon-green)] shadow-[0_0_15px_rgba(0,255,157,0.2)]' : 'border-white/10 text-slate-400 hover:border-white/30 hover:bg-white/5'}`}
+                                    >
+                                      <span className="text-2xl font-bold font-mono tracking-tighter">
+                                        {song.requestNumber}
+                                      </span>
+                                    </button>
+                                  </div>
+
+                                  {/* Main Info */}
+                                  <div className="flex items-baseline gap-6 min-w-0 flex-1">
+                                    <h3 className={`text-2xl font-black uppercase font-righteous tracking-tight leading-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>
+                                      {song.songName}
+                                    </h3>
+                                    <div className="flex items-center gap-3 opacity-80 shrink-0">
+                                      <span className="text-xl font-bold font-righteous text-[var(--neon-cyan)] uppercase tracking-wider">{song.artist}</span>
+                                      <span className="text-slate-600 font-mono text-lg">/</span>
+                                      <button onClick={() => viewPerformerProfile(song.participantId)} className="flex items-center gap-2 group/singer hover:underline">
+                                        <div className={`w-2 h-2 rounded-full ${isReady ? 'bg-[var(--neon-green)] shadow-[0_0_5px_var(--neon-green)]' : 'bg-slate-700'}`}></div>
+                                        <span className="text-xl font-bold font-righteous text-[var(--neon-pink)] uppercase tracking-wider">@{song.participantName}</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Right Side: Control Cluster */}
+                                <div className="flex items-center gap-3 z-10 pl-4 border-l border-white/10 bg-gradient-to-l from-black/80 to-transparent">
+                                  <button
+                                    onClick={async () => {
+                                      if (song.status === RequestStatus.DONE) {
+                                        // Assuming we can revert if needed, but for now toggle logic
+                                        await updateRequest(song.id, { status: RequestStatus.APPROVED });
+                                      } else {
+                                        await markRequestAsDone(song.id);
+                                      }
+                                      await refresh();
+                                    }}
+                                    title={song.status === RequestStatus.DONE ? "Undo Done" : "Mark as Done"}
+                                    className={`p-2 rounded-xl transition-all border-2 ${song.status === RequestStatus.DONE
+                                      ? 'text-yellow-500 border-yellow-500/30 bg-yellow-500/10 shadow-[0_0_15px_rgba(234,179,8,0.2)]'
+                                      : 'text-slate-600 border-white/5 hover:border-white/20 hover:text-white'
+                                      }`}
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      askConfirm('Remove from active round?', async () => {
+                                        await deleteRequest(song.id);
+                                        await refresh();
+                                      });
+                                    }}
+                                    className="w-8 h-8 flex items-center justify-center rounded bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all border border-rose-500/20"
+                                    title="REMOVE"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              </SortableWrapper>
+                            );
+                          })}
+                        </SortableContext>
+                      </div>
                     </div>
+                  </section>
+                )}
+
+                <section className="bg-[#10002B]/80 border-2 border-[var(--neon-blue)]/30 rounded-[3rem] p-10 shadow-[0_0_60px_rgba(5,217,232,0.1)] relative overflow-hidden backdrop-blur-md">
+                  <div className="flex justify-between items-center mb-8 px-2">
+                    <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-cyan">
+                      <span className="text-[var(--neon-blue)]">⟳</span> REQUESTS
+                    </h2>
+                    <span className="px-6 py-2 bg-[var(--neon-blue)]/10 border border-[var(--neon-blue)]/30 rounded-full text-base text-[var(--neon-blue)] font-bold tracking-widest font-righteous">
+                      {pendingRequests.length} PENDING
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-4">
+                    <SortableContext items={pendingRequests.map(r => `pending-${r.id}`)} strategy={verticalListSortingStrategy}>
+                      {pendingRequests.map((req, i) => (
+                        <SortableWrapper
+                          key={`pending-${req.id}`}
+                          id={`pending-${req.id}`}
+                          data={{ item: req, type: 'PENDING' }}
+                          className="bg-black/40 border border-white/5 p-4 rounded-3xl flex items-center gap-6 hover:border-[var(--neon-blue)] transition-all group cursor-pointer shadow-xl"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-4 mb-1">
+                              <div className="text-xs font-black font-righteous text-[var(--neon-pink)] uppercase tracking-[0.2em] bg-[var(--neon-pink)]/10 px-2 py-0.5 rounded-full border border-[var(--neon-pink)]/20 shrink-0">
+                                NEW_SIGNAL
+                              </div>
+                              <div className="text-3xl font-black text-white uppercase truncate tracking-tighter font-bungee group-hover:text-[var(--neon-blue)] transition-colors">{req.songName}</div>
+                              <div className="text-slate-500 text-base font-black uppercase tracking-[0.2em] font-righteous truncate">/ {req.artist}</div>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <button onClick={() => viewPerformerProfile(req.participantId)} className="text-base font-bold text-[var(--neon-pink)] uppercase truncate hover:text-white transition-colors font-righteous tracking-[0.2em]">@{req.participantName}</button>
+                              {req.message && (
+                                <div className="flex-1 max-w-md px-3 py-1 bg-black/40 border-l-2 border-[var(--neon-pink)] rounded-r-lg">
+                                  <p className="text-base text-white/60 font-medium italic truncate">"{req.message}"</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-4 shrink-0">
+                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <CopyButton request={req} />
+                              <YouTubeSearchButton request={req} />
+                              <VideoLink url={req.youtubeUrl} />
+                              <button onClick={() => setRequestToEdit(req)} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous text-white/50 hover:text-white border border-white/5">EDIT</button>
+                            </div>
+                            <div className="flex gap-2 bg-black/40 p-1 rounded-2xl border border-white/5">
+                              <button onClick={async () => { await approveRequest(req.id); await refresh(); }} className="px-6 py-3 bg-[var(--neon-blue)] text-black text-sm font-black uppercase hover:bg-white transition-all rounded-xl tracking-[0.1em] shadow-[0_0_20px_rgba(5,217,232,0.3)]">ACCEPT</button>
+                              <button onClick={() => { askConfirm('Delete pending request?', async () => { await deleteRequest(req.id); await refresh(); }); }} className="w-11 h-11 flex items-center justify-center text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all">✕</button>
+                            </div>
+                          </div>
+                        </SortableWrapper>
+                      ))}
+                    </SortableContext>
+                    {pendingRequests.length === 0 && (
+                      <div className="col-span-full py-24 text-center border-4 border-dashed border-white/5 rounded-[2.5rem] opacity-30">
+                        <p className="text-4xl font-black font-righteous uppercase tracking-[0.4em] italic text-slate-500">NO SIGNAL DETECTED</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <div className="flex flex-col gap-10">
+                  <section className="bg-[#10002B]/60 border-2 border-[var(--neon-yellow)]/20 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
+                    <h3 className="text-5xl font-bold font-bungee text-white uppercase mb-8 px-2 neon-glow-yellow flex items-center gap-4">
+                      <span className="text-[var(--neon-yellow)] animate-pulse">★</span> QUEUE
+                    </h3>
                     <div className="flex flex-col gap-3">
-                      {session.currentRound.map((song, i) => {
-                        const participant = session.participants.find(p => p.id === song.participantId);
-                        const isReady = participant?.status === ParticipantStatus.READY;
-                        // Find index of first non-done song
-                        const activeIndex = session.currentRound!.findIndex(s => s.status !== RequestStatus.DONE);
-                        const isActive = i === (activeIndex === -1 ? 0 : activeIndex);
+                      <SortableContext items={approvedSinging.map(r => `queue-${r.id}`)} strategy={verticalListSortingStrategy}>
+                        {approvedSinging.map((req, i) => (
+                          <SortableWrapper
+                            key={`queue-${req.id}`}
+                            id={`queue-${req.id}`}
+                            data={{ item: req, type: 'QUEUE' }}
+                            className="bg-black/40 border border-white/5 p-4 rounded-[2rem] flex items-center gap-6 group hover:border-[var(--neon-yellow)] transition-all cursor-pointer shadow-lg relative"
+                          >
+                            <div className="w-12 h-12 flex items-center justify-center bg-black/40 rounded-2xl border border-white/5 text-[var(--neon-yellow)] font-bungee text-3xl shrink-0 group-hover:scale-110 transition-transform">
+                              {i + 1}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-4 mb-0.5">
+                                <div className="text-2xl font-bold text-white truncate uppercase tracking-tight font-bungee group-hover:text-[var(--neon-yellow)] transition-colors">{req.songName}</div>
+                                <div className="text-sm text-slate-500 uppercase tracking-widest font-righteous">/ {req.artist}</div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <button onClick={(e) => { e.stopPropagation(); viewPerformerProfile(req.participantId); }} className="text-sm font-black text-[var(--neon-yellow)] uppercase tracking-[0.2em] font-righteous hover:text-white transition-colors">@{req.participantName}</button>
+                                {req.message && (
+                                  <div className="flex-1 max-w-sm px-2 py-0.5 bg-[var(--neon-yellow)]/5 border-l border-[var(--neon-yellow)]/30 rounded-r text-xs text-[var(--neon-yellow)]/70 italic truncate">
+                                    "{req.message}"
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-4 shrink-0">
+                              <div className="flex flex-col gap-0.5 px-2">
+                                <button onClick={async () => { await reorderRequest(req.id, 'up'); await refresh(); }} className="text-slate-700 hover:text-white transition-colors p-1 text-base">▲</button>
+                                <button onClick={async () => { await reorderRequest(req.id, 'down'); await refresh(); }} className="text-slate-700 hover:text-white transition-colors p-1 text-base">▼</button>
+                              </div>
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <CopyButton request={req} />
+                                <YouTubeSearchButton request={req} />
+                                <VideoLink url={req.youtubeUrl} />
+                                <button onClick={() => setRequestToEdit(req)} className="p-2 text-slate-600 hover:text-white text-xs font-black uppercase tracking-widest font-righteous transition-colors border border-white/5 rounded-lg">EDIT</button>
+                              </div>
+                              <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5">
+                                <button onClick={() => handlePromoteToStage(req.id)} className="px-4 py-2 bg-[var(--neon-yellow)] text-black text-sm font-black uppercase rounded-lg hover:bg-white transition-all shadow-[0_0_15px_rgba(255,200,87,0.3)] tracking-wider">STAGE</button>
+                                <button onClick={() => { askConfirm('Remove from queue?', async () => { await deleteRequest(req.id); await refresh(); }); }} className="w-9 h-9 flex items-center justify-center text-rose-500/20 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all">✕</button>
+                              </div>
+                            </div>
+                          </SortableWrapper>
+                        ))}
+                      </SortableContext>
+                      {approvedSinging.length === 0 && (
+                        <div className="flex-1 py-12 flex items-center justify-center border-2 border-dashed border-white/5 rounded-[2rem] opacity-30 w-full">
+                          <p className="text-xl font-black font-righteous uppercase tracking-[0.3em] text-slate-500">QUEUE EMPTY</p>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="bg-[#10002B]/60 border-2 border-[var(--neon-blue)]/20 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
+                    <h3 className="text-3xl font-bold font-bungee text-white uppercase mb-8 px-2 neon-glow-blue flex items-center gap-4">
+                      <span className="text-[var(--neon-blue)] animate-pulse">🎧</span> TO HEAR ({approvedListening.length})
+                    </h3>
+
+                    <div className="flex flex-col gap-3">
+                      {approvedListening.map((req, i) => (
+                        <div key={req.id} className="bg-black/40 border border-white/5 p-4 rounded-[2rem] flex items-center gap-6 group hover:border-[var(--neon-blue)] transition-all relative">
+                          <div className="w-12 h-12 flex items-center justify-center bg-black/40 rounded-2xl border border-white/5 text-[var(--neon-blue)] font-bungee text-xl shrink-0">
+                            {i + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-4 mb-0.5">
+                              <div className="text-xl font-bold text-white truncate uppercase tracking-tight font-bungee group-hover:text-[var(--neon-blue)] transition-colors">{req.songName}</div>
+                              <div className="text-sm text-slate-500 uppercase tracking-widest font-righteous">/ {req.artist}</div>
+                            </div>
+                            <div className="text-xs font-black text-[var(--neon-pink)] uppercase tracking-[0.2em] font-righteous">@{req.participantName}</div>
+                          </div>
+
+                          <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="px-4 py-2 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all font-black text-xs uppercase tracking-widest font-righteous">REMOVE</button>
+                          </div>
+                        </div>
+                      ))}
+                      {approvedListening.length === 0 && (
+                        <div className="flex-1 py-8 flex items-center justify-center border-2 border-dashed border-white/5 rounded-[2rem] opacity-30 w-full">
+                          <p className="text-base font-black font-righteous uppercase tracking-[0.3em] text-slate-500">NO LISTENING TRACKS</p>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="bg-[#10002B]/60 border-2 border-[var(--neon-green)]/20 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
+                    <h3 className="text-3xl md:text-4xl font-bold font-bungee text-white uppercase mb-8 px-2 neon-glow-green flex items-center gap-4 flex-wrap">
+                      <span className="text-[var(--neon-green)] animate-pulse">☢</span> ATMOSPHERE
+                    </h3>
+
+                    <div className="space-y-10">
+                      <div className="p-6 bg-black/40 rounded-3xl border border-white/5 space-y-6">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                          <label className="text-sm md:text-base font-black text-[var(--neon-cyan)] uppercase tracking-[0.2em] font-righteous opacity-80 break-words">REQUEST LIMIT</label>
+                          <span className="text-4xl font-black text-white font-bungee neon-glow-cyan">{session.maxRequestsPerUser || 5}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="20"
+                          value={session.maxRequestsPerUser || 5}
+                          onChange={async (e) => { await setMaxRequestsPerUser(parseInt(e.target.value)); await refresh(); }}
+                          className="w-full accent-[var(--neon-cyan)] bg-white/5 rounded-lg appearance-none h-2 cursor-pointer transition-all"
+                        />
+                        <div className="flex justify-between text-xs font-black text-slate-600 font-righteous uppercase tracking-widest">
+                          <span>STRICT (1)</span>
+                          <span>UNLIMITED (20)</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="text-base font-black text-[var(--neon-pink)] uppercase tracking-[0.4em] mb-4 flex items-center gap-4 font-righteous opacity-80">
+                          BACKGROUND THREADS
+                        </h4>
+                        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar custom-scrollbar-h">
+                          {[...approvedListening].reverse().map((req) => (
+                            <DraggableWrapper key={`atmos-${req.id}`} id={`atmos-${req.id}`} data={{ item: req }} className="bg-black/60 p-5 rounded-[2rem] border border-white/10 flex flex-col justify-between group hover:border-[var(--neon-pink)] transition-all shadow-lg min-w-[280px] max-w-[280px] cursor-pointer">
+                              <div className="min-w-0 mb-4 cursor-pointer" onClick={() => handleSongSearch(req.songName, req.artist, req.type)}>
+                                <div className="text-2xl font-black text-white truncate uppercase tracking-tight font-bungee group-hover:text-[var(--neon-pink)] transition-all">{req.songName}</div>
+                                <div className="text-base text-slate-500 uppercase tracking-widest mt-1 font-righteous opacity-60 truncate">{req.artist}</div>
+                              </div>
+                              <div className="flex items-center justify-between border-t border-white/5 pt-4">
+                                <VideoLink url={req.youtubeUrl} />
+                                <div className="flex gap-2">
+                                  <button onClick={() => handlePromoteToStage(req.id)} className="px-4 py-2 bg-[var(--neon-purple)] text-white text-sm font-black uppercase rounded-lg hover:bg-white hover:text-black transition-all shadow-[0_0_10px_var(--neon-purple)] tracking-[0.1em]">BOOST</button>
+                                  <button onClick={() => { askConfirm('Remove from atmosphere?', async () => { await deleteRequest(req.id); await refresh(); }); }} className="text-rose-500/20 hover:text-rose-500 p-2 font-black">✕</button>
+                                </div>
+                              </div>
+                            </DraggableWrapper>
+                          ))}
+                          {approvedListening.length === 0 && <p className="text-base text-slate-700 italic px-4 font-righteous uppercase tracking-widest opacity-50">NO BACKGROUND TRACKS</p>}
+                        </div>
+                      </div>
+
+                      <div className="pt-6 border-t border-white/5">
+                        <h4 className="text-base font-black text-[var(--neon-cyan)] uppercase tracking-[0.4em] mb-6 flex justify-between items-center font-righteous opacity-80">
+                          <span>VERIFIED_LINKS</span>
+                          <button onClick={() => setIsAddingVerifiedSong(true)} className="text-[var(--neon-cyan)] hover:text-white transition-colors underline decoration-dotted">+ ADD NEW</button>
+                        </h4>
+                        <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar custom-scrollbar-h">
+                          {[...verifiedSongs].reverse().map(v => (
+                            <DraggableWrapper key={`verif-${v.id}`} id={`verif-${v.id}`} data={{ item: v }} className="bg-black/80 p-5 rounded-[2rem] border border-white/5 flex flex-col justify-between group hover:border-[var(--neon-cyan)] transition-all shadow-lg min-w-[280px] max-w-[280px] cursor-pointer">
+                              <div className="min-w-0 mb-4">
+                                <div className="text-2xl font-bold text-white uppercase truncate tracking-tight group-hover:text-[var(--neon-cyan)] transition-colors font-bungee mb-1">{v.songName}</div>
+                                <div className="text-sm text-slate-600 uppercase truncate tracking-widest font-righteous font-bold">{v.artist}</div>
+                              </div>
+                              <div className="flex items-center justify-between border-t border-white/5 pt-4">
+                                <div className="flex gap-1">
+                                  <CopyUrlButton url={v.youtubeUrl} />
+                                  <button onClick={() => setVerifiedSongToEdit(v)} className="text-slate-600 hover:text-white p-2">✎</button>
+                                </div>
+                                <div className="flex gap-2 shrink-0">
+                                  <button
+                                    onClick={() => handleSongSearch(v.songName, v.artist, v.type)}
+                                    className="px-3 py-1 bg-black border border-[var(--neon-cyan)] text-[var(--neon-cyan)] text-sm font-black uppercase rounded-md hover:bg-[var(--neon-cyan)] hover:text-black transition-all tracking-widest"
+                                  >
+                                    RUN
+                                  </button>
+                                  <button
+                                    onClick={() => { setIsAddingRequest(true); }}
+                                    className="px-3 py-1 bg-[var(--neon-pink)] text-black text-sm font-black uppercase rounded-md hover:bg-white transition-all shadow-lg tracking-widest"
+                                  >
+                                    PUSH
+                                  </button>
+                                  <button onClick={() => { askConfirm('Delete verified song?', async () => { await deleteVerifiedSong(v.id); await refresh(); }); }} className="text-rose-500/20 hover:text-rose-500 px-1 font-black">✕</button>
+                                </div>
+                              </div>
+                            </DraggableWrapper>
+                          ))}
+                          {verifiedSongs.length === 0 && <p className="text-xl text-slate-800 italic px-4 font-righteous uppercase tracking-widest opacity-30">NO VERIFIED SONGS</p>}
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+
+              <div className="lg:col-span-4 space-y-8">
+                <section className="bg-[#0a0a0a] border-4 border-white/5 rounded-[3rem] p-8 shadow-[0_0_40px_rgba(0,0,0,0.5)] relative overflow-hidden flex flex-col h-[600px]">
+                  <div className="flex justify-between items-center mb-6 px-2">
+                    <h2 className="text-4xl font-bold font-bungee text-white uppercase tracking-tight opacity-90">PERFORMERS</h2>
+                    <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                      <div className="w-2 h-2 rounded-full bg-[var(--neon-cyan)] animate-pulse"></div>
+                      <span className="text-sm text-[var(--neon-cyan)] font-bold uppercase tracking-widest">{liveMicCount} ONLINE</span>
+                    </div>
+                  </div>
+                  <div className="space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
+                    <SortableContext items={session.participants.map(p => `participant-side-${p.id}`)} strategy={verticalListSortingStrategy}>
+                      {session.participants.map(p => {
+                        const isReady = p.status === ParticipantStatus.READY;
+                        const requests = session.requests.filter(r => r.participantId === p.id);
+                        const approvedCount = requests.filter(r => r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING).length;
 
                         return (
-                          <div
-                            key={song.id}
-                            className={`p-3 pl-6 pr-4 rounded-xl border-l-8 transition-all duration-300 flex items-center justify-between gap-4 w-full shadow-lg relative overflow-hidden group ${isActive
-                              ? 'bg-[#001005] border-l-[var(--neon-green)] border-y border-r border-[#1a3320] z-10 scale-[1.01]'
-                              : 'bg-[#0a0a10] border-l-slate-700 border-y border-r border-white/10 opacity-70 hover:opacity-100'
-                              }`}
+                          <SortableParticipantWrapper
+                            key={`participant-side-${p.id}`}
+                            id={`participant-side-${p.id}`}
+                            data={{ item: p, type: 'PARTICIPANT' }}
+                            activeData={activeData}
+                            className={`flex items-center justify-between p-4 rounded-[1.5rem] transition-all border ${isReady ? 'bg-[#002a1a]/30 border-[var(--neon-green)] shadow-[0_0_15px_rgba(0,255,157,0.2)]' : 'bg-black/40 border-white/5 hover:bg-white/5'}`}
                           >
-                            {/* Strip Background Grid Lines */}
-                            <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_49%,rgba(255,255,255,0.03)_50%,transparent_51%)] bg-[length:50px_100%] pointer-events-none"></div>
+                            <div className="min-w-0 flex items-center gap-4">
+                              <button
+                                onClick={async () => { await updateParticipantStatus(p.id, isReady ? ParticipantStatus.STANDBY : ParticipantStatus.READY); await refresh(); }}
+                                className={`w-3 h-3 rounded-full shrink-0 transition-all ${isReady ? 'bg-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-slate-800'}`}
+                              />
+                              <div className="min-w-0">
+                                <button
+                                  onClick={() => viewPerformerProfile(p.id)}
+                                  className={`text-xl font-black uppercase truncate text-left transition-colors font-righteous ${isReady ? 'text-white' : 'text-slate-500 hover:text-[var(--neon-green)]'}`}
+                                >
+                                  {p.name}
+                                </button>
+                                {approvedCount > 0 && <span className="block text-xs text-[var(--neon-cyan)] font-black mt-0.5 tracking-[0.2em]">{approvedCount} REQUESTS</span>}
+                              </div>
+                            </div>
+                            <div className="flex gap-1">
+                              <button onClick={() => setPrefilledSinger(p)} className="p-2 hover:text-[var(--neon-cyan)] transition-colors text-slate-600">
+                                +
+                              </button>
+                              <button onClick={() => { askConfirm(`Remove ${p.name}?`, async () => { await removeParticipant(p.id); await refresh(); }); }} className="p-2 text-rose-500/20 hover:text-rose-500 transition-colors">✕</button>
+                            </div>
+                          </SortableParticipantWrapper>
+                        );
+                      })}
+                    </SortableContext>
+                    {session.participants.length === 0 && <div className="text-center py-20 opacity-20"><p className="text-lg font-righteous uppercase tracking-widest">NO DATA</p></div>}
+                  </div>
+                </section>
 
-                            {/* Left Side: Info Strip */}
-                            <div className="flex items-center gap-6 min-w-0 flex-1 z-10">
-                              {/* ID Box with Copy Action */}
-                              <div className="relative">
+                <section className="bg-[#0a0a0a] border-4 border-white/5 rounded-[3rem] p-8 shadow-[0_0_40px_rgba(0,0,0,0.5)] relative overflow-hidden flex flex-col h-[400px]">
+                  <div className="flex justify-between items-center mb-6 px-2">
+                    <h2 className="text-4xl font-bold font-bungee text-white uppercase tracking-tight opacity-90">LOG</h2>
+                    {session.history.length > 0 && (
+                      <button onClick={async () => { await clearHistory(); await refresh(); }} className="text-sm font-bold text-rose-500/40 hover:text-rose-500 uppercase tracking-widest transition-all">
+                        CLEAR
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
+                    {session.history.map((item, i) => (
+                      <DraggableWrapper key={`hist-${i}`} id={`hist-${i}`} data={{ item }} className="bg-black/40 p-4 rounded-2xl border border-white/5 flex flex-col group hover:border-[var(--neon-purple)] transition-all cursor-pointer">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="min-w-0 pr-2">
+                            <div className="text-xl font-bold text-white uppercase truncate tracking-tight group-hover:text-[var(--neon-purple)] transition-colors font-bungee">{item.songName}</div>
+                            <div className="text-sm text-slate-600 uppercase truncate tracking-widest font-righteous">{item.artist}</div>
+                          </div>
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                            <CopyButton request={item} />
+                            <YouTubeSearchButton request={item} />
+                            <VideoLink url={item.youtubeUrl} />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between mt-2 border-t border-white/5 pt-2">
+                          <span className="text-base font-black text-[var(--neon-pink)] uppercase truncate">@{item.participantName}</span>
+                          <button
+                            onClick={async () => { await reAddFromHistory(item, true); await refresh(); }}
+                            className="opacity-0 group-hover:opacity-100 text-xs font-black text-[var(--neon-pink)] hover:underline transition-all uppercase tracking-widest"
+                          >
+                            RE-QUEUE
+                          </button>
+                        </div>
+                      </DraggableWrapper>
+                    ))}
+                    {session.history.length === 0 && <div className="text-center py-16 opacity-20"><p className="text-lg italic font-righteous uppercase tracking-widest text-slate-800">EMPTY</p></div>}
+                  </div>
+                </section>
+              </div>
+            </div>
+          )
+          }
+
+
+          {
+            activeTab === 'ROTATION' && (
+              <div className="space-y-16 animate-in slide-in-from-bottom-2 pb-32">
+                {session.currentRound && session.currentRound.length > 0 && (
+                  <section className="glass-panel border-4 rounded-[4rem] p-12 shadow-[0_0_100px_rgba(0,255,157,0.3)] relative overflow-hidden neon-sign-border-green">
+                    <div className="flex items-center gap-8 mb-12">
+                      <div className="w-8 h-8 bg-[var(--neon-green)] rounded-full animate-ping shadow-[0_0_25px_var(--neon-green)]"></div>
+                      <h3 className="text-6xl font-black text-white uppercase tracking-tighter font-righteous neon-glow-green">NOW PLAYING</h3>
+                    </div>
+                    <div className="flex flex-col gap-4">
+                      <SortableContext items={session.currentRound.map(s => `round-rot-${s.id}`)} strategy={verticalListSortingStrategy}>
+                        {session.currentRound.map((song, i) => {
+                          // Find index of first non-done song
+                          const activeIndex = session.currentRound!.findIndex(s => s.status !== RequestStatus.DONE);
+                          const isActive = i === (activeIndex === -1 ? 0 : activeIndex);
+
+                          return (
+                            <SortableWrapper
+                              key={`round-rot-${song.id}`}
+                              id={`round-rot-${song.id}`}
+                              data={{ item: song, type: 'ROUND' }}
+                              className={`p-3 pl-6 pr-4 rounded-xl border-l-8 transition-all duration-300 flex items-center justify-between gap-4 w-full shadow-lg relative overflow-hidden group cursor-pointer ${isActive
+                                ? 'bg-[#001005] border-l-[var(--neon-green)] border-y border-r border-[#1a3320] z-10 scale-[1.01]'
+                                : 'bg-[#0a0a10] border-l-slate-700 border-y border-r border-white/10 opacity-70 hover:opacity-100'
+                                }`}
+                            >
+                              {/* Strip Background Grid Lines */}
+                              <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_49%,rgba(255,255,255,0.03)_50%,transparent_51%)] bg-[length:50px_100%] pointer-events-none"></div>
+
+                              {/* Left Side: Info Strip */}
+                              <div className="flex items-center gap-6 min-w-0 flex-1 z-10">
+                                {/* ID Box */}
+                                <div className="w-16 h-full flex flex-col justify-center items-center border-r border-white/10 pr-4 shrink-0">
+                                  <span className={`text-xl font-bold font-mono tracking-tighter ${isActive ? 'text-[var(--neon-green)]' : 'text-slate-400'}`}>
+                                    {song.requestNumber}
+                                  </span>
+                                </div>
+
+                                {/* Main Info */}
+                                <div className="flex items-baseline gap-6 min-w-0 flex-1">
+                                  <h3 className={`text-3xl font-black uppercase truncate font-righteous tracking-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>
+                                    {song.songName}
+                                  </h3>
+                                  <div className="flex items-center gap-3 opacity-80 shrink-0">
+                                    <span className="text-xl font-bold font-righteous text-[var(--neon-cyan)] uppercase tracking-wider">{song.artist}</span>
+                                    <span className="text-slate-600 font-mono text-lg">/</span>
+                                    <span className="text-xl font-bold font-righteous text-[var(--neon-pink)] uppercase tracking-wider">@{song.participantName}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Right Side: Control Cluster */}
+                              <div className="flex items-center gap-3 z-10 pl-6 border-l border-white/10 bg-gradient-to-l from-black/80 to-transparent">
                                 {isActive && (
-                                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-[var(--neon-green)] text-black text-[8px] font-black uppercase tracking-[0.2em] rounded animate-pulse shadow-[0_0_10px_var(--neon-green)] z-20">
+                                  <div className="px-3 py-1 bg-[var(--neon-green)] text-black text-[10px] font-black uppercase tracking-[0.2em] rounded animate-pulse shadow-[0_0_10px_var(--neon-green)] mr-2 shrink-0">
                                     LIVE
                                   </div>
                                 )}
-                                <button
-                                  onClick={() => {
-                                    const suffix = song.type === RequestType.SINGING ? ' Karaoke' : ' Lyric';
-                                    const text = `${song.songName} ${song.artist}${suffix}`;
-                                    navigator.clipboard.writeText(text);
-                                  }}
-                                  title="Copy Command String"
-                                  className={`w-16 h-16 flex flex-col justify-center items-center border-2 rounded-2xl transition-all shrink-0 active:scale-95 ${isActive ? 'border-[var(--neon-green)] bg-[var(--neon-green)]/10 text-[var(--neon-green)] shadow-[0_0_15px_rgba(0,255,157,0.2)]' : 'border-white/10 text-slate-400 hover:border-white/30 hover:bg-white/5'}`}
-                                >
-                                  <span className="text-2xl font-bold font-mono tracking-tighter">
-                                    {song.requestNumber}
-                                  </span>
-                                </button>
-                              </div>
+                                <div className="flex gap-2">
+                                  <CopyButton request={song} />
+                                  <YouTubeSearchButton request={song} />
+                                  <VideoLink url={song.youtubeUrl} />
+                                  <button onClick={() => setRequestToEdit(song)} className="w-10 h-10 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white hover:text-black border border-white/10 transition-all text-slate-400 group" title="EDIT">
+                                    <span className="text-sm font-black font-righteous">EDIT</span>
+                                  </button>
 
-                              {/* Main Info */}
-                              <div className="flex items-baseline gap-6 min-w-0 flex-1">
-                                <h3 className={`text-2xl font-black uppercase font-righteous tracking-tight leading-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>
-                                  {song.songName}
-                                </h3>
-                                <div className="flex items-center gap-3 opacity-80 shrink-0">
-                                  <span className="text-xl font-bold font-righteous text-[var(--neon-cyan)] uppercase tracking-wider">{song.artist}</span>
-                                  <span className="text-slate-600 font-mono text-lg">/</span>
-                                  <button onClick={() => viewPerformerProfile(song.participantId)} className="flex items-center gap-2 group/singer hover:underline">
-                                    <div className={`w-2 h-2 rounded-full ${isReady ? 'bg-[var(--neon-green)] shadow-[0_0_5px_var(--neon-green)]' : 'bg-slate-700'}`}></div>
-                                    <span className="text-xl font-bold font-righteous text-[var(--neon-pink)] uppercase tracking-wider">@{song.participantName}</span>
+                                  <button
+                                    onClick={() => handlePlayOnStage(song)}
+                                    className="w-10 h-10 flex items-center justify-center rounded-lg bg-black border border-white/20 hover:bg-white hover:text-black hover:border-white transition-all group"
+                                    title="RESET TRACK"
+                                  >
+                                    <span className="text-lg">⏮</span>
+                                  </button>
+
+                                  <button
+                                    disabled={song.status === RequestStatus.DONE}
+                                    onClick={async () => {
+                                      await markRequestAsDone(song.id);
+                                      await refresh();
+                                    }}
+                                    className={`h-10 px-6 rounded-lg text-sm font-black uppercase tracking-widest font-righteous transition-all flex items-center gap-2 ${song.status === RequestStatus.DONE
+                                      ? 'bg-white/10 text-white/40 cursor-not-allowed border border-white/5'
+                                      : 'bg-[var(--neon-cyan)]/10 hover:bg-[var(--neon-cyan)] text-[var(--neon-cyan)] hover:text-black border border-[var(--neon-cyan)]/50'
+                                      }`}
+                                  >
+                                    <span>{song.status === RequestStatus.DONE ? 'COMPLETED' : 'DONE'}</span>
+                                    {song.status !== RequestStatus.DONE && <span className="text-lg leading-none">→</span>}
                                   </button>
                                 </div>
                               </div>
-                            </div>
-
-                            {/* Right Side: Control Cluster */}
-                            <div className="flex items-center gap-3 z-10 pl-4 border-l border-white/10 bg-gradient-to-l from-black/80 to-transparent">
-                              <button
-                                onClick={async () => {
-                                  if (song.status === RequestStatus.DONE) {
-                                    // Assuming we can revert if needed, but for now toggle logic
-                                    await updateRequest(song.id, { status: RequestStatus.APPROVED });
-                                  } else {
-                                    await markRequestAsDone(song.id);
-                                  }
-                                  await refresh();
-                                }}
-                                title={song.status === RequestStatus.DONE ? "Undo Done" : "Mark as Done"}
-                                className={`p-2 rounded-xl transition-all border-2 ${song.status === RequestStatus.DONE
-                                  ? 'text-yellow-500 border-yellow-500/30 bg-yellow-500/10 shadow-[0_0_15px_rgba(234,179,8,0.2)]'
-                                  : 'text-slate-600 border-white/5 hover:border-white/20 hover:text-white'
-                                  }`}
-                              >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="20 6 9 17 4 12"></polyline>
-                                </svg>
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  askConfirm('Remove from active round?', async () => {
-                                    await deleteRequest(song.id);
-                                    await refresh();
-                                  });
-                                }}
-                                className="w-8 h-8 flex items-center justify-center rounded bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all border border-rose-500/20"
-                                title="REMOVE"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </div>
-                        );
-                      })}
+                            </SortableWrapper>
+                          );
+                        })}
+                      </SortableContext>
                     </div>
+                  </section>
+                )}
+
+                <section className="bg-[#050510] border-4 border-[var(--neon-cyan)]/30 rounded-[3rem] p-10 shadow-[0_0_80px_rgba(0,229,255,0.15)] relative overflow-hidden backdrop-blur-md">
+                  <div className="flex items-center gap-6 mb-10">
+                    <div className="w-4 h-4 bg-[var(--neon-cyan)] shadow-[0_0_20px_var(--neon-cyan)] rounded-full animate-pulse"></div>
+                    <h3 className="text-4xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-cyan">UPCOMING</h3>
                   </div>
-                </section>
-              )}
-
-              <section className="bg-[#10002B]/80 border-2 border-[var(--neon-blue)]/30 rounded-[3rem] p-10 shadow-[0_0_60px_rgba(5,217,232,0.1)] relative overflow-hidden backdrop-blur-md">
-                <div className="flex justify-between items-center mb-8 px-2">
-                  <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-cyan">
-                    <span className="text-[var(--neon-blue)]">⟳</span> REQUESTS
-                  </h2>
-                  <span className="px-6 py-2 bg-[var(--neon-blue)]/10 border border-[var(--neon-blue)]/30 rounded-full text-base text-[var(--neon-blue)] font-bold tracking-widest font-righteous">
-                    {pendingRequests.length} PENDING
-                  </span>
-                </div>
-                <div className="flex flex-col gap-4">
-                  {pendingRequests.map((req, i) => (
-                    <div
-                      key={req.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, i, 'PENDING')}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, i, 'PENDING')}
-                      className="bg-black/40 border border-white/5 p-4 rounded-3xl flex items-center gap-6 hover:border-[var(--neon-blue)] transition-all group cursor-move shadow-xl"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-4 mb-1">
-                          <div className="text-xs font-black font-righteous text-[var(--neon-pink)] uppercase tracking-[0.2em] bg-[var(--neon-pink)]/10 px-2 py-0.5 rounded-full border border-[var(--neon-pink)]/20 shrink-0">
-                            NEW_SIGNAL
-                          </div>
-                          <div className="text-3xl font-black text-white uppercase truncate tracking-tighter font-bungee group-hover:text-[var(--neon-blue)] transition-colors">{req.songName}</div>
-                          <div className="text-slate-500 text-base font-black uppercase tracking-[0.2em] font-righteous truncate">/ {req.artist}</div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <button onClick={() => viewPerformerProfile(req.participantId)} className="text-base font-bold text-[var(--neon-pink)] uppercase truncate hover:text-white transition-colors font-righteous tracking-[0.2em]">@{req.participantName}</button>
-                          {req.message && (
-                            <div className="flex-1 max-w-md px-3 py-1 bg-black/40 border-l-2 border-[var(--neon-pink)] rounded-r-lg">
-                              <p className="text-base text-white/60 font-medium italic truncate">"{req.message}"</p>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
+                    {approvedSinging.map((req) => (
+                      <div key={req.id} className="relative group perspective-1000">
+                        <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-purple)] to-[var(--neon-blue)] rounded-[2.5rem] blur-xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
+                        <div className="relative bg-[#101015] p-8 rounded-[2.5rem] border border-white/10 flex justify-between items-center group-hover:border-[var(--neon-cyan)] transition-all shadow-2xl h-full">
+                          <div className="min-w-0 pr-6 flex-1">
+                            <div className="text-white font-black uppercase truncate text-4xl font-bungee tracking-tight mb-2 group-hover:text-[var(--neon-cyan)] transition-colors">{req.songName}</div>
+                            <div className="text-lg text-slate-500 uppercase flex items-center gap-3 font-righteous tracking-[0.2em] opacity-80">
+                              <span className="text-[var(--neon-green)] font-black">@{req.participantName}</span>
+                              <span className="opacity-20">|</span>
+                              <span className="truncate">{req.artist}</span>
                             </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-4 shrink-0">
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <CopyButton request={req} />
-                          <YouTubeSearchButton request={req} />
-                          <VideoLink url={req.youtubeUrl} />
-                          <button onClick={() => setRequestToEdit(req)} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous text-white/50 hover:text-white border border-white/5">EDIT</button>
-                        </div>
-                        <div className="flex gap-2 bg-black/40 p-1 rounded-2xl border border-white/5">
-                          <button onClick={async () => { await approveRequest(req.id); await refresh(); }} className="px-6 py-3 bg-[var(--neon-blue)] text-black text-sm font-black uppercase hover:bg-white transition-all rounded-xl tracking-[0.1em] shadow-[0_0_20px_rgba(5,217,232,0.3)]">ACCEPT</button>
-                          <button onClick={() => { askConfirm('Delete pending request?', async () => { await deleteRequest(req.id); await refresh(); }); }} className="w-11 h-11 flex items-center justify-center text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all">✕</button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {pendingRequests.length === 0 && (
-                    <div className="col-span-full py-24 text-center border-4 border-dashed border-white/5 rounded-[2.5rem] opacity-30">
-                      <p className="text-4xl font-black font-righteous uppercase tracking-[0.4em] italic text-slate-500">NO SIGNAL DETECTED</p>
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              <div className="flex flex-col gap-10">
-                <section className="bg-[#10002B]/60 border-2 border-[var(--neon-yellow)]/20 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
-                  <h3 className="text-5xl font-bold font-bungee text-white uppercase mb-8 px-2 neon-glow-yellow flex items-center gap-4">
-                    <span className="text-[var(--neon-yellow)] animate-pulse">★</span> QUEUE
-                  </h3>
-                  <div className="flex flex-col gap-3">
-                    {approvedSinging.map((req, i) => (
-                      <div
-                        key={req.id}
-                        draggable
-                        onDragStart={(e) => handleDragStart(e, i, 'QUEUE')}
-                        onDragOver={handleDragOver}
-                        onDrop={(e) => handleDrop(e, i, 'QUEUE')}
-                        className="bg-black/40 border border-white/5 p-4 rounded-[2rem] flex items-center gap-6 group hover:border-[var(--neon-yellow)] transition-all cursor-move shadow-lg relative"
-                      >
-                        <div className="w-12 h-12 flex items-center justify-center bg-black/40 rounded-2xl border border-white/5 text-[var(--neon-yellow)] font-bungee text-3xl shrink-0 group-hover:scale-110 transition-transform">
-                          {i + 1}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-4 mb-0.5">
-                            <div className="text-2xl font-bold text-white truncate uppercase tracking-tight font-bungee group-hover:text-[var(--neon-yellow)] transition-colors">{req.songName}</div>
-                            <div className="text-sm text-slate-500 uppercase tracking-widest font-righteous">/ {req.artist}</div>
                           </div>
-                          <div className="flex items-center gap-4">
-                            <button onClick={(e) => { e.stopPropagation(); viewPerformerProfile(req.participantId); }} className="text-sm font-black text-[var(--neon-yellow)] uppercase tracking-[0.2em] font-righteous hover:text-white transition-colors">@{req.participantName}</button>
-                            {req.message && (
-                              <div className="flex-1 max-w-sm px-2 py-0.5 bg-[var(--neon-yellow)]/5 border-l border-[var(--neon-yellow)]/30 rounded-r text-xs text-[var(--neon-yellow)]/70 italic truncate">
-                                "{req.message}"
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-4 shrink-0">
-                          <div className="flex flex-col gap-0.5 px-2">
-                            <button onClick={async () => { await reorderRequest(req.id, 'up'); await refresh(); }} className="text-slate-700 hover:text-white transition-colors p-1 text-base">▲</button>
-                            <button onClick={async () => { await reorderRequest(req.id, 'down'); await refresh(); }} className="text-slate-700 hover:text-white transition-colors p-1 text-base">▼</button>
-                          </div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <CopyButton request={req} />
-                            <YouTubeSearchButton request={req} />
-                            <VideoLink url={req.youtubeUrl} />
-                            <button onClick={() => setRequestToEdit(req)} className="p-2 text-slate-600 hover:text-white text-xs font-black uppercase tracking-widest font-righteous transition-colors border border-white/5 rounded-lg">EDIT</button>
-                          </div>
-                          <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5">
-                            <button onClick={() => handlePromoteToStage(req.id)} className="px-4 py-2 bg-[var(--neon-yellow)] text-black text-sm font-black uppercase rounded-lg hover:bg-white transition-all shadow-[0_0_15px_rgba(255,200,87,0.3)] tracking-wider">STAGE</button>
-                            <button onClick={() => { askConfirm('Remove from queue?', async () => { await deleteRequest(req.id); await refresh(); }); }} className="w-9 h-9 flex items-center justify-center text-rose-500/20 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all">✕</button>
+                          <div className="flex gap-3 shrink-0 flex-col">
+                            <button onClick={() => handlePromoteToStage(req.id)} className="px-6 py-3 bg-[var(--neon-green)] text-black text-base font-black rounded-xl uppercase tracking-[0.2em] font-righteous shadow-[0_0_20px_var(--neon-green)] transition-all hover:bg-white hover:scale-105">STAGE</button>
+                            <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="px-6 py-3 border border-white/10 text-white/40 hover:text-rose-500 hover:border-rose-500/50 rounded-xl transition-all text-lg font-black uppercase tracking-[0.2em]">REMOVE</button>
                           </div>
                         </div>
                       </div>
                     ))}
                     {approvedSinging.length === 0 && (
-                      <div className="flex-1 py-12 flex items-center justify-center border-2 border-dashed border-white/5 rounded-[2rem] opacity-30 w-full">
-                        <p className="text-xl font-black font-righteous uppercase tracking-[0.3em] text-slate-500">QUEUE EMPTY</p>
+                      <div className="col-span-full py-32 text-center border-4 border-dashed border-white/5 rounded-[4rem] opacity-30">
+                        <p className="text-5xl font-black uppercase tracking-[0.5em] italic font-righteous text-slate-700">NO DATA STREAM</p>
                       </div>
                     )}
-                  </div>
-                </section>
-
-                <section className="bg-[#10002B]/60 border-2 border-[var(--neon-blue)]/20 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
-                  <h3 className="text-3xl font-bold font-bungee text-white uppercase mb-8 px-2 neon-glow-blue flex items-center gap-4">
-                    <span className="text-[var(--neon-blue)] animate-pulse">🎧</span> TO HEAR ({approvedListening.length})
-                  </h3>
-
-                  <div className="flex flex-col gap-3">
-                    {approvedListening.map((req, i) => (
-                      <div key={req.id} className="bg-black/40 border border-white/5 p-4 rounded-[2rem] flex items-center gap-6 group hover:border-[var(--neon-blue)] transition-all relative">
-                        <div className="w-12 h-12 flex items-center justify-center bg-black/40 rounded-2xl border border-white/5 text-[var(--neon-blue)] font-bungee text-xl shrink-0">
-                          {i + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-4 mb-0.5">
-                            <div className="text-xl font-bold text-white truncate uppercase tracking-tight font-bungee group-hover:text-[var(--neon-blue)] transition-colors">{req.songName}</div>
-                            <div className="text-sm text-slate-500 uppercase tracking-widest font-righteous">/ {req.artist}</div>
-                          </div>
-                          <div className="text-xs font-black text-[var(--neon-pink)] uppercase tracking-[0.2em] font-righteous">@{req.participantName}</div>
-                        </div>
-
-                        <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="px-4 py-2 text-rose-500 hover:bg-rose-500 hover:text-white rounded-lg transition-all font-black text-xs uppercase tracking-widest font-righteous">REMOVE</button>
-                        </div>
-                      </div>
-                    ))}
-                    {approvedListening.length === 0 && (
-                      <div className="flex-1 py-8 flex items-center justify-center border-2 border-dashed border-white/5 rounded-[2rem] opacity-30 w-full">
-                        <p className="text-base font-black font-righteous uppercase tracking-[0.3em] text-slate-500">NO LISTENING TRACKS</p>
-                      </div>
-                    )}
-                  </div>
-                </section>
-
-                <section className="bg-[#10002B]/60 border-2 border-[var(--neon-green)]/20 rounded-[3rem] p-10 shadow-2xl relative overflow-hidden backdrop-blur-sm">
-                  <h3 className="text-3xl md:text-4xl font-bold font-bungee text-white uppercase mb-8 px-2 neon-glow-green flex items-center gap-4 flex-wrap">
-                    <span className="text-[var(--neon-green)] animate-pulse">☢</span> ATMOSPHERE
-                  </h3>
-
-                  <div className="space-y-10">
-                    <div className="p-6 bg-black/40 rounded-3xl border border-white/5 space-y-6">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <label className="text-sm md:text-base font-black text-[var(--neon-cyan)] uppercase tracking-[0.2em] font-righteous opacity-80 break-words">REQUEST LIMIT</label>
-                        <span className="text-4xl font-black text-white font-bungee neon-glow-cyan">{session.maxRequestsPerUser || 5}</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="1"
-                        max="20"
-                        value={session.maxRequestsPerUser || 5}
-                        onChange={async (e) => { await setMaxRequestsPerUser(parseInt(e.target.value)); await refresh(); }}
-                        className="w-full accent-[var(--neon-cyan)] bg-white/5 rounded-lg appearance-none h-2 cursor-pointer transition-all"
-                      />
-                      <div className="flex justify-between text-xs font-black text-slate-600 font-righteous uppercase tracking-widest">
-                        <span>STRICT (1)</span>
-                        <span>UNLIMITED (20)</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-base font-black text-[var(--neon-pink)] uppercase tracking-[0.4em] mb-4 flex items-center gap-4 font-righteous opacity-80">
-                        BACKGROUND THREADS
-                      </h4>
-                      <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar custom-scrollbar-h">
-                        {[...approvedListening].reverse().map((req) => (
-                          <div key={req.id} className="bg-black/60 p-5 rounded-[2rem] border border-white/10 flex flex-col justify-between group hover:border-[var(--neon-pink)] transition-all shadow-lg min-w-[280px] max-w-[280px]">
-                            <div className="min-w-0 mb-4 cursor-pointer" onClick={() => handleSongSearch(req.songName, req.artist, req.type)}>
-                              <div className="text-2xl font-black text-white truncate uppercase tracking-tight font-bungee group-hover:text-[var(--neon-pink)] transition-all">{req.songName}</div>
-                              <div className="text-base text-slate-500 uppercase tracking-widest mt-1 font-righteous opacity-60 truncate">{req.artist}</div>
-                            </div>
-                            <div className="flex items-center justify-between border-t border-white/5 pt-4">
-                              <VideoLink url={req.youtubeUrl} />
-                              <div className="flex gap-2">
-                                <button onClick={() => handlePromoteToStage(req.id)} className="px-4 py-2 bg-[var(--neon-purple)] text-white text-sm font-black uppercase rounded-lg hover:bg-white hover:text-black transition-all shadow-[0_0_10px_var(--neon-purple)] tracking-[0.1em]">BOOST</button>
-                                <button onClick={() => { askConfirm('Remove from atmosphere?', async () => { await deleteRequest(req.id); await refresh(); }); }} className="text-rose-500/20 hover:text-rose-500 p-2 font-black">✕</button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        {approvedListening.length === 0 && <p className="text-base text-slate-700 italic px-4 font-righteous uppercase tracking-widest opacity-50">NO BACKGROUND TRACKS</p>}
-                      </div>
-                    </div>
-
-                    <div className="pt-6 border-t border-white/5">
-                      <h4 className="text-base font-black text-[var(--neon-cyan)] uppercase tracking-[0.4em] mb-6 flex justify-between items-center font-righteous opacity-80">
-                        <span>VERIFIED_LINKS</span>
-                        <button onClick={() => setIsAddingVerifiedSong(true)} className="text-[var(--neon-cyan)] hover:text-white transition-colors underline decoration-dotted">+ ADD NEW</button>
-                      </h4>
-                      <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar custom-scrollbar-h">
-                        {[...verifiedSongs].reverse().map(v => (
-                          <div key={v.id} className="bg-black/80 p-5 rounded-[2rem] border border-white/5 flex flex-col justify-between group hover:border-[var(--neon-cyan)] transition-all shadow-lg min-w-[280px] max-w-[280px]">
-                            <div className="min-w-0 mb-4">
-                              <div className="text-2xl font-bold text-white uppercase truncate tracking-tight group-hover:text-[var(--neon-cyan)] transition-colors font-bungee mb-1">{v.songName}</div>
-                              <div className="text-sm text-slate-600 uppercase truncate tracking-widest font-righteous font-bold">{v.artist}</div>
-                            </div>
-                            <div className="flex items-center justify-between border-t border-white/5 pt-4">
-                              <div className="flex gap-1">
-                                <CopyUrlButton url={v.youtubeUrl} />
-                                <button onClick={() => setVerifiedSongToEdit(v)} className="text-slate-600 hover:text-white p-2">✎</button>
-                              </div>
-                              <div className="flex gap-2 shrink-0">
-                                <button
-                                  onClick={() => handleSongSearch(v.songName, v.artist, v.type)}
-                                  className="px-3 py-1 bg-black border border-[var(--neon-cyan)] text-[var(--neon-cyan)] text-sm font-black uppercase rounded-md hover:bg-[var(--neon-cyan)] hover:text-black transition-all tracking-widest"
-                                >
-                                  RUN
-                                </button>
-                                <button
-                                  onClick={() => { setIsAddingRequest(true); }}
-                                  className="px-3 py-1 bg-[var(--neon-pink)] text-black text-sm font-black uppercase rounded-md hover:bg-white transition-all shadow-lg tracking-widest"
-                                >
-                                  PUSH
-                                </button>
-                                <button onClick={() => { askConfirm('Delete verified song?', async () => { await deleteVerifiedSong(v.id); await refresh(); }); }} className="text-rose-500/20 hover:text-rose-500 px-1 font-black">✕</button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                        {verifiedSongs.length === 0 && <p className="text-xl text-slate-800 italic px-4 font-righteous uppercase tracking-widest opacity-30">NO VERIFIED SONGS</p>}
-                      </div>
-                    </div>
                   </div>
                 </section>
               </div>
-            </div>
+            )
+          }
 
-            <div className="lg:col-span-4 space-y-8">
-              <section className="bg-[#0a0a0a] border-4 border-white/5 rounded-[3rem] p-8 shadow-[0_0_40px_rgba(0,0,0,0.5)] relative overflow-hidden flex flex-col h-[600px]">
-                <div className="flex justify-between items-center mb-6 px-2">
-                  <h2 className="text-4xl font-bold font-bungee text-white uppercase tracking-tight opacity-90">PERFORMERS</h2>
-                  <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">
-                    <div className="w-2 h-2 rounded-full bg-[var(--neon-cyan)] animate-pulse"></div>
-                    <span className="text-sm text-[var(--neon-cyan)] font-bold uppercase tracking-widest">{liveMicCount} ONLINE</span>
-                  </div>
-                </div>
-                <div className="space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
-                  {session.participants.map(p => {
-                    const isReady = p.status === ParticipantStatus.READY;
-                    const requests = session.requests.filter(r => r.participantId === p.id);
-                    const approvedCount = requests.filter(r => r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING).length;
-
-                    return (
-                      <div key={p.id} className={`flex items-center justify-between p-4 rounded-[1.5rem] transition-all border ${isReady ? 'bg-[#002a1a]/30 border-[var(--neon-green)] shadow-[0_0_15px_rgba(0,255,157,0.2)]' : 'bg-black/40 border-white/5 hover:bg-white/5'}`}>
-                        <div className="min-w-0 flex items-center gap-4">
-                          <button
-                            onClick={async () => { await updateParticipantStatus(p.id, isReady ? ParticipantStatus.STANDBY : ParticipantStatus.READY); await refresh(); }}
-                            className={`w-3 h-3 rounded-full shrink-0 transition-all ${isReady ? 'bg-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-slate-800'}`}
-                          />
-                          <div className="min-w-0">
-                            <button
-                              onClick={() => viewPerformerProfile(p.id)}
-                              className={`text-xl font-black uppercase truncate text-left transition-colors font-righteous ${isReady ? 'text-white' : 'text-slate-500 hover:text-[var(--neon-green)]'}`}
-                            >
-                              {p.name}
-                            </button>
-                            {approvedCount > 0 && <span className="block text-xs text-[var(--neon-cyan)] font-black mt-0.5 tracking-[0.2em]">{approvedCount} REQUESTS</span>}
-                          </div>
-                        </div>
-                        <div className="flex gap-1">
-                          <button onClick={() => setPrefilledSinger(p)} className="p-2 hover:text-[var(--neon-cyan)] transition-colors text-slate-600">
-                            +
-                          </button>
-                          <button onClick={() => { askConfirm(`Remove ${p.name}?`, async () => { await removeParticipant(p.id); await refresh(); }); }} className="p-2 text-rose-500/20 hover:text-rose-500 transition-colors">✕</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {session.participants.length === 0 && <div className="text-center py-20 opacity-20"><p className="text-lg font-righteous uppercase tracking-widest">NO DATA</p></div>}
-                </div>
-              </section>
-
-              <section className="bg-[#0a0a0a] border-4 border-white/5 rounded-[3rem] p-8 shadow-[0_0_40px_rgba(0,0,0,0.5)] relative overflow-hidden flex flex-col h-[400px]">
-                <div className="flex justify-between items-center mb-6 px-2">
-                  <h2 className="text-4xl font-bold font-bungee text-white uppercase tracking-tight opacity-90">LOG</h2>
-                  {session.history.length > 0 && (
-                    <button onClick={async () => { await clearHistory(); await refresh(); }} className="text-sm font-bold text-rose-500/40 hover:text-rose-500 uppercase tracking-widest transition-all">
-                      CLEAR
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-3 overflow-y-auto custom-scrollbar pr-2 flex-1">
-                  {session.history.map((item, i) => (
-                    <div key={i} className="bg-black/40 p-4 rounded-2xl border border-white/5 flex flex-col group hover:border-[var(--neon-purple)] transition-all">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="min-w-0 pr-2">
-                          <div className="text-xl font-bold text-white uppercase truncate tracking-tight group-hover:text-[var(--neon-purple)] transition-colors font-bungee">{item.songName}</div>
-                          <div className="text-sm text-slate-600 uppercase truncate tracking-widest font-righteous">{item.artist}</div>
-                        </div>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                          <CopyButton request={item} />
-                          <YouTubeSearchButton request={item} />
-                          <VideoLink url={item.youtubeUrl} />
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between mt-2 border-t border-white/5 pt-2">
-                        <span className="text-base font-black text-[var(--neon-pink)] uppercase truncate">@{item.participantName}</span>
-                        <button
-                          onClick={async () => { await reAddFromHistory(item, true); await refresh(); }}
-                          className="opacity-0 group-hover:opacity-100 text-xs font-black text-[var(--neon-pink)] hover:underline transition-all uppercase tracking-widest"
-                        >
-                          RE-QUEUE
-                        </button>
-                      </div>
+          {
+            activeTab === 'PERFORMERS' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 animate-in slide-in-from-bottom-2 pb-32">
+                <section className="lg:col-span-8 bg-[#0a0a0a] border-4 border-[var(--neon-cyan)]/20 rounded-[3rem] p-10 shadow-[0_0_60px_rgba(0,229,255,0.1)] relative overflow-hidden backdrop-blur-md">
+                  <div className="flex justify-between items-center mb-10 px-2">
+                    <h2 className="text-4xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-cyan">SINGERS</h2>
+                    <div className="flex items-center gap-4 px-6 py-2 bg-black/40 border border-[var(--neon-cyan)]/30 rounded-full shadow-lg">
+                      <div className="w-2 h-2 rounded-full bg-[var(--neon-cyan)] animate-pulse"></div>
+                      <span className="text-lg font-bold text-[var(--neon-cyan)] uppercase tracking-widest font-righteous">{liveMicCount} ACTIVE</span>
                     </div>
-                  ))}
-                  {session.history.length === 0 && <div className="text-center py-16 opacity-20"><p className="text-lg italic font-righteous uppercase tracking-widest text-slate-800">EMPTY</p></div>}
-                </div>
-              </section>
-            </div>
-          </div>
-        )
-        }
-
-
-        {
-          activeTab === 'ROTATION' && (
-            <div className="space-y-16 animate-in slide-in-from-bottom-2 pb-32">
-              {session.currentRound && session.currentRound.length > 0 && (
-                <section className="glass-panel border-4 rounded-[4rem] p-12 shadow-[0_0_100px_rgba(0,255,157,0.3)] relative overflow-hidden neon-sign-border-green">
-                  <div className="flex items-center gap-8 mb-12">
-                    <div className="w-8 h-8 bg-[var(--neon-green)] rounded-full animate-ping shadow-[0_0_25px_var(--neon-green)]"></div>
-                    <h3 className="text-6xl font-black text-white uppercase tracking-tighter font-righteous neon-glow-green">NOW PLAYING</h3>
                   </div>
-                  <div className="flex flex-col gap-4">
-                    {session.currentRound.map((song, i) => {
-                      // Find index of first non-done song
-                      const activeIndex = session.currentRound!.findIndex(s => s.status !== RequestStatus.DONE);
-                      const isActive = i === (activeIndex === -1 ? 0 : activeIndex);
+                  <div className="grid gap-6">
+                    <SortableContext items={session.participants.map(p => `participant-${p.id}`)} strategy={verticalListSortingStrategy}>
+                      {session.participants.map(p => {
+                        const isReady = p.status === ParticipantStatus.READY;
+                        const requests = session.requests.filter(r => r.participantId === p.id);
+                        const approvedCount = requests.filter(r => r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING).length;
 
-                      return (
-                        <div
-                          key={song.id}
-                          className={`p-3 pl-6 pr-4 rounded-xl border-l-8 transition-all duration-300 flex items-center justify-between gap-4 w-full shadow-lg relative overflow-hidden group ${isActive
-                            ? 'bg-[#001005] border-l-[var(--neon-green)] border-y border-r border-[#1a3320] z-10 scale-[1.01]'
-                            : 'bg-[#0a0a10] border-l-slate-700 border-y border-r border-white/10 opacity-70 hover:opacity-100'
-                            }`}
-                        >
-                          {/* Strip Background Grid Lines */}
-                          <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_49%,rgba(255,255,255,0.03)_50%,transparent_51%)] bg-[length:50px_100%] pointer-events-none"></div>
-
-                          {/* Left Side: Info Strip */}
-                          <div className="flex items-center gap-6 min-w-0 flex-1 z-10">
-                            {/* ID Box */}
-                            <div className="w-16 h-full flex flex-col justify-center items-center border-r border-white/10 pr-4 shrink-0">
-                              <span className={`text-xl font-bold font-mono tracking-tighter ${isActive ? 'text-[var(--neon-green)]' : 'text-slate-400'}`}>
-                                {song.requestNumber}
-                              </span>
-                            </div>
-
-                            {/* Main Info */}
-                            <div className="flex items-baseline gap-6 min-w-0 flex-1">
-                              <h3 className={`text-3xl font-black uppercase truncate font-righteous tracking-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>
-                                {song.songName}
-                              </h3>
-                              <div className="flex items-center gap-3 opacity-80 shrink-0">
-                                <span className="text-xl font-bold font-righteous text-[var(--neon-cyan)] uppercase tracking-wider">{song.artist}</span>
-                                <span className="text-slate-600 font-mono text-lg">/</span>
-                                <span className="text-xl font-bold font-righteous text-[var(--neon-pink)] uppercase tracking-wider">@{song.participantName}</span>
+                        return (
+                          <SortableParticipantWrapper
+                            key={`participant-${p.id}`}
+                            id={`participant-${p.id}`}
+                            data={{ item: p, type: 'PARTICIPANT' }}
+                            activeData={activeData}
+                            className={`flex items-center justify-between p-6 rounded-[2rem] transition-all border-2 ${isReady ? 'bg-[#002a1a]/30 border-[var(--neon-green)] shadow-[0_0_30px_rgba(0,255,157,0.15)]' : 'bg-black/40 border-white/5 hover:border-white/20'}`}
+                          >
+                            <div className="min-w-0 flex items-center gap-6 text-left">
+                              <button
+                                onClick={async () => { await updateParticipantStatus(p.id, isReady ? ParticipantStatus.STANDBY : ParticipantStatus.READY); await refresh(); }}
+                                className={`w-12 h-12 rounded-full shrink-0 border-2 transition-all flex items-center justify-center ${isReady ? 'bg-[var(--neon-green)] border-[var(--neon-green)] shadow-[0_0_20px_var(--neon-green)]' : 'bg-slate-900 border-white/10 hover:border-white/50'}`}
+                              >
+                                {isReady && <div className="w-4 h-4 bg-white rounded-full animate-pulse"></div>}
+                              </button>
+                              <div className="min-w-0">
+                                <button
+                                  onClick={() => viewPerformerProfile(p.id)}
+                                  className={`font-bold text-4xl uppercase truncate font-bungee tracking-tight transition-colors ${isReady ? 'text-white' : 'text-slate-600 hover:text-[var(--neon-green)]'}`}
+                                >
+                                  {p.name}
+                                </button>
+                                {approvedCount > 0 && <div className="text-base font-bold text-[var(--neon-cyan)] uppercase mt-1 tracking-widest font-righteous opacity-90">{approvedCount} TRACKS READY</div>}
                               </div>
                             </div>
-                          </div>
-
-                          {/* Right Side: Control Cluster */}
-                          <div className="flex items-center gap-3 z-10 pl-6 border-l border-white/10 bg-gradient-to-l from-black/80 to-transparent">
-                            {isActive && (
-                              <div className="px-3 py-1 bg-[var(--neon-green)] text-black text-[10px] font-black uppercase tracking-[0.2em] rounded animate-pulse shadow-[0_0_10px_var(--neon-green)] mr-2 shrink-0">
-                                LIVE
-                              </div>
-                            )}
-                            <div className="flex gap-2">
-                              <CopyButton request={song} />
-                              <YouTubeSearchButton request={song} />
-                              <VideoLink url={song.youtubeUrl} />
-                              <button onClick={() => setRequestToEdit(song)} className="w-10 h-10 flex items-center justify-center rounded-lg bg-white/5 hover:bg-white hover:text-black border border-white/10 transition-all text-slate-400 group" title="EDIT">
-                                <span className="text-sm font-black font-righteous">EDIT</span>
+                            <div className="flex gap-4 items-center">
+                              <button onClick={() => setPrefilledSinger(p)} className="px-6 py-3 bg-[var(--neon-cyan)]/10 text-[var(--neon-cyan)] rounded-xl border border-[var(--neon-cyan)]/50 transition-all font-righteous text-base font-black uppercase tracking-[0.2em] hover:bg-[var(--neon-cyan)] hover:text-black hover:shadow-[0_0_20px_var(--neon-cyan)]">
+                                ADD TRACK
                               </button>
-
-                              <button
-                                onClick={() => handlePlayOnStage(song)}
-                                className="w-10 h-10 flex items-center justify-center rounded-lg bg-black border border-white/20 hover:bg-white hover:text-black hover:border-white transition-all group"
-                                title="RESET TRACK"
-                              >
-                                <span className="text-lg">⏮</span>
-                              </button>
-
-                              <button
-                                disabled={song.status === RequestStatus.DONE}
-                                onClick={async () => {
-                                  await markRequestAsDone(song.id);
-                                  await refresh();
-                                }}
-                                className={`h-10 px-6 rounded-lg text-sm font-black uppercase tracking-widest font-righteous transition-all flex items-center gap-2 ${song.status === RequestStatus.DONE
-                                  ? 'bg-white/10 text-white/40 cursor-not-allowed border border-white/5'
-                                  : 'bg-[var(--neon-cyan)]/10 hover:bg-[var(--neon-cyan)] text-[var(--neon-cyan)] hover:text-black border border-[var(--neon-cyan)]/50'
-                                  }`}
-                              >
-                                <span>{song.status === RequestStatus.DONE ? 'COMPLETED' : 'DONE'}</span>
-                                {song.status !== RequestStatus.DONE && <span className="text-lg leading-none">→</span>}
-                              </button>
+                              <button onClick={() => { askConfirm(`Remove ${p.name}?`, async () => { await removeParticipant(p.id); await refresh(); }); }} className="text-rose-500/30 hover:text-rose-500 p-3 transition-colors text-3xl font-black">✕</button>
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                          </SortableParticipantWrapper>
+                        );
+                      })}
+                    </SortableContext>
+                    {session.participants.length === 0 && <div className="py-32 text-center border-4 border-dashed border-white/5 rounded-[3rem] opacity-30"><p className="text-5xl font-black uppercase tracking-[0.6em] italic font-righteous text-slate-800">NO SIGNALS</p></div>}
                   </div>
                 </section>
-              )}
 
-              <section className="bg-[#050510] border-4 border-[var(--neon-cyan)]/30 rounded-[3rem] p-10 shadow-[0_0_80px_rgba(0,229,255,0.15)] relative overflow-hidden backdrop-blur-md">
-                <div className="flex items-center gap-6 mb-10">
-                  <div className="w-4 h-4 bg-[var(--neon-cyan)] shadow-[0_0_20px_var(--neon-cyan)] rounded-full animate-pulse"></div>
-                  <h3 className="text-4xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-cyan">UPCOMING</h3>
-                </div>
-                <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6">
-                  {approvedSinging.map((req) => (
-                    <div key={req.id} className="relative group perspective-1000">
-                      <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-purple)] to-[var(--neon-blue)] rounded-[2.5rem] blur-xl opacity-20 group-hover:opacity-40 transition-opacity"></div>
-                      <div className="relative bg-[#101015] p-8 rounded-[2.5rem] border border-white/10 flex justify-between items-center group-hover:border-[var(--neon-cyan)] transition-all shadow-2xl h-full">
-                        <div className="min-w-0 pr-6 flex-1">
-                          <div className="text-white font-black uppercase truncate text-4xl font-bungee tracking-tight mb-2 group-hover:text-[var(--neon-cyan)] transition-colors">{req.songName}</div>
-                          <div className="text-lg text-slate-500 uppercase flex items-center gap-3 font-righteous tracking-[0.2em] opacity-80">
-                            <span className="text-[var(--neon-green)] font-black">@{req.participantName}</span>
-                            <span className="opacity-20">|</span>
-                            <span className="truncate">{req.artist}</span>
+                <section className="lg:col-span-4 lg:sticky lg:top-36 h-fit bg-[#050510] border-4 border border-white/5 rounded-[3.5rem] p-8 shadow-[0_0_60px_rgba(157,0,255,0.15)] relative overflow-hidden">
+                  <div className="flex justify-between items-center mb-10 px-2">
+                    <h2 className="text-4xl font-black text-white uppercase tracking-tighter font-bungee neon-glow-purple">SESSION LOG</h2>
+                    {session.history.length > 0 && <button onClick={async () => { await clearHistory(); await refresh(); }} className="text-sm font-black text-rose-500/40 hover:text-rose-500 uppercase tracking-[0.3em] font-righteous transition-all">CLEAR ALL</button>}
+                  </div>
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                    {session.history
+                      .filter(item => (item.playedAt || 0) >= (session.startedAt || 0))
+                      .map((item, i) => (
+                        <div key={i} className="bg-black/40 p-5 rounded-[1.5rem] border border-white/5 group hover:border-[var(--neon-purple)] transition-all">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="min-w-0 pr-4">
+                              <div className="text-2xl font-black text-white uppercase truncate font-bungee tracking-tight group-hover:text-[var(--neon-purple)] transition-colors">{item.songName}</div>
+                              <div className="text-sm text-slate-600 font-bold uppercase truncate font-righteous tracking-widest mt-1">{item.artist}</div>
+                            </div>
+                            <VideoLink url={item.youtubeUrl} />
+                          </div>
+                          <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-1">
+                            <button onClick={() => viewPerformerProfile(item.participantId)} className="text-sm font-black text-[var(--neon-pink)] uppercase truncate hover:text-white font-righteous tracking-widest transition-colors mb-0">@{item.participantName}</button>
+                            <button onClick={async () => { await reAddFromHistory(item, true); await refresh(); }} className="opacity-0 group-hover:opacity-100 text-xs font-black text-[var(--neon-cyan)] hover:text-white transition-all font-righteous tracking-widest uppercase ml-auto">RELOAD</button>
                           </div>
                         </div>
-                        <div className="flex gap-3 shrink-0 flex-col">
-                          <button onClick={() => handlePromoteToStage(req.id)} className="px-6 py-3 bg-[var(--neon-green)] text-black text-base font-black rounded-xl uppercase tracking-[0.2em] font-righteous shadow-[0_0_20px_var(--neon-green)] transition-all hover:bg-white hover:scale-105">STAGE</button>
-                          <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="px-6 py-3 border border-white/10 text-white/40 hover:text-rose-500 hover:border-rose-500/50 rounded-xl transition-all text-lg font-black uppercase tracking-[0.2em]">REMOVE</button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {approvedSinging.length === 0 && (
-                    <div className="col-span-full py-32 text-center border-4 border-dashed border-white/5 rounded-[4rem] opacity-30">
-                      <p className="text-5xl font-black uppercase tracking-[0.5em] italic font-righteous text-slate-700">NO DATA STREAM</p>
-                    </div>
-                  )}
-                </div>
-              </section>
-            </div>
-          )
-        }
+                      ))}
+                    {session.history.length === 0 && <div className="text-center py-20 opacity-20"><p className="text-lg italic font-righteous uppercase tracking-widest text-slate-700">EMPTY</p></div>}
+                  </div>
+                </section>
 
-        {
-          activeTab === 'PERFORMERS' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 animate-in slide-in-from-bottom-2 pb-32">
-              <section className="lg:col-span-8 bg-[#0a0a0a] border-4 border-[var(--neon-cyan)]/20 rounded-[3rem] p-10 shadow-[0_0_60px_rgba(0,229,255,0.1)] relative overflow-hidden backdrop-blur-md">
-                <div className="flex justify-between items-center mb-10 px-2">
-                  <h2 className="text-4xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-cyan">SINGERS</h2>
-                  <div className="flex items-center gap-4 px-6 py-2 bg-black/40 border border-[var(--neon-cyan)]/30 rounded-full shadow-lg">
-                    <div className="w-2 h-2 rounded-full bg-[var(--neon-cyan)] animate-pulse"></div>
-                    <span className="text-lg font-bold text-[var(--neon-cyan)] uppercase tracking-widest font-righteous">{liveMicCount} ACTIVE</span>
+                <section className="lg:col-span-12 bg-black/40 border-4 border-white/5 rounded-[3rem] p-10 mt-10 relative overflow-hidden">
+                  <div className="flex justify-between items-center mb-10 px-2">
+                    <h2 className="text-4xl font-black text-white uppercase tracking-tighter font-bungee neon-glow-cyan">COMPLETED ROUNDS</h2>
+                    <div className="text-[var(--neon-cyan)]/40 text-sm font-black uppercase tracking-[0.4em] font-righteous">HISTORY</div>
+                  </div>
+
+                  <div className="grid gap-12">
+                    {(() => {
+                      const rounds: Record<number, SongRequest[]> = {};
+                      session.history
+                        .filter(song => (song.playedAt || 0) >= (session.startedAt || 0))
+                        .forEach(song => {
+                          const time = song.playedAt || 0;
+                          if (!rounds[time]) rounds[time] = [];
+                          rounds[time].push(song);
+                        });
+
+                      const sortedTimestamps = Object.keys(rounds).map(Number).sort((a, b) => b - a);
+
+                      if (sortedTimestamps.length === 0) {
+                        return (
+                          <div className="text-center py-24 border-4 border-dashed border-white/5 rounded-[2.5rem] opacity-20">
+                            <p className="text-2xl font-black uppercase tracking-[0.4em] font-righteous text-slate-500">HISTORY_NULL</p>
+                          </div>
+                        );
+                      }
+
+                      return sortedTimestamps.map(timestamp => (
+                        <div key={timestamp} className="bg-[#050510] border-2 border-white/5 rounded-[2.5rem] p-8 relative group hover:border-[var(--neon-cyan)]/30 transition-all">
+                          <div className="absolute top-0 left-10 py-1 px-4 bg-[var(--neon-cyan)] text-black text-[10px] font-black uppercase tracking-widest rounded-b-lg font-righteous shadow-[0_0_15px_rgba(0,229,255,0.4)]">
+                            ROUND_{new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
+                            {rounds[timestamp].map((song, i) => (
+                              <div key={song.id} className="flex flex-col p-4 bg-black/40 rounded-2xl border border-white/5 group/song hover:bg-white/5 transition-all">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div className="text-lg font-black text-white uppercase truncate font-bungee tracking-tight group-hover/song:text-[var(--neon-cyan)] transition-colors">{song.songName}</div>
+                                  <VideoLink url={song.youtubeUrl} />
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-black text-[var(--neon-pink)] uppercase tracking-widest font-righteous">@{song.participantName}</span>
+                                  <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">POS_{i + 1}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </section>
+              </div>
+            )
+          }
+
+          {
+            activeTab === 'LIBRARY' && (
+              <section className="animate-in fade-in slide-in-from-bottom-2 space-y-10 pb-32">
+                <div className="sticky top-0 z-40 pt-4 -mt-4">
+                  <div className="relative group p-1 rounded-[2.5rem] bg-[#050510]/90 shadow-2xl backdrop-blur-xl border border-white/10">
+                    <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-pink)]/20 via-[var(--neon-purple)]/20 to-[var(--neon-cyan)]/20 blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
+                    <input
+                      type="text"
+                      placeholder="SEARCH SONGBOOK..."
+                      value={librarySearchQuery}
+                      onChange={(e) => setLibrarySearchQuery(e.target.value)}
+                      className="w-full bg-black/50 border-2 border-white/10 rounded-[2.3rem] py-6 pl-16 pr-32 text-2xl font-bold tracking-widest text-white placeholder:text-slate-600 focus:outline-none focus:border-[var(--neon-pink)] transition-all font-righteous uppercase"
+                    />
+                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-[var(--neon-pink)] transition-colors pointer-events-none">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </span>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-2">
+                      <button
+                        onClick={() => setIsAddingVerifiedSong(true)}
+                        className="px-6 py-3 bg-[var(--neon-cyan)] text-black rounded-[2rem] font-black text-base uppercase tracking-widest shadow-[0_0_15px_rgba(0,229,255,0.4)] active:scale-95 transition-all font-righteous hover:bg-white hover:scale-105"
+                      >
+                        + ADD NEW
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <div className="grid gap-6">
-                  {session.participants.map(p => {
-                    const isReady = p.status === ParticipantStatus.READY;
-                    const requests = session.requests.filter(r => r.participantId === p.id);
-                    const approvedCount = requests.filter(r => r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING).length;
 
-                    return (
-                      <div key={p.id} className={`flex items-center justify-between p-6 rounded-[2rem] transition-all border-2 ${isReady ? 'bg-[#002a1a]/30 border-[var(--neon-green)] shadow-[0_0_30px_rgba(0,255,157,0.15)]' : 'bg-black/40 border-white/5 hover:border-white/20'}`}>
-                        <div className="min-w-0 flex items-center gap-6 text-left">
-                          <button
-                            onClick={async () => { await updateParticipantStatus(p.id, isReady ? ParticipantStatus.STANDBY : ParticipantStatus.READY); await refresh(); }}
-                            className={`w-12 h-12 rounded-full shrink-0 border-2 transition-all flex items-center justify-center ${isReady ? 'bg-[var(--neon-green)] border-[var(--neon-green)] shadow-[0_0_20px_var(--neon-green)]' : 'bg-slate-900 border-white/10 hover:border-white/50'}`}
-                          >
-                            {isReady && <div className="w-4 h-4 bg-white rounded-full animate-pulse"></div>}
-                          </button>
-                          <div className="min-w-0">
-                            <button
-                              onClick={() => viewPerformerProfile(p.id)}
-                              className={`font-bold text-4xl uppercase truncate font-bungee tracking-tight transition-colors ${isReady ? 'text-white' : 'text-slate-600 hover:text-[var(--neon-green)]'}`}
-                            >
-                              {p.name}
-                            </button>
-                            {approvedCount > 0 && <div className="text-base font-bold text-[var(--neon-cyan)] uppercase mt-1 tracking-widest font-righteous opacity-90">{approvedCount} TRACKS READY</div>}
-                          </div>
-                        </div>
-                        <div className="flex gap-4 items-center">
-                          <button onClick={() => setPrefilledSinger(p)} className="px-6 py-3 bg-[var(--neon-cyan)]/10 text-[var(--neon-cyan)] rounded-xl border border-[var(--neon-cyan)]/50 transition-all font-righteous text-base font-black uppercase tracking-[0.2em] hover:bg-[var(--neon-cyan)] hover:text-black hover:shadow-[0_0_20px_var(--neon-cyan)]">
-                            ADD TRACK
-                          </button>
-                          <button onClick={() => { askConfirm(`Remove ${p.name}?`, async () => { await removeParticipant(p.id); await refresh(); }); }} className="text-rose-500/30 hover:text-rose-500 p-3 transition-colors text-3xl font-black">✕</button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {session.participants.length === 0 && <div className="py-32 text-center border-4 border-dashed border-white/5 rounded-[3rem] opacity-30"><p className="text-5xl font-black uppercase tracking-[0.6em] italic font-righteous text-slate-800">NO SIGNALS</p></div>}
-                </div>
-              </section>
-
-              <section className="lg:col-span-4 lg:sticky lg:top-36 h-fit bg-[#050510] border-4 border border-white/5 rounded-[3.5rem] p-8 shadow-[0_0_60px_rgba(157,0,255,0.15)] relative overflow-hidden">
-                <div className="flex justify-between items-center mb-10 px-2">
-                  <h2 className="text-4xl font-black text-white uppercase tracking-tighter font-bungee neon-glow-purple">SESSION LOG</h2>
-                  {session.history.length > 0 && <button onClick={async () => { await clearHistory(); await refresh(); }} className="text-sm font-black text-rose-500/40 hover:text-rose-500 uppercase tracking-[0.3em] font-righteous transition-all">CLEAR ALL</button>}
-                </div>
-                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                  {session.history
-                    .filter(item => (item.playedAt || 0) >= (session.startedAt || 0))
-                    .map((item, i) => (
-                      <div key={i} className="bg-black/40 p-5 rounded-[1.5rem] border border-white/5 group hover:border-[var(--neon-purple)] transition-all">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="min-w-0 pr-4">
-                            <div className="text-2xl font-black text-white uppercase truncate font-bungee tracking-tight group-hover:text-[var(--neon-purple)] transition-colors">{item.songName}</div>
-                            <div className="text-sm text-slate-600 font-bold uppercase truncate font-righteous tracking-widest mt-1">{item.artist}</div>
-                          </div>
-                          <VideoLink url={item.youtubeUrl} />
-                        </div>
-                        <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-1">
-                          <button onClick={() => viewPerformerProfile(item.participantId)} className="text-sm font-black text-[var(--neon-pink)] uppercase truncate hover:text-white font-righteous tracking-widest transition-colors mb-0">@{item.participantName}</button>
-                          <button onClick={async () => { await reAddFromHistory(item, true); await refresh(); }} className="opacity-0 group-hover:opacity-100 text-xs font-black text-[var(--neon-cyan)] hover:text-white transition-all font-righteous tracking-widest uppercase ml-auto">RELOAD</button>
-                        </div>
-                      </div>
-                    ))}
-                  {session.history.length === 0 && <div className="text-center py-20 opacity-20"><p className="text-lg italic font-righteous uppercase tracking-widest text-slate-700">EMPTY</p></div>}
-                </div>
-              </section>
-
-              <section className="lg:col-span-12 bg-black/40 border-4 border-white/5 rounded-[3rem] p-10 mt-10 relative overflow-hidden">
-                <div className="flex justify-between items-center mb-10 px-2">
-                  <h2 className="text-4xl font-black text-white uppercase tracking-tighter font-bungee neon-glow-cyan">COMPLETED ROUNDS</h2>
-                  <div className="text-[var(--neon-cyan)]/40 text-sm font-black uppercase tracking-[0.4em] font-righteous">HISTORY</div>
-                </div>
-
-                <div className="grid gap-12">
+                <div className="flex flex-col gap-3">
                   {(() => {
-                    const rounds: Record<number, SongRequest[]> = {};
-                    session.history
-                      .filter(song => (song.playedAt || 0) >= (session.startedAt || 0))
-                      .forEach(song => {
-                        const time = song.playedAt || 0;
-                        if (!rounds[time]) rounds[time] = [];
-                        rounds[time].push(song);
-                      });
+                    const verified = (session?.verifiedSongbook || []).map(v => ({
+                      ...v,
+                      isVerified: true,
+                      title: v.songName,
+                      source: 'VERIFIED'
+                    }));
 
-                    const sortedTimestamps = Object.keys(rounds).map(Number).sort((a, b) => b - a);
+                    const combined = verified.filter(song => {
+                      if (!librarySearchQuery) return true;
+                      const query = librarySearchQuery.toLowerCase();
+                      return song.title.toLowerCase().includes(query) || song.artist.toLowerCase().includes(query);
+                    });
 
-                    if (sortedTimestamps.length === 0) {
+                    if (combined.length === 0) {
                       return (
-                        <div className="text-center py-24 border-4 border-dashed border-white/5 rounded-[2.5rem] opacity-20">
-                          <p className="text-2xl font-black uppercase tracking-[0.4em] font-righteous text-slate-500">HISTORY_NULL</p>
+                        <div className="col-span-full text-center py-40 opacity-30 border-4 border-dashed border-white/5 rounded-[4rem]">
+                          <div className="text-8xl mb-6 opacity-50 grayscale animate-pulse">{librarySearchQuery ? '🚫' : '📡'}</div>
+                          <p className="text-5xl font-black uppercase tracking-[0.5em] font-righteous text-slate-600">{librarySearchQuery ? 'NO MATCH FOUND' : 'SONGBOOK EMPTY'}</p>
                         </div>
                       );
                     }
 
-                    return sortedTimestamps.map(timestamp => (
-                      <div key={timestamp} className="bg-[#050510] border-2 border-white/5 rounded-[2.5rem] p-8 relative group hover:border-[var(--neon-cyan)]/30 transition-all">
-                        <div className="absolute top-0 left-10 py-1 px-4 bg-[var(--neon-cyan)] text-black text-[10px] font-black uppercase tracking-widest rounded-b-lg font-righteous shadow-[0_0_15px_rgba(0,229,255,0.4)]">
-                          ROUND_{new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    return combined.map((song, idx) => (
+                      <div key={idx} className="bg-[#101015] border-2 border-white/5 p-4 rounded-[2rem] flex items-center justify-between group hover:border-[var(--neon-cyan)] transition-all relative hover:z-50 shadow-lg">
+                        <div className="flex items-center gap-6 flex-1 min-w-0">
+                          <div className="w-12 h-12 flex items-center justify-center bg-black rounded-lg border border-white/10 text-[var(--neon-cyan)] text-2xl">💿</div>
+                          <div className="min-w-0 pr-4">
+                            <div className="flex items-center gap-3">
+                              {song.isVerified && (
+                                <div className="px-2 py-0.5 bg-[var(--neon-pink)] text-black rounded-full text-[10px] font-black uppercase tracking-widest font-righteous shrink-0">VERIFIED</div>
+                              )}
+                              <h4 className="text-3xl font-black text-white uppercase truncate tracking-tighter font-bungee group-hover:text-[var(--neon-cyan)] transition-colors">{song.title}</h4>
+                              <span className="text-base text-slate-600 font-bold uppercase font-righteous tracking-widest truncate">/ {song.artist}</span>
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-                          {rounds[timestamp].map((song, i) => (
-                            <div key={song.id} className="flex flex-col p-4 bg-black/40 rounded-2xl border border-white/5 group/song hover:bg-white/5 transition-all">
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="text-lg font-black text-white uppercase truncate font-bungee tracking-tight group-hover/song:text-[var(--neon-cyan)] transition-colors">{song.songName}</div>
-                                <VideoLink url={song.youtubeUrl} />
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-black text-[var(--neon-pink)] uppercase tracking-widest font-righteous">@{song.participantName}</span>
-                                <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tighter">POS_{i + 1}</span>
+                        <div className="flex items-center gap-4 shrink-0">
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <CopyButton request={song as any} />
+                            <YouTubeSearchButton request={song as any} />
+                            <VideoLink url={(song as any).youtubeUrl} />
+                            <button
+                              onClick={async () => { await deleteVerifiedSong(song.id).then(refresh); }}
+                              className="p-2 text-rose-500/20 hover:text-rose-500 transition-all text-xl"
+                            >✕</button>
+                          </div>
+                          <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5 ml-4">
+                            <div className="relative group/assign">
+                              <button className="px-6 py-2.5 bg-white text-black text-sm font-black uppercase rounded-lg hover:bg-[var(--neon-cyan)] transition-all font-righteous tracking-wider">
+                                ASSIGN
+                              </button>
+                              <div className="absolute bottom-full right-0 mb-4 bg-[#0a0a0a] border-2 border-[var(--neon-cyan)]/30 rounded-[1.5rem] shadow-2xl opacity-0 invisible group-hover/assign:opacity-100 group-hover/assign:visible transition-all p-4 z-50 backdrop-blur-xl w-[200px]">
+                                <p className="text-base text-[var(--neon-cyan)] font-black uppercase mb-3 border-b border-white/10 pb-2 font-righteous tracking-widest">TRANSMIT TO:</p>
+                                <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                                  {session.participants.map(p => (
+                                    <button
+                                      key={p.id}
+                                      onClick={async () => { const req = await addRequest({ participantId: p.id, participantName: p.name, songName: song.title, artist: song.artist, youtubeUrl: (song as any).youtubeUrl, type: RequestType.SINGING }); if (req) await approveRequest(req.id); await refresh(); }}
+                                      className="w-full text-left p-2 rounded-lg hover:bg-white/10 hover:text-[var(--neon-cyan)] text-lg font-black text-slate-400 uppercase truncate font-righteous transition-all"
+                                    >
+                                      {p.name}
+                                    </button>
+                                  ))}
+                                  <div className="h-[1px] bg-white/10 my-2" />
+                                  <button
+                                    onClick={async () => { const req = await addRequest({ participantId: 'DJ-MANUAL', participantName: 'GUEST', songName: song.title, artist: song.artist, youtubeUrl: (song as any).youtubeUrl, type: RequestType.SINGING }); if (req) await approveRequest(req.id); await refresh(); }}
+                                    className="w-full text-left p-2 rounded-lg bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)] hover:text-black text-sm font-black uppercase font-righteous transition-all"
+                                  >
+                                    + GUEST
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                          ))}
+
+                            <div className="relative group/star">
+                              <button className="px-4 py-2.5 bg-black border border-white/10 text-[var(--neon-pink)] rounded-lg font-black text-sm uppercase tracking-widest hover:border-[var(--neon-pink)] transition-all font-righteous">★</button>
+                              <div className="absolute bottom-full right-0 mb-4 bg-[#0a0a0a] border-2 border-[var(--neon-pink)]/30 rounded-[1.5rem] shadow-2xl opacity-0 invisible group-hover/star:opacity-100 group-hover/star:visible transition-all p-4 z-50 backdrop-blur-xl w-[180px]">
+                                <p className="text-base text-[var(--neon-pink)] font-black uppercase mb-3 border-b border-white/10 pb-2 font-righteous tracking-widest">ADD FAVORITE:</p>
+                                <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                                  {session.participants.map(p => (
+                                    <button
+                                      key={p.id}
+                                      onClick={async () => { await addUserFavorite(p.id, { songName: song.title, artist: song.artist, youtubeUrl: (song as any).youtubeUrl, type: song.type as RequestType }); await refresh(); }}
+                                      className="w-full text-left p-2 rounded-lg hover:bg-white/10 hover:text-[var(--neon-pink)] text-lg font-black text-slate-400 uppercase truncate font-righteous transition-all"
+                                    >
+                                      {p.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ));
                   })()}
                 </div>
               </section>
+            )
+          }
+        </main >
+
+        {showRoundConfirm && (
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-6 z-[100] backdrop-blur-xl animate-in fade-in duration-300">
+            <div className="w-full max-w-2xl bg-[#0a0a0a] border-4 border-[var(--neon-pink)]/30 rounded-[3rem] p-10 shadow-[0_0_100px_rgba(255,42,109,0.2)] animate-in zoom-in-95 duration-500 relative overflow-hidden">
+              <div className="flex justify-between items-start mb-8">
+                <h2 className="text-5xl font-bold text-white uppercase tracking-tight leading-none font-bungee neon-glow-pink">REVIEW LINEUP</h2>
+                <button onClick={() => setShowRoundConfirm(false)} className="text-slate-600 hover:text-white font-bold text-5xl px-2 transition-all transform hover:scale-110">✕</button>
+              </div>
+              <div className="mb-8 text-lg text-[var(--neon-cyan)] font-bold uppercase tracking-widest font-righteous opacity-80 decoration-dotted underline underline-offset-4">OPERATIONAL READY CHECK</div>
+
+              <div className="space-y-4 mb-10 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
+                {(() => {
+                  const singingParticipants = session.participants
+                    .filter(p => session.requests?.some(r => r.participantId === p.id && r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING && !r.isInRound))
+                    .sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0)); // Visual sort, actual sort happens in generateRound
+
+                  // If we have singers, show them
+                  if (singingParticipants.length > 0) {
+                    return singingParticipants.map(p => {
+                      const isReady = p.status === ParticipantStatus.READY;
+                      const song = session.requests?.find(r =>
+                        r.participantId === p.id &&
+                        r.status === RequestStatus.APPROVED &&
+                        r.type === RequestType.SINGING &&
+                        !r.isInRound
+                      );
+
+                      return (
+                        <div key={p.id} className={`flex items-center justify-between p-4 rounded-[1.5rem] border-2 transition-all duration-300 ${isReady ? 'bg-[#150030] border-[var(--neon-green)] shadow-[0_0_20px_rgba(57,255,20,0.15)]' : 'bg-black/40 border-white/5 opacity-50'}`}>
+                          <div className="flex items-center gap-4 min-w-0">
+                            <button
+                              onClick={async () => { await updateParticipantStatus(p.id, isReady ? ParticipantStatus.STANDBY : ParticipantStatus.READY); await refresh(); }}
+                              className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center transition-all border-2 ${isReady ? 'bg-[var(--neon-green)] border-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-slate-900 border-white/10 hover:border-slate-600'}`}
+                            >
+                              {isReady && <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>}
+                            </button>
+                            <div className="min-w-0">
+                              <div className={`font-bold uppercase text-2xl truncate tracking-tight font-bungee ${isReady ? 'text-white' : 'text-slate-600'}`}>{p.name}</div>
+                              {isReady ? (
+                                song ? (
+                                  <div className="text-[var(--neon-cyan)] text-base font-black uppercase tracking-[0.2em] font-righteous mt-0.5 opacity-90">
+                                    {song.songName}
+                                  </div>
+                                ) : (
+                                  <div className="text-rose-500 text-sm font-black uppercase tracking-[0.1em] font-righteous mt-0.5">⚠️ NO SIGNAL</div>
+                                )
+                              ) : (
+                                <div className="text-slate-700 text-sm font-black uppercase tracking-[0.2em] font-righteous mt-0.5">STANDBY</div>
+                              )}
+                            </div>
+                          </div>
+                          {isReady && song && <div className="shrink-0 text-sm bg-[var(--neon-cyan)] text-black px-4 py-1.5 rounded-full font-black uppercase tracking-widest font-righteous shadow-[0_0_10px_var(--neon-cyan)] animate-in fade-in zoom-in">READY</div>}
+                        </div>
+                      );
+                    });
+                  } else {
+                    // Show Listening Requests Fallback
+                    const listening = session.requests?.filter(r =>
+                      r.status === RequestStatus.APPROVED && r.type === RequestType.LISTENING && !r.isInRound
+                    ).sort((a, b) => a.createdAt - b.createdAt).slice(0, 5) || [];
+
+                    if (listening.length > 0) {
+                      return (
+                        <div className="space-y-4">
+                          <div className="p-4 bg-white/5 rounded-xl border border-dashed border-white/10 text-center">
+                            <p className="text-[var(--neon-blue)] font-black uppercase tracking-widest font-righteous">FALLBACK: LISTENING MODE</p>
+                          </div>
+                          {listening.map(song => (
+                            <div key={song.id} className="flex items-center justify-between p-4 rounded-[1.5rem] border-2 bg-[#0a0a20] border-[var(--neon-blue)]/30">
+                              <div className="min-w-0">
+                                <div className="text-[var(--neon-blue)] text-xl font-black uppercase tracking-tight font-bungee">{song.songName}</div>
+                                <div className="text-slate-500 text-sm font-bold uppercase tracking-widest font-righteous">{song.artist}</div>
+                              </div>
+                              <div className="text-xs font-black uppercase tracking-widest text-[var(--neon-pink)] font-righteous">@{song.participantName}</div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="text-center py-24 bg-black/20 rounded-[2.5rem] border-4 border-dashed border-white/5 animate-in fade-in duration-700">
+                        <p className="text-slate-700 text-2xl font-black uppercase tracking-[0.4em] font-righteous">NO DATA</p>
+                      </div>
+                    );
+                  }
+                })()}
+              </div>
+
+              <div className="flex gap-4">
+                <button onClick={() => setShowRoundConfirm(false)} className="flex-1 py-4 bg-black hover:bg-white hover:text-black text-white border border-white/10 rounded-xl font-black uppercase text-base tracking-widest transition-all font-righteous">CANCEL</button>
+                {(() => {
+                  const singingEligible = session.participants.filter(p =>
+                    session.requests?.some(r => r.participantId === p.id && r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING && !r.isInRound)
+                  ).length;
+
+                  const listeningEligible = session.requests?.filter(r =>
+                    r.status === RequestStatus.APPROVED && r.type === RequestType.LISTENING && !r.isInRound
+                  ).length || 0;
+
+                  const eligibleCount = singingEligible > 0 ? singingEligible : listeningEligible;
+                  const modeLabel = singingEligible > 0 ? 'ACTIVATE ROUND' : 'ACTIVATE LISTENING';
+
+                  return (
+                    <button
+                      onClick={handleConfirmRound}
+                      disabled={eligibleCount === 0}
+                      className={`flex-[2] py-4 rounded-xl font-black uppercase text-base tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg font-righteous ${eligibleCount > 0 ? 'bg-[var(--neon-green)] hover:bg-white hover:text-black text-black hover:scale-105' : 'bg-slate-900 text-slate-800 cursor-not-allowed border border-white/5'}`}
+                    >
+                      {eligibleCount > 0 ? (
+                        <>
+                          <div className="w-1.5 h-1.5 bg-current rounded-full animate-ping"></div>
+                          {modeLabel} ({eligibleCount})
+                        </>
+                      ) : 'IDLE'}
+                    </button>
+                  );
+                })()}
+              </div>
+              {/* Queue Strategy Selector */}
+              <div className="bg-[#151520] p-6 rounded-[2rem] border border-white/5 mt-8">
+                <h3 className="text-xl font-black text-white uppercase tracking-widest font-righteous mb-4 flex items-center gap-3">
+                  <span className="text-[var(--neon-purple)]">⚖️</span> Priority Protocol
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {Object.values(QueueStrategy).map((strat) => (
+                    <button
+                      key={strat}
+                      onClick={() => {
+                        setQueueStrategy(strat);
+                        // refresh(); // Optimistic update usually handled by listener, but refresh good to sync
+                      }}
+                      className={`p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden group ${session.queueStrategy === strat
+                        ? 'bg-[var(--neon-purple)]/20 border-[var(--neon-purple)] text-white shadow-[0_0_15px_var(--neon-purple)]'
+                        : 'bg-black/40 border-white/5 text-slate-500 hover:border-white/20 hover:text-slate-300'
+                        }`}
+                    >
+                      <div className="font-bold font-righteous uppercase tracking-wider relative z-10">
+                        {strat.replace('_', ' ')}
+                      </div>
+                      <div className="text-[10px] uppercase font-mono mt-1 opacity-60 relative z-10">
+                        {strat === 'FRESH_MEAT' && "New Singers First"}
+                        {strat === 'FAIR_ROTATION' && "Fewest Songs + Oldest Wait"}
+                        {strat === 'FIFO' && "Strict First In First Out"}
+                        {strat === 'OLDEST_MEMBER' && "Oldest Singers First"}
+                        {strat === 'RANDOM' && "Chaotic Shuffle"}
+                      </div>
+                      {session.queueStrategy === strat && (
+                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[var(--neon-green)] animate-pulse"></div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+
+        {
+          showResetConfirm && (
+            <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-300">
+              <div className="w-full max-w-md bg-[#050510] border-4 border-rose-500/30 rounded-[3rem] p-10 text-center shadow-[0_0_100px_rgba(244,63,94,0.3)] animate-in zoom-in-95 duration-300 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.8)]"></div>
+                <div className="w-20 h-20 bg-rose-500/10 text-rose-500 rounded-[2rem] border-2 border-rose-500/20 flex items-center justify-center mx-auto mb-6 text-4xl font-black shadow-[0_0_30px_rgba(244,63,94,0.2)] animate-pulse">🧹</div>
+                <h2 className="text-5xl font-black text-white uppercase mb-4 tracking-tight font-bungee neon-text-glow-rose">SYSTEM RESET</h2>
+                <p className="text-slate-400 text-lg mb-8 leading-relaxed font-black font-righteous uppercase tracking-widest">
+                  This will <span className="text-rose-500 underline decoration-2 underline-offset-4 decoration-rose-500">TERMINATE ALL SESSIONS</span>, clear requests, and wipe history logs.
+                </p>
+                <div className="flex gap-4">
+                  <button onClick={() => setShowResetConfirm(false)} className="flex-1 py-4 bg-black border-2 border-white/10 text-white rounded-xl text-base font-black uppercase tracking-widest font-righteous transition-all hover:bg-white/5">ABORT</button>
+                  <button onClick={handleConfirmReset} className="flex-[2] py-4 bg-rose-500 text-white rounded-xl text-base font-black uppercase tracking-widest font-righteous shadow-[0_0_30px_rgba(244,63,94,0.4)] transition-all hover:bg-rose-400 hover:scale-105">EXECUTE WIPE</button>
+                </div>
+              </div>
             </div>
           )
         }
 
         {
-          activeTab === 'LIBRARY' && (
-            <section className="animate-in fade-in slide-in-from-bottom-2 space-y-10 pb-32">
-              <div className="sticky top-0 z-40 pt-4 -mt-4">
-                <div className="relative group p-1 rounded-[2.5rem] bg-[#050510]/90 shadow-2xl backdrop-blur-xl border border-white/10">
-                  <div className="absolute inset-0 bg-gradient-to-r from-[var(--neon-pink)]/20 via-[var(--neon-purple)]/20 to-[var(--neon-cyan)]/20 blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500"></div>
-                  <input
-                    type="text"
-                    placeholder="SEARCH SONGBOOK..."
-                    value={librarySearchQuery}
-                    onChange={(e) => setLibrarySearchQuery(e.target.value)}
-                    className="w-full bg-black/50 border-2 border-white/10 rounded-[2.3rem] py-6 pl-16 pr-32 text-2xl font-bold tracking-widest text-white placeholder:text-slate-600 focus:outline-none focus:border-[var(--neon-pink)] transition-all font-righteous uppercase"
-                  />
-                  <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-[var(--neon-pink)] transition-colors pointer-events-none">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                  </span>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex gap-2">
+          (showUserManager || managedProfile) && (
+            <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[70] backdrop-blur-3xl animate-in fade-in duration-300">
+              <div className="w-full max-w-6xl bg-[#0a0a0a] border-4 border-white/10 rounded-[4rem] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] flex flex-col max-h-[90vh] relative">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
+                <div className="p-8 border-b-2 border-white/5 flex justify-between items-center bg-black/40 backdrop-blur-xl">
+                  <div>
+                    <h2 className="text-5xl font-black text-white font-bungee uppercase tracking-tight neon-glow-purple">User Directory</h2>
+                    <p className="text-base text-[var(--neon-cyan)] uppercase font-black tracking-[0.3em] font-righteous opacity-80 mt-1">Authenticated Identities & Signal History</p>
+                  </div>
+                  <div className="flex gap-3">
+                    {managedProfile && (
+                      <button onClick={() => setManagedProfile(null)} className="px-6 py-3 bg-black border border-white/10 text-white rounded-xl text-sm font-black uppercase tracking-widest font-righteous hover:bg-white/10 transition-all">← ALL ACCOUNTS</button>
+                    )}
                     <button
-                      onClick={() => setIsAddingVerifiedSong(true)}
-                      className="px-6 py-3 bg-[var(--neon-cyan)] text-black rounded-[2rem] font-black text-base uppercase tracking-widest shadow-[0_0_15px_rgba(0,229,255,0.4)] active:scale-95 transition-all font-righteous hover:bg-white hover:scale-105"
+                      onClick={() => {
+                        askConfirm('DANGER: This will permanently delete ALL GUEST ACCOUNTS and DUPLICATE ENTRIES from the Firestore database. Proceed?', async () => {
+                          const res = await administrativeCleanup();
+                          if (res.success) {
+                            alert(`DATABASE CLEANUP SUCCESS: Removed ${res.deletedCount} orphan records.`);
+                            await refresh();
+                          } else {
+                            alert(`CLEANUP FAILED: ${res.error}`);
+                          }
+                        });
+                      }}
+                      className="px-6 py-3 bg-rose-500/10 border border-rose-500/50 text-rose-500 rounded-xl text-sm font-black uppercase tracking-widest font-righteous hover:bg-rose-500 hover:text-white transition-all hover:scale-105"
                     >
-                      + ADD NEW
+                      PURGE GUESTS
                     </button>
+                    <button
+                      onClick={() => setIsCreatingProfile(true)}
+                      className="px-6 py-3 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all hover:scale-105"
+                    >
+                      + NEW ACCOUNT
+                    </button>
+                    <button onClick={closeModals} className="text-slate-600 hover:text-white p-2 ml-2 font-black text-4xl transition-colors transform hover:scale-110">✕</button>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-3">
-                {(() => {
-                  const verified = (session?.verifiedSongbook || []).map(v => ({
-                    ...v,
-                    isVerified: true,
-                    title: v.songName,
-                    source: 'VERIFIED'
-                  }));
+                <div className="p-6 border-b-2 border-white/5 bg-black/20">
+                  <div className="relative group max-w-2xl mx-auto">
+                    <input
+                      type="text"
+                      placeholder="SCANNING DIRECTORY RECORDS..."
+                      value={directorySearch}
+                      onChange={(e) => setDirectorySearch(e.target.value)}
+                      className="w-full bg-[#050510] border-2 border-white/10 rounded-2xl px-10 py-4 text-white font-black uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all shadow-inner placeholder:text-slate-700 text-xl"
+                    />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700 group-focus-within:text-[var(--neon-pink)] transition-colors">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </span>
+                  </div>
+                </div>
 
-                  const combined = verified.filter(song => {
-                    if (!librarySearchQuery) return true;
-                    const query = librarySearchQuery.toLowerCase();
-                    return song.title.toLowerCase().includes(query) || song.artist.toLowerCase().includes(query);
-                  });
+                <div className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar bg-black/20">
+                  {managedProfile ? (
+                    <div className="animate-in slide-in-from-right-4 duration-500 grid lg:grid-cols-12 gap-8">
+                      <div className="lg:col-span-4 space-y-6">
+                        <div className="bg-[#101015] border-2 border-white/5 rounded-[3rem] p-8 shadow-2xl relative overflow-hidden group hover:border-[var(--neon-purple)] transition-all">
+                          <div className="absolute top-0 right-0 w-48 h-48 bg-[var(--neon-purple)]/10 blur-[60px] rounded-full -mr-24 -mt-24 group-hover:bg-[var(--neon-purple)]/20 transition-all" />
+                          <div className="relative z-10 flex flex-col items-center text-center">
+                            <div className="scale-125 mb-4">
+                              <UserAvatar name={managedProfile.name} isActive={session.participants.some(p => p.id === managedProfile.id)} />
+                            </div>
+                            <div className="mt-4">
+                              <div className="text-sm font-bold text-[var(--neon-cyan)] uppercase tracking-widest mb-2 font-righteous">SINGER PROFILE</div>
+                              <h3 className="text-5xl font-bold text-white uppercase tracking-tight leading-none font-bungee break-words">{managedProfile.name}</h3>
+                            </div>
 
-                  if (combined.length === 0) {
-                    return (
-                      <div className="col-span-full text-center py-40 opacity-30 border-4 border-dashed border-white/5 rounded-[4rem]">
-                        <div className="text-8xl mb-6 opacity-50 grayscale animate-pulse">{librarySearchQuery ? '🚫' : '📡'}</div>
-                        <p className="text-5xl font-black uppercase tracking-[0.5em] font-righteous text-slate-600">{librarySearchQuery ? 'NO MATCH FOUND' : 'SONGBOOK EMPTY'}</p>
-                      </div>
-                    );
-                  }
+                            <div className="w-full mt-8 space-y-3 pt-6 border-t border-white/5">
+                              <div className="flex justify-between items-center text-sm uppercase font-black font-righteous tracking-widest">
+                                <span className="text-slate-600">SINGER ID</span>
+                                <span className="text-[var(--neon-pink)] font-mono opacity-80">{managedProfile.id.slice(0, 8)}...</span>
+                              </div>
+                              <div className="flex justify-between items-center text-sm uppercase font-black font-righteous tracking-widest">
+                                <span className="text-slate-600">SECURITY</span>
+                                <span className={`px-2 py-0.5 rounded-full ${managedProfile.password ? 'bg-[var(--neon-pink)]/10 text-[var(--neon-pink)]' : 'bg-slate-900 text-slate-600'}`}>
+                                  {managedProfile.password ? 'SECURE PIN' : 'OPEN LINK'}
+                                </span>
+                              </div>
+                            </div>
 
-                  return combined.map((song, idx) => (
-                    <div key={idx} className="bg-[#101015] border-2 border-white/5 p-4 rounded-[2rem] flex items-center justify-between group hover:border-[var(--neon-cyan)] transition-all relative hover:z-50 shadow-lg">
-                      <div className="flex items-center gap-6 flex-1 min-w-0">
-                        <div className="w-12 h-12 flex items-center justify-center bg-black rounded-lg border border-white/10 text-[var(--neon-cyan)] text-2xl">💿</div>
-                        <div className="min-w-0 pr-4">
-                          <div className="flex items-center gap-3">
-                            {song.isVerified && (
-                              <div className="px-2 py-0.5 bg-[var(--neon-pink)] text-black rounded-full text-[10px] font-black uppercase tracking-widest font-righteous shrink-0">VERIFIED</div>
-                            )}
-                            <h4 className="text-3xl font-black text-white uppercase truncate tracking-tighter font-bungee group-hover:text-[var(--neon-cyan)] transition-colors">{song.title}</h4>
-                            <span className="text-base text-slate-600 font-bold uppercase font-righteous tracking-widest truncate">/ {song.artist}</span>
+                            <div className="w-full mt-10 space-y-3">
+                              <button onClick={() => startChangePassword(managedProfile)} className="w-full py-3 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous">CHANGE PASSWORD</button>
+                              <button onClick={async () => {
+                                setQrTargetUser(managedProfile);
+                                setShowQrModal(true);
+                                await joinSession(managedProfile.id);
+                                await refresh();
+                              }} className="w-full py-3 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)] font-righteous hover:bg-white">SYNC QR CODE</button>
+                              <div className="pt-2 border-t border-white/5 mt-2 space-y-2">
+                                {/* Ban functionality removed as requested */}
+                              </div>
+                              <button onClick={() => { askConfirm('Permanently delete this account?', async () => { await deleteAccount(managedProfile.id); setManagedProfile(null); await refresh(); }); }} className="w-full py-3 bg-rose-500/5 hover:bg-rose-500 text-rose-500/40 hover:text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all border border-transparent hover:border-rose-500/30 font-righteous mt-2">TERMINATE ACCOUNT</button>
+                            </div>
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 shrink-0">
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <CopyButton request={song as any} />
-                          <YouTubeSearchButton request={song as any} />
-                          <VideoLink url={(song as any).youtubeUrl} />
-                          <button
-                            onClick={async () => { await deleteVerifiedSong(song.id).then(refresh); }}
-                            className="p-2 text-rose-500/20 hover:text-rose-500 transition-all text-xl"
-                          >✕</button>
-                        </div>
-                        <div className="flex gap-2 bg-black/40 p-1 rounded-xl border border-white/5 ml-4">
-                          <div className="relative group/assign">
-                            <button className="px-6 py-2.5 bg-white text-black text-sm font-black uppercase rounded-lg hover:bg-[var(--neon-cyan)] transition-all font-righteous tracking-wider">
-                              ASSIGN
-                            </button>
-                            <div className="absolute bottom-full right-0 mb-4 bg-[#0a0a0a] border-2 border-[var(--neon-cyan)]/30 rounded-[1.5rem] shadow-2xl opacity-0 invisible group-hover/assign:opacity-100 group-hover/assign:visible transition-all p-4 z-50 backdrop-blur-xl w-[200px]">
-                              <p className="text-base text-[var(--neon-cyan)] font-black uppercase mb-3 border-b border-white/10 pb-2 font-righteous tracking-widest">TRANSMIT TO:</p>
-                              <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar pr-2">
-                                {session.participants.map(p => (
-                                  <button
-                                    key={p.id}
-                                    onClick={async () => { const req = await addRequest({ participantId: p.id, participantName: p.name, songName: song.title, artist: song.artist, youtubeUrl: (song as any).youtubeUrl, type: RequestType.SINGING }); if (req) await approveRequest(req.id); await refresh(); }}
-                                    className="w-full text-left p-2 rounded-lg hover:bg-white/10 hover:text-[var(--neon-cyan)] text-lg font-black text-slate-400 uppercase truncate font-righteous transition-all"
-                                  >
-                                    {p.name}
-                                  </button>
-                                ))}
-                                <div className="h-[1px] bg-white/10 my-2" />
-                                <button
-                                  onClick={async () => { const req = await addRequest({ participantId: 'DJ-MANUAL', participantName: 'GUEST', songName: song.title, artist: song.artist, youtubeUrl: (song as any).youtubeUrl, type: RequestType.SINGING }); if (req) await approveRequest(req.id); await refresh(); }}
-                                  className="w-full text-left p-2 rounded-lg bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)] hover:text-black text-sm font-black uppercase font-righteous transition-all"
-                                >
-                                  + GUEST
-                                </button>
-                              </div>
+                      <div className="lg:col-span-8 space-y-6">
+                        <div className="grid md:grid-cols-2 gap-6">
+                          <div className="bg-[#101015] border-2 border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden">
+                            <h4 className="text-sm font-black text-[var(--neon-pink)] uppercase tracking-[0.3em] mb-6 font-righteous">LIBRARY STARS ({managedProfile.favorites.length})</h4>
+                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                              {managedProfile.favorites.map(fav => (
+                                <div key={fav.id} className="bg-black/40 border border-white/5 p-4 rounded-xl flex justify-between items-center group hover:border-[var(--neon-pink)] transition-all">
+                                  <div className="min-w-0 pr-4">
+                                    <div className="text-xl font-black text-white truncate uppercase tracking-tight font-righteous group-hover:text-[var(--neon-pink)] transition-colors">{fav.songName}</div>
+                                    <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-0.5 font-righteous opacity-60">{fav.artist}</div>
+                                  </div>
+                                  <div className="flex gap-2 shrink-0">
+                                    <button onClick={async () => { await addRequest({ participantId: managedProfile!.id, participantName: managedProfile!.name, songName: fav.songName, artist: fav.artist, youtubeUrl: fav.youtubeUrl, type: fav.type }); await refresh(); }} className="px-3 py-1.5 bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] rounded-lg text-xs font-black uppercase font-righteous hover:bg-[var(--neon-cyan)] hover:text-black transition-all">ADD</button>
+                                    <button onClick={() => setProfileItemToEdit({ type: 'favorite', itemId: fav.id })} className="p-1.5 text-slate-700 hover:text-white transition-colors">✏️</button>
+                                    <button onClick={() => { askConfirm('Remove from stars?', async () => { await removeUserFavorite(managedProfile!.id, fav.id); await refresh(); }); }} className="p-1.5 text-rose-500/30 hover:text-rose-500 transition-colors">✕</button>
+                                  </div>
+                                </div>
+                              ))}
+                              {managedProfile.favorites.length === 0 && <div className="flex flex-col items-center py-20 opacity-20"><span className="text-4xl mb-3 grayscale">⭐</span><p className="text-sm font-black uppercase tracking-[0.3em] font-righteous text-slate-600">Catalog is empty</p></div>}
                             </div>
                           </div>
 
-                          <div className="relative group/star">
-                            <button className="px-4 py-2.5 bg-black border border-white/10 text-[var(--neon-pink)] rounded-lg font-black text-sm uppercase tracking-widest hover:border-[var(--neon-pink)] transition-all font-righteous">★</button>
-                            <div className="absolute bottom-full right-0 mb-4 bg-[#0a0a0a] border-2 border-[var(--neon-pink)]/30 rounded-[1.5rem] shadow-2xl opacity-0 invisible group-hover/star:opacity-100 group-hover/star:visible transition-all p-4 z-50 backdrop-blur-xl w-[180px]">
-                              <p className="text-base text-[var(--neon-pink)] font-black uppercase mb-3 border-b border-white/10 pb-2 font-righteous tracking-widest">ADD FAVORITE:</p>
-                              <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar pr-2">
-                                {session.participants.map(p => (
-                                  <button
-                                    key={p.id}
-                                    onClick={async () => { await addUserFavorite(p.id, { songName: song.title, artist: song.artist, youtubeUrl: (song as any).youtubeUrl, type: song.type as RequestType }); await refresh(); }}
-                                    className="w-full text-left p-2 rounded-lg hover:bg-white/10 hover:text-[var(--neon-pink)] text-lg font-black text-slate-400 uppercase truncate font-righteous transition-all"
-                                  >
-                                    {p.name}
-                                  </button>
-                                ))}
-                              </div>
+                          <div className="bg-[#101015] border-2 border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden">
+                            <h4 className="text-sm font-black text-[var(--neon-cyan)] uppercase tracking-[0.3em] mb-6 font-righteous">PERFORMANCE LOG ({managedProfile.personalHistory.length})</h4>
+                            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                              {managedProfile.personalHistory.map((h, i) => (
+                                <div key={i} className="bg-black/40 border border-white/5 p-4 rounded-xl group hover:border-[var(--neon-cyan)] transition-all">
+                                  <div className="flex justify-between items-start">
+                                    <div className="min-w-0 pr-4">
+                                      <div className="text-xl font-bold text-white truncate uppercase tracking-tight font-righteous group-hover:text-[var(--neon-cyan)] transition-colors">{h.songName}</div>
+                                      <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-0.5 font-righteous opacity-60">{h.artist}</div>
+                                    </div>
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
+                                      <button onClick={() => setProfileItemToEdit({ type: 'history', itemId: h.id })} className="p-1.5 text-slate-700 hover:text-white transition-colors">✏️</button>
+                                      <button onClick={() => { askConfirm('Erase from history?', async () => { await removeUserHistoryItem(managedProfile!.id, h.id); await refresh(); }); }} className="p-1.5 text-rose-500/30 hover:text-rose-500 transition-colors">✕</button>
+                                    </div>
+                                  </div>
+                                  <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5">
+                                    <span className="text-xs text-slate-700 font-black uppercase font-righteous tracking-widest">{new Date(h.createdAt).toLocaleDateString()}</span>
+                                    <button
+                                      onClick={async () => { await reAddFromHistory(h, true); await refresh(); }}
+                                      className="px-3 py-1.5 bg-[var(--neon-pink)]/10 border border-[var(--neon-pink)]/30 text-[var(--neon-pink)] rounded-lg text-xs font-black uppercase font-righteous hover:bg-[var(--neon-pink)] hover:text-black transition-all"
+                                    >
+                                      RE-QUEUE
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                              {managedProfile.personalHistory.length === 0 && <div className="flex flex-col items-center py-20 opacity-20"><span className="text-4xl mb-3 grayscale">🎤</span><p className="text-sm font-black uppercase tracking-[0.3em] font-righteous text-slate-600">No transmissions recorded</p></div>}
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  ));
-                })()}
+                  ) : isChangingPassword ? (
+                    <form onSubmit={handleChangePasswordSubmit} className="max-w-xl mx-auto bg-[#101015] border-2 border-white/10 p-10 rounded-[3rem] space-y-6 shadow-[0_0_60px_rgba(255,0,127,0.1)] animate-in fade-in zoom-in-95 duration-500">
+                      <h3 className="text-5xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-pink mb-2 text-center">SECURITY UPDATE</h3>
+                      <p className="text-center text-slate-400 font-righteous uppercase tracking-widest mb-8">
+                        UPDATING KEY FOR: <span className="text-[var(--neon-cyan)]">{editingProfile?.name}</span>
+                      </p>
+
+                      <div className="space-y-6">
+                        <div>
+                          <label className="block text-sm font-bold text-slate-500 uppercase mb-2 ml-4 tracking-widest font-righteous">NEW ENCRYPTION PIN</label>
+                          <input required type="password" value={passwordForm} onChange={e => { setPasswordForm(e.target.value); setProfileError(''); }} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-bold uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" placeholder="ENTER NEW PIN" />
+                        </div>
+
+                        {profileError && (
+                          <div className="mb-4 animate-pulse">
+                            <p className="text-[var(--neon-pink)] font-bold uppercase text-sm tracking-widest flex items-center gap-2">
+                              <span className="text-lg">⚠️</span> {profileError}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-4 pt-4">
+                        <button type="button" onClick={() => { setIsChangingPassword(false); setManagedProfile(editingProfile); setEditingProfile(null); }} className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-sm font-bold uppercase tracking-widest font-righteous hover:bg-white/5">ABORT</button>
+                        <button type="submit" className="flex-[2] py-4 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-bold uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white">UPDATE KEY</button>
+                      </div>
+                    </form>
+                  ) : isCreatingProfile ? (
+                    <form onSubmit={handleProfileFormSubmit} className="max-w-xl mx-auto bg-[#101015] border-2 border-white/10 p-10 rounded-[3rem] space-y-6 shadow-[0_0_60px_rgba(255,0,127,0.1)] animate-in fade-in zoom-in-95 duration-500">
+                      <h3 className="text-5xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-pink mb-2 text-center">{editingProfile ? 'Modify Profile' : 'New User Account'}</h3>
+                      <div className="space-y-6">
+                        <div>
+                          <label className="block text-sm font-bold text-slate-500 uppercase mb-2 ml-4 tracking-widest font-righteous">IDENTITY HANDLE</label>
+                          <input required type="text" value={profileForm.name} onChange={e => { setProfileForm({ ...profileForm, name: e.target.value }); setProfileError(''); }} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-bold uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" />
+                        </div>
+
+                        {profileError && (
+                          <div className="mb-4 animate-pulse">
+                            <p className="text-[var(--neon-pink)] font-bold uppercase text-sm tracking-widest flex items-center gap-2">
+                              <span className="text-lg">⚠️</span> {profileError}
+                            </p>
+                          </div>
+                        )}
+                        <div>
+                          <label className="block text-sm font-bold text-slate-500 uppercase mb-2 ml-4 tracking-widest font-righteous">ENCRYPTION PIN (OPTIONAL)</label>
+                          <input type="password" value={profileForm.password} onChange={e => setProfileForm({ ...profileForm, password: e.target.value })} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-bold uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" />
+                        </div>
+                      </div>
+                      <div className="flex gap-4 pt-4">
+                        <button type="button" onClick={() => { setIsCreatingProfile(false); setEditingProfile(null); }} className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-sm font-bold uppercase tracking-widest font-righteous hover:bg-white/5">ABORT</button>
+                        <button type="submit" className="flex-[2] py-4 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-bold uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white">AUTHORIZE ACCOUNT</button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="space-y-16">
+                      {(() => {
+                        const connectedGuests = accounts.filter(user =>
+                          !user.password &&
+                          session.participants.some(p => p.id === user.id) &&
+                          (user.name.toLowerCase().includes(directorySearch.toLowerCase()) || user.id.toLowerCase().includes(directorySearch.toLowerCase()))
+                        );
+                        const others = accounts.filter(user =>
+                          (user.password || !session.participants.some(p => p.id === user.id)) &&
+                          (user.name.toLowerCase().includes(directorySearch.toLowerCase()) || user.id.toLowerCase().includes(directorySearch.toLowerCase()))
+                        );
+
+                        return (
+                          <>
+                            {connectedGuests.length > 0 && (
+                              <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+                                <div className="flex items-center gap-6">
+                                  <h3 className="text-base font-black text-[var(--neon-green)] uppercase tracking-[0.5em] font-righteous whitespace-nowrap">ACTIVE SIGNALS</h3>
+                                  <div className="h-[2px] w-full bg-gradient-to-r from-[var(--neon-green)]/30 to-transparent"></div>
+                                </div>
+                                <div className="flex flex-col gap-4">
+                                  {connectedGuests.map(user => (
+                                    <div key={user.id} className="bg-[#151520] border-2 border-white/5 rounded-[2rem] p-4 flex items-center justify-between hover:border-[var(--neon-green)] transition-all shadow-lg group relative overflow-hidden">
+                                      <div className="flex items-center gap-6 min-w-0 pr-4">
+                                        <UserAvatar name={user.name} isActive={true} />
+                                        <div className="min-w-0">
+                                          <button
+                                            onClick={() => setManagedProfile(user)}
+                                            className="text-white font-bold text-3xl uppercase truncate tracking-tight text-left block hover:text-[var(--neon-green)] transition-colors font-bungee"
+                                          >
+                                            {user.name}
+                                          </button>
+                                          <div className="flex items-center gap-3 mt-1">
+                                            <span className="text-[10px] bg-[var(--neon-green)] text-black px-2 py-0.5 rounded-full font-black uppercase tracking-widest font-righteous shrink-0">LIVE</span>
+                                            <span className="text-sm text-slate-600 uppercase font-black font-righteous tracking-widest truncate">{user.favorites.length} ★ • {user.personalHistory.length} TX</span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-4 shrink-0">
+                                        <div className="flex items-center gap-4 py-2 px-4 bg-black/40 rounded-2xl border border-white/5">
+                                          <button onClick={() => setManagedProfile(user)} className="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-black uppercase tracking-widest transition-all font-righteous">LOG</button>
+                                          <button onClick={() => startEditProfile(user)} className="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-black uppercase transition-all font-righteous">EDIT</button>
+                                          <button
+                                            onClick={() => handleQuickSet(user)}
+                                            className="py-2.5 px-6 bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] hover:text-black rounded-lg text-xs font-black uppercase tracking-widest transition-all font-righteous hover:bg-[var(--neon-cyan)]"
+                                          >
+                                            AUTO_SET
+                                          </button>
+                                          <button
+                                            onClick={() => setPickingSongForUser(user)}
+                                            className="py-2.5 px-6 bg-[var(--neon-pink)]/20 text-[var(--neon-pink)] hover:text-white rounded-lg text-xs font-black uppercase tracking-widest transition-all font-righteous hover:bg-[var(--neon-pink)]"
+                                          >
+                                            MANUAL
+                                          </button>
+                                        </div>
+                                        <button onClick={() => { askConfirm('Terminate temporary link?', async () => { await deleteAccount(user.id); await refresh(); }); }} className="w-10 h-10 flex items-center justify-center text-rose-500/20 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all font-black">✕</button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+                              <div className="flex items-center gap-6">
+                                <h3 className="text-base font-black text-slate-600 uppercase tracking-[0.5em] font-righteous whitespace-nowrap">ARCHIVE DIRECTORY</h3>
+                                <div className="h-[1px] w-full bg-white/5"></div>
+                              </div>
+                              <div className="flex flex-col gap-4">
+                                {others.map(user => {
+                                  const isActive = session.participants.some(p => p.id === user.id);
+                                  return (
+                                    <div key={user.id} className={`bg-[#101015] border-2 ${isActive ? 'border-[var(--neon-cyan)] shadow-[0_0_20px_rgba(0,229,255,0.1)]' : 'border-white/5'} rounded-[2.5rem] p-6 flex flex-col justify-between hover:border-[var(--neon-purple)] transition-all group`}>
+                                      <div className="flex justify-between items-start gap-4 mb-3">
+                                        <div className="flex items-center gap-4 min-w-0">
+                                          <div className="relative">
+                                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black border-2 ${user.password ? 'bg-indigo-900/50 border-[var(--neon-purple)] text-white shadow-[0_0_15px_rgba(167,139,250,0.3)]' : 'bg-slate-800 border-white/10 text-slate-500'}`}>
+                                              {user.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            {user.isAdmin && <div className="absolute -top-2 -right-2 bg-[var(--neon-pink)] text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg border border-white/20">ADMIN</div>}
+                                          </div>
+                                          <div className="min-w-0">
+                                            <div className="flex justify-between items-start gap-2">
+                                              <button
+                                                onClick={() => setManagedProfile(user)}
+                                                className="text-white font-bold text-2xl uppercase truncate tracking-tight text-left block hover:text-[var(--neon-purple)] transition-colors font-bungee"
+                                              >
+                                                {user.name}
+                                              </button>
+                                            </div>
+                                            <p className="text-xs text-slate-500 uppercase font-black tracking-[0.2em] mt-1 font-righteous">
+                                              {user.password ? '🔐 AUTHENTICATED' : 'GUEST ID'} • {user.favorites.length} ★
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <button
+                                          onClick={() => { setQrTargetUser(user); setShowQrModal(true); }}
+                                          className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-[var(--neon-cyan)]/20 hover:border-[var(--neon-cyan)] hover:text-[var(--neon-cyan)] transition-all group/qr"
+                                          title="Generate SINC QR"
+                                        >
+                                          <div className="w-6 h-6 flex flex-col justify-between items-center p-0.5">
+                                            <div className="w-full h-[2px] bg-current"></div>
+                                            <div className="w-full flex justify-between">
+                                              <div className="w-[2px] h-[2px] bg-current"></div>
+                                              <div className="w-[2px] h-[2px] bg-current"></div>
+                                            </div>
+                                            <div className="w-full h-[2px] bg-current"></div>
+                                            <div className="w-full flex justify-between">
+                                              <div className="w-[2px] h-[2px] bg-current"></div>
+                                              <div className="w-[2px] h-[2px] bg-current"></div>
+                                            </div>
+                                            <div className="w-full h-[2px] bg-current"></div>
+                                          </div>
+                                        </button>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 gap-2">
+                                        <div className="flex gap-2">
+                                          <button onClick={() => setManagedProfile(user)} className="flex-1 py-2.5 bg-black border border-white/10 hover:border-[var(--neon-purple)] text-white rounded-lg text-xs font-black uppercase transition-all font-righteous">LOG</button>
+                                          <button onClick={() => startEditProfile(user)} className="flex-1 py-2.5 bg-black border border-white/10 hover:border-[var(--neon-purple)] text-white rounded-lg text-xs font-black uppercase transition-all font-righteous">EDIT</button>
+                                          <button
+                                            onClick={() => handleQuickSet(user)}
+                                            className="flex-[2] py-2.5 bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] hover:text-black rounded-lg text-xs font-black uppercase transition-all font-righteous hover:bg-[var(--neon-cyan)]"
+                                          >
+                                            AUTO-SET
+                                          </button>
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <button
+                                            onClick={() => setPickingSongForUser(user)}
+                                            className="flex-[4] py-2.5 bg-slate-900 border border-white/5 hover:border-[var(--neon-pink)] text-slate-500 hover:text-white rounded-lg flex items-center justify-center gap-2 transition-all text-xs font-black uppercase font-righteous"
+                                          >
+                                            MANUAL SELECT
+                                          </button>
+                                          <button onClick={() => { askConfirm('Erase this record permanently?', async () => { await deleteAccount(user.id); await refresh(); }); }} className="flex-1 py-2.5 bg-rose-500/5 text-rose-500/20 hover:text-rose-500 border border-transparent hover:border-rose-500/30 rounded-lg transition-all flex items-center justify-center">✕</button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {others.length === 0 && connectedGuests.length === 0 && (
+                                <div className="text-center py-24 bg-black/20 rounded-[3rem] border-2 border-dashed border-white/5">
+                                  <p className="text-slate-800 text-base font-black uppercase tracking-[0.5em] font-righteous">EMPTY DIRECTORY - NO SIGNALS DETECTED</p>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
               </div>
-            </section>
+            </div>
           )
         }
-      </main >
 
-      {showRoundConfirm && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-6 z-[100] backdrop-blur-xl animate-in fade-in duration-300">
-          <div className="w-full max-w-2xl bg-[#0a0a0a] border-4 border-[var(--neon-pink)]/30 rounded-[3rem] p-10 shadow-[0_0_100px_rgba(255,42,109,0.2)] animate-in zoom-in-95 duration-500 relative overflow-hidden">
-            <div className="flex justify-between items-start mb-8">
-              <h2 className="text-5xl font-bold text-white uppercase tracking-tight leading-none font-bungee neon-glow-pink">REVIEW LINEUP</h2>
-              <button onClick={() => setShowRoundConfirm(false)} className="text-slate-600 hover:text-white font-bold text-5xl px-2 transition-all transform hover:scale-110">✕</button>
-            </div>
-            <div className="mb-8 text-lg text-[var(--neon-cyan)] font-bold uppercase tracking-widest font-righteous opacity-80 decoration-dotted underline underline-offset-4">OPERATIONAL READY CHECK</div>
 
-            <div className="space-y-4 mb-10 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
-              {(() => {
-                const singingParticipants = session.participants
-                  .filter(p => session.requests?.some(r => r.participantId === p.id && r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING && !r.isInRound))
-                  .sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0)); // Visual sort, actual sort happens in generateRound
 
-                // If we have singers, show them
-                if (singingParticipants.length > 0) {
-                  return singingParticipants.map(p => {
-                    const isReady = p.status === ParticipantStatus.READY;
-                    const song = session.requests?.find(r =>
-                      r.participantId === p.id &&
-                      r.status === RequestStatus.APPROVED &&
-                      r.type === RequestType.SINGING &&
-                      !r.isInRound
-                    );
+        {
+          (isAddingRequest || requestToEdit || profileItemToEdit || prefilledSinger || isAddingVerifiedSong || verifiedSongToEdit) && (
+            <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[100] backdrop-blur-xl">
+              <div className="w-full max-w-md">
+                {(() => {
+                  let initialData = { singerName: '', songName: '', artist: '', youtubeUrl: '', type: RequestType.SINGING };
+                  let title = "Global Track Input";
 
-                    return (
-                      <div key={p.id} className={`flex items-center justify-between p-4 rounded-[1.5rem] border-2 transition-all duration-300 ${isReady ? 'bg-[#150030] border-[var(--neon-green)] shadow-[0_0_20px_rgba(57,255,20,0.15)]' : 'bg-black/40 border-white/5 opacity-50'}`}>
-                        <div className="flex items-center gap-4 min-w-0">
-                          <button
-                            onClick={async () => { await updateParticipantStatus(p.id, isReady ? ParticipantStatus.STANDBY : ParticipantStatus.READY); await refresh(); }}
-                            className={`w-6 h-6 rounded-full shrink-0 flex items-center justify-center transition-all border-2 ${isReady ? 'bg-[var(--neon-green)] border-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-slate-900 border-white/10 hover:border-slate-600'}`}
-                          >
-                            {isReady && <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>}
-                          </button>
-                          <div className="min-w-0">
-                            <div className={`font-bold uppercase text-2xl truncate tracking-tight font-bungee ${isReady ? 'text-white' : 'text-slate-600'}`}>{p.name}</div>
-                            {isReady ? (
-                              song ? (
-                                <div className="text-[var(--neon-cyan)] text-base font-black uppercase tracking-[0.2em] font-righteous mt-0.5 opacity-90">
-                                  {song.songName}
-                                </div>
-                              ) : (
-                                <div className="text-rose-500 text-sm font-black uppercase tracking-[0.1em] font-righteous mt-0.5">⚠️ NO SIGNAL</div>
-                              )
-                            ) : (
-                              <div className="text-slate-700 text-sm font-black uppercase tracking-[0.2em] font-righteous mt-0.5">STANDBY</div>
-                            )}
-                          </div>
-                        </div>
-                        {isReady && song && <div className="shrink-0 text-sm bg-[var(--neon-cyan)] text-black px-4 py-1.5 rounded-full font-black uppercase tracking-widest font-righteous shadow-[0_0_10px_var(--neon-cyan)] animate-in fade-in zoom-in">READY</div>}
-                      </div>
-                    );
-                  });
-                } else {
-                  // Show Listening Requests Fallback
-                  const listening = session.requests?.filter(r =>
-                    r.status === RequestStatus.APPROVED && r.type === RequestType.LISTENING && !r.isInRound
-                  ).sort((a, b) => a.createdAt - b.createdAt).slice(0, 5) || [];
-
-                  if (listening.length > 0) {
-                    return (
-                      <div className="space-y-4">
-                        <div className="p-4 bg-white/5 rounded-xl border border-dashed border-white/10 text-center">
-                          <p className="text-[var(--neon-blue)] font-black uppercase tracking-widest font-righteous">FALLBACK: LISTENING MODE</p>
-                        </div>
-                        {listening.map(song => (
-                          <div key={song.id} className="flex items-center justify-between p-4 rounded-[1.5rem] border-2 bg-[#0a0a20] border-[var(--neon-blue)]/30">
-                            <div className="min-w-0">
-                              <div className="text-[var(--neon-blue)] text-xl font-black uppercase tracking-tight font-bungee">{song.songName}</div>
-                              <div className="text-slate-500 text-sm font-bold uppercase tracking-widest font-righteous">{song.artist}</div>
-                            </div>
-                            <div className="text-xs font-black uppercase tracking-widest text-[var(--neon-pink)] font-righteous">@{song.participantName}</div>
-                          </div>
-                        ))}
-                      </div>
-                    );
+                  if (profileItemToEdit && managedProfile) {
+                    if (profileItemToEdit.type === 'favorite') {
+                      const fav = managedProfile.favorites.find(f => f.id === profileItemToEdit.itemId);
+                      if (fav) {
+                        initialData = { singerName: managedProfile.name, songName: fav.songName, artist: fav.artist, youtubeUrl: fav.youtubeUrl || '', type: fav.type };
+                        title = `Edit Permanent Favorite for ${managedProfile.name}`;
+                      }
+                    } else {
+                      const hist = managedProfile.personalHistory.find(h => h.id === profileItemToEdit.itemId);
+                      if (hist) {
+                        initialData = { singerName: managedProfile.name, songName: hist.songName, artist: hist.artist, youtubeUrl: hist.youtubeUrl || '', type: hist.type };
+                        title = `Edit History Entry for ${managedProfile.name}`;
+                      }
+                    }
+                  } else if (requestToEdit) {
+                    initialData = { singerName: requestToEdit.participantName, songName: requestToEdit.songName, artist: requestToEdit.artist, youtubeUrl: requestToEdit.youtubeUrl || '', type: requestToEdit.type };
+                    title = "Modify Track";
+                  } else if (verifiedSongToEdit) {
+                    initialData = { singerName: '', songName: verifiedSongToEdit.songName, artist: verifiedSongToEdit.artist, youtubeUrl: verifiedSongToEdit.youtubeUrl || '', type: verifiedSongToEdit.type };
+                    title = "Edit Verified Song";
+                  } else if (isAddingVerifiedSong) {
+                    initialData = { singerName: '', songName: '', artist: '', youtubeUrl: '', type: RequestType.SINGING };
+                    title = "Add to Verified Songbook";
+                  } else if (prefilledSinger) {
+                    initialData.singerName = prefilledSinger.name;
+                    title = `Song for ${prefilledSinger.name}`;
                   }
 
                   return (
-                    <div className="text-center py-24 bg-black/20 rounded-[2.5rem] border-4 border-dashed border-white/5 animate-in fade-in duration-700">
-                      <p className="text-slate-700 text-2xl font-black uppercase tracking-[0.4em] font-righteous">NO DATA</p>
-                    </div>
+                    <SongRequestForm
+                      key={requestToEdit?.id || profileItemToEdit?.itemId || prefilledSinger?.id || verifiedSongToEdit?.id || (isAddingVerifiedSong ? 'new-verified' : 'new-request')}
+                      title={title}
+                      showSingerName={!profileItemToEdit && !verifiedSongToEdit && !isAddingVerifiedSong}
+                      initialSingerName={initialData.singerName}
+                      initialSongName={initialData.songName}
+                      initialArtist={initialData.artist}
+                      initialYoutubeUrl={initialData.youtubeUrl}
+                      initialType={initialData.type}
+                      submitLabel={(requestToEdit || profileItemToEdit || verifiedSongToEdit) ? "Save Update" : (isAddingVerifiedSong ? "Add to Library" : "Queue Track")}
+                      onSubmit={handleManualRequestSubmit}
+                      onCancel={closeModals}
+                      participants={session.participants}
+                    />
                   );
-                }
-              })()}
-            </div>
-
-            <div className="flex gap-4">
-              <button onClick={() => setShowRoundConfirm(false)} className="flex-1 py-4 bg-black hover:bg-white hover:text-black text-white border border-white/10 rounded-xl font-black uppercase text-base tracking-widest transition-all font-righteous">CANCEL</button>
-              {(() => {
-                const singingEligible = session.participants.filter(p =>
-                  session.requests?.some(r => r.participantId === p.id && r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING && !r.isInRound)
-                ).length;
-
-                const listeningEligible = session.requests?.filter(r =>
-                  r.status === RequestStatus.APPROVED && r.type === RequestType.LISTENING && !r.isInRound
-                ).length || 0;
-
-                const eligibleCount = singingEligible > 0 ? singingEligible : listeningEligible;
-                const modeLabel = singingEligible > 0 ? 'ACTIVATE ROUND' : 'ACTIVATE LISTENING';
-
-                return (
-                  <button
-                    onClick={handleConfirmRound}
-                    disabled={eligibleCount === 0}
-                    className={`flex-[2] py-4 rounded-xl font-black uppercase text-base tracking-widest transition-all flex items-center justify-center gap-3 shadow-lg font-righteous ${eligibleCount > 0 ? 'bg-[var(--neon-green)] hover:bg-white hover:text-black text-black hover:scale-105' : 'bg-slate-900 text-slate-800 cursor-not-allowed border border-white/5'}`}
-                  >
-                    {eligibleCount > 0 ? (
-                      <>
-                        <div className="w-1.5 h-1.5 bg-current rounded-full animate-ping"></div>
-                        {modeLabel} ({eligibleCount})
-                      </>
-                    ) : 'IDLE'}
-                  </button>
-                );
-              })()}
-            </div>
-            {/* Queue Strategy Selector */}
-            <div className="bg-[#151520] p-6 rounded-[2rem] border border-white/5 mt-8">
-              <h3 className="text-xl font-black text-white uppercase tracking-widest font-righteous mb-4 flex items-center gap-3">
-                <span className="text-[var(--neon-purple)]">⚖️</span> Priority Protocol
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {Object.values(QueueStrategy).map((strat) => (
-                  <button
-                    key={strat}
-                    onClick={() => {
-                      setQueueStrategy(strat);
-                      // refresh(); // Optimistic update usually handled by listener, but refresh good to sync
-                    }}
-                    className={`p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden group ${session.queueStrategy === strat
-                      ? 'bg-[var(--neon-purple)]/20 border-[var(--neon-purple)] text-white shadow-[0_0_15px_var(--neon-purple)]'
-                      : 'bg-black/40 border-white/5 text-slate-500 hover:border-white/20 hover:text-slate-300'
-                      }`}
-                  >
-                    <div className="font-bold font-righteous uppercase tracking-wider relative z-10">
-                      {strat.replace('_', ' ')}
-                    </div>
-                    <div className="text-[10px] uppercase font-mono mt-1 opacity-60 relative z-10">
-                      {strat === 'FRESH_MEAT' && "New Singers First"}
-                      {strat === 'FAIR_ROTATION' && "Fewest Songs + Oldest Wait"}
-                      {strat === 'FIFO' && "Strict First In First Out"}
-                      {strat === 'OLDEST_MEMBER' && "Oldest Singers First"}
-                      {strat === 'RANDOM' && "Chaotic Shuffle"}
-                    </div>
-                    {session.queueStrategy === strat && (
-                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[var(--neon-green)] animate-pulse"></div>
-                    )}
-                  </button>
-                ))}
+                })()}
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )
+        }
 
 
-      {
-        showResetConfirm && (
-          <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-300">
-            <div className="w-full max-w-md bg-[#050510] border-4 border-rose-500/30 rounded-[3rem] p-10 text-center shadow-[0_0_100px_rgba(244,63,94,0.3)] animate-in zoom-in-95 duration-300 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.8)]"></div>
-              <div className="w-20 h-20 bg-rose-500/10 text-rose-500 rounded-[2rem] border-2 border-rose-500/20 flex items-center justify-center mx-auto mb-6 text-4xl font-black shadow-[0_0_30px_rgba(244,63,94,0.2)] animate-pulse">🧹</div>
-              <h2 className="text-5xl font-black text-white uppercase mb-4 tracking-tight font-bungee neon-text-glow-rose">SYSTEM RESET</h2>
-              <p className="text-slate-400 text-lg mb-8 leading-relaxed font-black font-righteous uppercase tracking-widest">
-                This will <span className="text-rose-500 underline decoration-2 underline-offset-4 decoration-rose-500">TERMINATE ALL SESSIONS</span>, clear requests, and wipe history logs.
-              </p>
-              <div className="flex gap-4">
-                <button onClick={() => setShowResetConfirm(false)} className="flex-1 py-4 bg-black border-2 border-white/10 text-white rounded-xl text-base font-black uppercase tracking-widest font-righteous transition-all hover:bg-white/5">ABORT</button>
-                <button onClick={handleConfirmReset} className="flex-[2] py-4 bg-rose-500 text-white rounded-xl text-base font-black uppercase tracking-widest font-righteous shadow-[0_0_30px_rgba(244,63,94,0.4)] transition-all hover:bg-rose-400 hover:scale-105">EXECUTE WIPE</button>
-              </div>
-            </div>
-          </div>
-        )
-      }
 
-      {
-        (showUserManager || managedProfile) && (
-          <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[70] backdrop-blur-3xl animate-in fade-in duration-300">
-            <div className="w-full max-w-6xl bg-[#0a0a0a] border-4 border-white/10 rounded-[4rem] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] flex flex-col max-h-[90vh] relative">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
-              <div className="p-8 border-b-2 border-white/5 flex justify-between items-center bg-black/40 backdrop-blur-xl">
-                <div>
-                  <h2 className="text-5xl font-black text-white font-bungee uppercase tracking-tight neon-glow-purple">User Directory</h2>
-                  <p className="text-base text-[var(--neon-cyan)] uppercase font-black tracking-[0.3em] font-righteous opacity-80 mt-1">Authenticated Identities & Signal History</p>
-                </div>
-                <div className="flex gap-3">
-                  {managedProfile && (
-                    <button onClick={() => setManagedProfile(null)} className="px-6 py-3 bg-black border border-white/10 text-white rounded-xl text-sm font-black uppercase tracking-widest font-righteous hover:bg-white/10 transition-all">← ALL ACCOUNTS</button>
-                  )}
-                  <button
-                    onClick={() => {
-                      askConfirm('DANGER: This will permanently delete ALL GUEST ACCOUNTS and DUPLICATE ENTRIES from the Firestore database. Proceed?', async () => {
-                        const res = await administrativeCleanup();
-                        if (res.success) {
-                          alert(`DATABASE CLEANUP SUCCESS: Removed ${res.deletedCount} orphan records.`);
-                          await refresh();
-                        } else {
-                          alert(`CLEANUP FAILED: ${res.error}`);
-                        }
-                      });
-                    }}
-                    className="px-6 py-3 bg-rose-500/10 border border-rose-500/50 text-rose-500 rounded-xl text-sm font-black uppercase tracking-widest font-righteous hover:bg-rose-500 hover:text-white transition-all hover:scale-105"
-                  >
-                    PURGE GUESTS
-                  </button>
-                  <button
-                    onClick={() => setIsCreatingProfile(true)}
-                    className="px-6 py-3 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all hover:scale-105"
-                  >
-                    + NEW ACCOUNT
-                  </button>
-                  <button onClick={closeModals} className="text-slate-600 hover:text-white p-2 ml-2 font-black text-4xl transition-colors transform hover:scale-110">✕</button>
-                </div>
-              </div>
 
-              <div className="p-6 border-b-2 border-white/5 bg-black/20">
-                <div className="relative group max-w-2xl mx-auto">
-                  <input
-                    type="text"
-                    placeholder="SCANNING DIRECTORY RECORDS..."
-                    value={directorySearch}
-                    onChange={(e) => setDirectorySearch(e.target.value)}
-                    className="w-full bg-[#050510] border-2 border-white/10 rounded-2xl px-10 py-4 text-white font-black uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all shadow-inner placeholder:text-slate-700 text-xl"
-                  />
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700 group-focus-within:text-[var(--neon-pink)] transition-colors">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                  </span>
-                </div>
-              </div>
+        {
 
-              <div className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar bg-black/20">
-                {managedProfile ? (
-                  <div className="animate-in slide-in-from-right-4 duration-500 grid lg:grid-cols-12 gap-8">
-                    <div className="lg:col-span-4 space-y-6">
-                      <div className="bg-[#101015] border-2 border-white/5 rounded-[3rem] p-8 shadow-2xl relative overflow-hidden group hover:border-[var(--neon-purple)] transition-all">
-                        <div className="absolute top-0 right-0 w-48 h-48 bg-[var(--neon-purple)]/10 blur-[60px] rounded-full -mr-24 -mt-24 group-hover:bg-[var(--neon-purple)]/20 transition-all" />
-                        <div className="relative z-10 flex flex-col items-center text-center">
-                          <div className="scale-125 mb-4">
-                            <UserAvatar name={managedProfile.name} isActive={session.participants.some(p => p.id === managedProfile.id)} />
-                          </div>
-                          <div className="mt-4">
-                            <div className="text-sm font-bold text-[var(--neon-cyan)] uppercase tracking-widest mb-2 font-righteous">SINGER PROFILE</div>
-                            <h3 className="text-5xl font-bold text-white uppercase tracking-tight leading-none font-bungee break-words">{managedProfile.name}</h3>
-                          </div>
+          (showQrModal || qrTargetUser) && (
+            <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-500">
+              <div className="w-full max-w-2xl bg-[#0a0a0a] border-4 border-white/10 rounded-[3rem] p-8 relative overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-500">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-cyan)] via-[var(--neon-purple)] to-[var(--neon-pink)] animate-gradient-x"></div>
 
-                          <div className="w-full mt-8 space-y-3 pt-6 border-t border-white/5">
-                            <div className="flex justify-between items-center text-sm uppercase font-black font-righteous tracking-widest">
-                              <span className="text-slate-600">SINGER ID</span>
-                              <span className="text-[var(--neon-pink)] font-mono opacity-80">{managedProfile.id.slice(0, 8)}...</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm uppercase font-black font-righteous tracking-widest">
-                              <span className="text-slate-600">SECURITY</span>
-                              <span className={`px-2 py-0.5 rounded-full ${managedProfile.password ? 'bg-[var(--neon-pink)]/10 text-[var(--neon-pink)]' : 'bg-slate-900 text-slate-600'}`}>
-                                {managedProfile.password ? 'SECURE PIN' : 'OPEN LINK'}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="w-full mt-10 space-y-3">
-                            <button onClick={() => startChangePassword(managedProfile)} className="w-full py-3 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous">CHANGE PASSWORD</button>
-                            <button onClick={async () => {
-                              setQrTargetUser(managedProfile);
-                              setShowQrModal(true);
-                              await joinSession(managedProfile.id);
-                              await refresh();
-                            }} className="w-full py-3 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(0,229,255,0.3)] font-righteous hover:bg-white">SYNC QR CODE</button>
-                            <div className="pt-2 border-t border-white/5 mt-2 space-y-2">
-                              {/* Ban functionality removed as requested */}
-                            </div>
-                            <button onClick={() => { askConfirm('Permanently delete this account?', async () => { await deleteAccount(managedProfile.id); setManagedProfile(null); await refresh(); }); }} className="w-full py-3 bg-rose-500/5 hover:bg-rose-500 text-rose-500/40 hover:text-white rounded-xl text-sm font-black uppercase tracking-widest transition-all border border-transparent hover:border-rose-500/30 font-righteous mt-2">TERMINATE ACCOUNT</button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="lg:col-span-8 space-y-6">
-                      <div className="grid md:grid-cols-2 gap-6">
-                        <div className="bg-[#101015] border-2 border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden">
-                          <h4 className="text-sm font-black text-[var(--neon-pink)] uppercase tracking-[0.3em] mb-6 font-righteous">LIBRARY STARS ({managedProfile.favorites.length})</h4>
-                          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                            {managedProfile.favorites.map(fav => (
-                              <div key={fav.id} className="bg-black/40 border border-white/5 p-4 rounded-xl flex justify-between items-center group hover:border-[var(--neon-pink)] transition-all">
-                                <div className="min-w-0 pr-4">
-                                  <div className="text-xl font-black text-white truncate uppercase tracking-tight font-righteous group-hover:text-[var(--neon-pink)] transition-colors">{fav.songName}</div>
-                                  <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-0.5 font-righteous opacity-60">{fav.artist}</div>
-                                </div>
-                                <div className="flex gap-2 shrink-0">
-                                  <button onClick={async () => { await addRequest({ participantId: managedProfile!.id, participantName: managedProfile!.name, songName: fav.songName, artist: fav.artist, youtubeUrl: fav.youtubeUrl, type: fav.type }); await refresh(); }} className="px-3 py-1.5 bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] rounded-lg text-xs font-black uppercase font-righteous hover:bg-[var(--neon-cyan)] hover:text-black transition-all">ADD</button>
-                                  <button onClick={() => setProfileItemToEdit({ type: 'favorite', itemId: fav.id })} className="p-1.5 text-slate-700 hover:text-white transition-colors">✏️</button>
-                                  <button onClick={() => { askConfirm('Remove from stars?', async () => { await removeUserFavorite(managedProfile!.id, fav.id); await refresh(); }); }} className="p-1.5 text-rose-500/30 hover:text-rose-500 transition-colors">✕</button>
-                                </div>
-                              </div>
-                            ))}
-                            {managedProfile.favorites.length === 0 && <div className="flex flex-col items-center py-20 opacity-20"><span className="text-4xl mb-3 grayscale">⭐</span><p className="text-sm font-black uppercase tracking-[0.3em] font-righteous text-slate-600">Catalog is empty</p></div>}
-                          </div>
-                        </div>
-
-                        <div className="bg-[#101015] border-2 border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden">
-                          <h4 className="text-sm font-black text-[var(--neon-cyan)] uppercase tracking-[0.3em] mb-6 font-righteous">PERFORMANCE LOG ({managedProfile.personalHistory.length})</h4>
-                          <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                            {managedProfile.personalHistory.map((h, i) => (
-                              <div key={i} className="bg-black/40 border border-white/5 p-4 rounded-xl group hover:border-[var(--neon-cyan)] transition-all">
-                                <div className="flex justify-between items-start">
-                                  <div className="min-w-0 pr-4">
-                                    <div className="text-xl font-bold text-white truncate uppercase tracking-tight font-righteous group-hover:text-[var(--neon-cyan)] transition-colors">{h.songName}</div>
-                                    <div className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-0.5 font-righteous opacity-60">{h.artist}</div>
-                                  </div>
-                                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                                    <button onClick={() => setProfileItemToEdit({ type: 'history', itemId: h.id })} className="p-1.5 text-slate-700 hover:text-white transition-colors">✏️</button>
-                                    <button onClick={() => { askConfirm('Erase from history?', async () => { await removeUserHistoryItem(managedProfile!.id, h.id); await refresh(); }); }} className="p-1.5 text-rose-500/30 hover:text-rose-500 transition-colors">✕</button>
-                                  </div>
-                                </div>
-                                <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5">
-                                  <span className="text-xs text-slate-700 font-black uppercase font-righteous tracking-widest">{new Date(h.createdAt).toLocaleDateString()}</span>
-                                  <button
-                                    onClick={async () => { await reAddFromHistory(h, true); await refresh(); }}
-                                    className="px-3 py-1.5 bg-[var(--neon-pink)]/10 border border-[var(--neon-pink)]/30 text-[var(--neon-pink)] rounded-lg text-xs font-black uppercase font-righteous hover:bg-[var(--neon-pink)] hover:text-black transition-all"
-                                  >
-                                    RE-QUEUE
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                            {managedProfile.personalHistory.length === 0 && <div className="flex flex-col items-center py-20 opacity-20"><span className="text-4xl mb-3 grayscale">🎤</span><p className="text-sm font-black uppercase tracking-[0.3em] font-righteous text-slate-600">No transmissions recorded</p></div>}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h2 className="text-3xl font-black text-white uppercase tracking-tight font-bungee neon-glow-white">
+                      {qrTargetUser ? 'USER SINC' : 'JOIN ROOM'}
+                    </h2>
+                    {qrTargetUser && <p className="text-[var(--neon-cyan)] text-xs font-black uppercase tracking-widest font-righteous mt-1">TARGET: {qrTargetUser.name}</p>}
                   </div>
-                ) : isChangingPassword ? (
-                  <form onSubmit={handleChangePasswordSubmit} className="max-w-xl mx-auto bg-[#101015] border-2 border-white/10 p-10 rounded-[3rem] space-y-6 shadow-[0_0_60px_rgba(255,0,127,0.1)] animate-in fade-in zoom-in-95 duration-500">
-                    <h3 className="text-5xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-pink mb-2 text-center">SECURITY UPDATE</h3>
-                    <p className="text-center text-slate-400 font-righteous uppercase tracking-widest mb-8">
-                      UPDATING KEY FOR: <span className="text-[var(--neon-cyan)]">{editingProfile?.name}</span>
-                    </p>
+                  <button onClick={() => { setShowQrModal(false); setQrTargetUser(null); }} className="text-slate-600 hover:text-white p-2 font-black text-3xl transition-colors">✕</button>
+                </div>
 
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-sm font-bold text-slate-500 uppercase mb-2 ml-4 tracking-widest font-righteous">NEW ENCRYPTION PIN</label>
-                        <input required type="password" value={passwordForm} onChange={e => { setPasswordForm(e.target.value); setProfileError(''); }} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-bold uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" placeholder="ENTER NEW PIN" />
-                      </div>
+                <div className="flex flex-col items-center gap-4">
+                  {/* Smart QR: auto URL on GitHub Pages, manual IP on localhost */}
+                  {(() => {
+                    const autoUrl = getNetworkUrl();
+                    const isLocalhost = autoUrl.includes('localhost') || autoUrl.includes('127.0.0.1');
 
-                      {profileError && (
-                        <div className="mb-4 animate-pulse">
-                          <p className="text-[var(--neon-pink)] font-bold uppercase text-sm tracking-widest flex items-center gap-2">
-                            <span className="text-lg">⚠️</span> {profileError}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-4 pt-4">
-                      <button type="button" onClick={() => { setIsChangingPassword(false); setManagedProfile(editingProfile); setEditingProfile(null); }} className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-sm font-bold uppercase tracking-widest font-righteous hover:bg-white/5">ABORT</button>
-                      <button type="submit" className="flex-[2] py-4 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-bold uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white">UPDATE KEY</button>
-                    </div>
-                  </form>
-                ) : isCreatingProfile ? (
-                  <form onSubmit={handleProfileFormSubmit} className="max-w-xl mx-auto bg-[#101015] border-2 border-white/10 p-10 rounded-[3rem] space-y-6 shadow-[0_0_60px_rgba(255,0,127,0.1)] animate-in fade-in zoom-in-95 duration-500">
-                    <h3 className="text-5xl font-bold text-white uppercase tracking-tight font-bungee neon-glow-pink mb-2 text-center">{editingProfile ? 'Modify Profile' : 'New User Account'}</h3>
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-sm font-bold text-slate-500 uppercase mb-2 ml-4 tracking-widest font-righteous">IDENTITY HANDLE</label>
-                        <input required type="text" value={profileForm.name} onChange={e => { setProfileForm({ ...profileForm, name: e.target.value }); setProfileError(''); }} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-bold uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" />
-                      </div>
+                    // Build the final QR value
+                    const getQrValue = (base: string) => {
+                      const cleanBase = base.replace(/\/$/, '') + '/';
+                      if (qrTargetUser) return `${cleanBase}?userId=${qrTargetUser.id}&room=${roomId || ''}`;
+                      return `${cleanBase}?room=${roomId || ''}`;
+                    };
 
-                      {profileError && (
-                        <div className="mb-4 animate-pulse">
-                          <p className="text-[var(--neon-pink)] font-bold uppercase text-sm tracking-widest flex items-center gap-2">
-                            <span className="text-lg">⚠️</span> {profileError}
-                          </p>
-                        </div>
-                      )}
-                      <div>
-                        <label className="block text-sm font-bold text-slate-500 uppercase mb-2 ml-4 tracking-widest font-righteous">ENCRYPTION PIN (OPTIONAL)</label>
-                        <input type="password" value={profileForm.password} onChange={e => setProfileForm({ ...profileForm, password: e.target.value })} className="w-full bg-black border border-white/10 rounded-2xl px-6 py-4 text-white font-bold uppercase font-righteous tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all" />
-                      </div>
-                    </div>
-                    <div className="flex gap-4 pt-4">
-                      <button type="button" onClick={() => { setIsCreatingProfile(false); setEditingProfile(null); }} className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-sm font-bold uppercase tracking-widest font-righteous hover:bg-white/5">ABORT</button>
-                      <button type="submit" className="flex-[2] py-4 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-bold uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white">AUTHORIZE ACCOUNT</button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className="space-y-16">
-                    {(() => {
-                      const connectedGuests = accounts.filter(user =>
-                        !user.password &&
-                        session.participants.some(p => p.id === user.id) &&
-                        (user.name.toLowerCase().includes(directorySearch.toLowerCase()) || user.id.toLowerCase().includes(directorySearch.toLowerCase()))
-                      );
-                      const others = accounts.filter(user =>
-                        (user.password || !session.participants.some(p => p.id === user.id)) &&
-                        (user.name.toLowerCase().includes(directorySearch.toLowerCase()) || user.id.toLowerCase().includes(directorySearch.toLowerCase()))
-                      );
-
+                    // On GitHub Pages / network: use auto URL directly
+                    if (!isLocalhost) {
+                      const qrValue = getQrValue(autoUrl);
                       return (
                         <>
-                          {connectedGuests.length > 0 && (
-                            <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-                              <div className="flex items-center gap-6">
-                                <h3 className="text-base font-black text-[var(--neon-green)] uppercase tracking-[0.5em] font-righteous whitespace-nowrap">ACTIVE SIGNALS</h3>
-                                <div className="h-[2px] w-full bg-gradient-to-r from-[var(--neon-green)]/30 to-transparent"></div>
-                              </div>
-                              <div className="flex flex-col gap-4">
-                                {connectedGuests.map(user => (
-                                  <div key={user.id} className="bg-[#151520] border-2 border-white/5 rounded-[2rem] p-4 flex items-center justify-between hover:border-[var(--neon-green)] transition-all shadow-lg group relative overflow-hidden">
-                                    <div className="flex items-center gap-6 min-w-0 pr-4">
-                                      <UserAvatar name={user.name} isActive={true} />
-                                      <div className="min-w-0">
-                                        <button
-                                          onClick={() => setManagedProfile(user)}
-                                          className="text-white font-bold text-3xl uppercase truncate tracking-tight text-left block hover:text-[var(--neon-green)] transition-colors font-bungee"
-                                        >
-                                          {user.name}
-                                        </button>
-                                        <div className="flex items-center gap-3 mt-1">
-                                          <span className="text-[10px] bg-[var(--neon-green)] text-black px-2 py-0.5 rounded-full font-black uppercase tracking-widest font-righteous shrink-0">LIVE</span>
-                                          <span className="text-sm text-slate-600 uppercase font-black font-righteous tracking-widest truncate">{user.favorites.length} ★ • {user.personalHistory.length} TX</span>
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-4 shrink-0">
-                                      <div className="flex items-center gap-4 py-2 px-4 bg-black/40 rounded-2xl border border-white/5">
-                                        <button onClick={() => setManagedProfile(user)} className="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-black uppercase tracking-widest transition-all font-righteous">LOG</button>
-                                        <button onClick={() => startEditProfile(user)} className="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-black uppercase transition-all font-righteous">EDIT</button>
-                                        <button
-                                          onClick={() => handleQuickSet(user)}
-                                          className="py-2.5 px-6 bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] hover:text-black rounded-lg text-xs font-black uppercase tracking-widest transition-all font-righteous hover:bg-[var(--neon-cyan)]"
-                                        >
-                                          AUTO_SET
-                                        </button>
-                                        <button
-                                          onClick={() => setPickingSongForUser(user)}
-                                          className="py-2.5 px-6 bg-[var(--neon-pink)]/20 text-[var(--neon-pink)] hover:text-white rounded-lg text-xs font-black uppercase tracking-widest transition-all font-righteous hover:bg-[var(--neon-pink)]"
-                                        >
-                                          MANUAL
-                                        </button>
-                                      </div>
-                                      <button onClick={() => { askConfirm('Terminate temporary link?', async () => { await deleteAccount(user.id); await refresh(); }); }} className="w-10 h-10 flex items-center justify-center text-rose-500/20 hover:text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all font-black">✕</button>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
-                            <div className="flex items-center gap-6">
-                              <h3 className="text-base font-black text-slate-600 uppercase tracking-[0.5em] font-righteous whitespace-nowrap">ARCHIVE DIRECTORY</h3>
-                              <div className="h-[1px] w-full bg-white/5"></div>
-                            </div>
-                            <div className="flex flex-col gap-4">
-                              {others.map(user => {
-                                const isActive = session.participants.some(p => p.id === user.id);
-                                return (
-                                  <div key={user.id} className={`bg-[#101015] border-2 ${isActive ? 'border-[var(--neon-cyan)] shadow-[0_0_20px_rgba(0,229,255,0.1)]' : 'border-white/5'} rounded-[2.5rem] p-6 flex flex-col justify-between hover:border-[var(--neon-purple)] transition-all group`}>
-                                    <div className="flex justify-between items-start gap-4 mb-3">
-                                      <div className="flex items-center gap-4 min-w-0">
-                                        <div className="relative">
-                                          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black border-2 ${user.password ? 'bg-indigo-900/50 border-[var(--neon-purple)] text-white shadow-[0_0_15px_rgba(167,139,250,0.3)]' : 'bg-slate-800 border-white/10 text-slate-500'}`}>
-                                            {user.name.charAt(0).toUpperCase()}
-                                          </div>
-                                          {user.isAdmin && <div className="absolute -top-2 -right-2 bg-[var(--neon-pink)] text-black text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg border border-white/20">ADMIN</div>}
-                                        </div>
-                                        <div className="min-w-0">
-                                          <div className="flex justify-between items-start gap-2">
-                                            <button
-                                              onClick={() => setManagedProfile(user)}
-                                              className="text-white font-bold text-2xl uppercase truncate tracking-tight text-left block hover:text-[var(--neon-purple)] transition-colors font-bungee"
-                                            >
-                                              {user.name}
-                                            </button>
-                                          </div>
-                                          <p className="text-xs text-slate-500 uppercase font-black tracking-[0.2em] mt-1 font-righteous">
-                                            {user.password ? '🔐 AUTHENTICATED' : 'GUEST ID'} • {user.favorites.length} ★
-                                          </p>
-                                        </div>
-                                      </div>
-                                      <button
-                                        onClick={() => { setQrTargetUser(user); setShowQrModal(true); }}
-                                        className="p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-[var(--neon-cyan)]/20 hover:border-[var(--neon-cyan)] hover:text-[var(--neon-cyan)] transition-all group/qr"
-                                        title="Generate SINC QR"
-                                      >
-                                        <div className="w-6 h-6 flex flex-col justify-between items-center p-0.5">
-                                          <div className="w-full h-[2px] bg-current"></div>
-                                          <div className="w-full flex justify-between">
-                                            <div className="w-[2px] h-[2px] bg-current"></div>
-                                            <div className="w-[2px] h-[2px] bg-current"></div>
-                                          </div>
-                                          <div className="w-full h-[2px] bg-current"></div>
-                                          <div className="w-full flex justify-between">
-                                            <div className="w-[2px] h-[2px] bg-current"></div>
-                                            <div className="w-[2px] h-[2px] bg-current"></div>
-                                          </div>
-                                          <div className="w-full h-[2px] bg-current"></div>
-                                        </div>
-                                      </button>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-2">
-                                      <div className="flex gap-2">
-                                        <button onClick={() => setManagedProfile(user)} className="flex-1 py-2.5 bg-black border border-white/10 hover:border-[var(--neon-purple)] text-white rounded-lg text-xs font-black uppercase transition-all font-righteous">LOG</button>
-                                        <button onClick={() => startEditProfile(user)} className="flex-1 py-2.5 bg-black border border-white/10 hover:border-[var(--neon-purple)] text-white rounded-lg text-xs font-black uppercase transition-all font-righteous">EDIT</button>
-                                        <button
-                                          onClick={() => handleQuickSet(user)}
-                                          className="flex-[2] py-2.5 bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] hover:text-black rounded-lg text-xs font-black uppercase transition-all font-righteous hover:bg-[var(--neon-cyan)]"
-                                        >
-                                          AUTO-SET
-                                        </button>
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <button
-                                          onClick={() => setPickingSongForUser(user)}
-                                          className="flex-[4] py-2.5 bg-slate-900 border border-white/5 hover:border-[var(--neon-pink)] text-slate-500 hover:text-white rounded-lg flex items-center justify-center gap-2 transition-all text-xs font-black uppercase font-righteous"
-                                        >
-                                          MANUAL SELECT
-                                        </button>
-                                        <button onClick={() => { askConfirm('Erase this record permanently?', async () => { await deleteAccount(user.id); await refresh(); }); }} className="flex-1 py-2.5 bg-rose-500/5 text-rose-500/20 hover:text-rose-500 border border-transparent hover:border-rose-500/30 rounded-lg transition-all flex items-center justify-center">✕</button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            {others.length === 0 && connectedGuests.length === 0 && (
-                              <div className="text-center py-24 bg-black/20 rounded-[3rem] border-2 border-dashed border-white/5">
-                                <p className="text-slate-800 text-base font-black uppercase tracking-[0.5em] font-righteous">EMPTY DIRECTORY - NO SIGNALS DETECTED</p>
-                              </div>
-                            )}
+                          <p className="text-[var(--neon-green)] font-black uppercase tracking-[0.2em] text-[10px] font-righteous self-start">✓ LIVE URL — SCAN TO JOIN</p>
+                          <div className="bg-white p-4 rounded-2xl w-full max-w-sm mx-auto shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:scale-105 transition-transform">
+                            <QRCode value={qrValue} size={300} style={{ height: 'auto', maxWidth: '100%', width: '100%' }} viewBox="0 0 256 256" />
+                          </div>
+                          <div className="w-full p-3 bg-[var(--neon-green)]/10 border border-[var(--neon-green)]/30 rounded-xl">
+                            <p className="text-[10px] font-mono text-[var(--neon-green)] break-all text-center">{qrValue}</p>
                           </div>
                         </>
                       );
-                    })()}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-
-
-      {
-        (isAddingRequest || requestToEdit || profileItemToEdit || prefilledSinger || isAddingVerifiedSong || verifiedSongToEdit) && (
-          <div className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-[100] backdrop-blur-xl">
-            <div className="w-full max-w-md">
-              {(() => {
-                let initialData = { singerName: '', songName: '', artist: '', youtubeUrl: '', type: RequestType.SINGING };
-                let title = "Global Track Input";
-
-                if (profileItemToEdit && managedProfile) {
-                  if (profileItemToEdit.type === 'favorite') {
-                    const fav = managedProfile.favorites.find(f => f.id === profileItemToEdit.itemId);
-                    if (fav) {
-                      initialData = { singerName: managedProfile.name, songName: fav.songName, artist: fav.artist, youtubeUrl: fav.youtubeUrl || '', type: fav.type };
-                      title = `Edit Permanent Favorite for ${managedProfile.name}`;
                     }
-                  } else {
-                    const hist = managedProfile.personalHistory.find(h => h.id === profileItemToEdit.itemId);
-                    if (hist) {
-                      initialData = { singerName: managedProfile.name, songName: hist.songName, artist: hist.artist, youtubeUrl: hist.youtubeUrl || '', type: hist.type };
-                      title = `Edit History Entry for ${managedProfile.name}`;
-                    }
-                  }
-                } else if (requestToEdit) {
-                  initialData = { singerName: requestToEdit.participantName, songName: requestToEdit.songName, artist: requestToEdit.artist, youtubeUrl: requestToEdit.youtubeUrl || '', type: requestToEdit.type };
-                  title = "Modify Track";
-                } else if (verifiedSongToEdit) {
-                  initialData = { singerName: '', songName: verifiedSongToEdit.songName, artist: verifiedSongToEdit.artist, youtubeUrl: verifiedSongToEdit.youtubeUrl || '', type: verifiedSongToEdit.type };
-                  title = "Edit Verified Song";
-                } else if (isAddingVerifiedSong) {
-                  initialData = { singerName: '', songName: '', artist: '', youtubeUrl: '', type: RequestType.SINGING };
-                  title = "Add to Verified Songbook";
-                } else if (prefilledSinger) {
-                  initialData.singerName = prefilledSinger.name;
-                  title = `Song for ${prefilledSinger.name}`;
-                }
 
-                return (
-                  <SongRequestForm
-                    key={requestToEdit?.id || profileItemToEdit?.itemId || prefilledSinger?.id || verifiedSongToEdit?.id || (isAddingVerifiedSong ? 'new-verified' : 'new-request')}
-                    title={title}
-                    showSingerName={!profileItemToEdit && !verifiedSongToEdit && !isAddingVerifiedSong}
-                    initialSingerName={initialData.singerName}
-                    initialSongName={initialData.songName}
-                    initialArtist={initialData.artist}
-                    initialYoutubeUrl={initialData.youtubeUrl}
-                    initialType={initialData.type}
-                    submitLabel={(requestToEdit || profileItemToEdit || verifiedSongToEdit) ? "Save Update" : (isAddingVerifiedSong ? "Add to Library" : "Queue Track")}
-                    onSubmit={handleManualRequestSubmit}
-                    onCancel={closeModals}
-                    participants={session.participants}
-                  />
-                );
-              })()}
-            </div>
-          </div>
-        )
-      }
+                    // On localhost: show manual IP input
+                    const manualBase = networkIpInput.trim()
+                      ? (networkIpInput.trim().startsWith('http') ? networkIpInput.trim() : `http://${networkIpInput.trim()}:5173/SingMode-v.2/`)
+                      : null;
+                    const qrValue = manualBase ? getQrValue(manualBase) : 'http://enter-your-ip-below';
 
-
-
-
-      {
-
-        (showQrModal || qrTargetUser) && (
-          <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-500">
-            <div className="w-full max-w-2xl bg-[#0a0a0a] border-4 border-white/10 rounded-[3rem] p-8 relative overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] animate-in zoom-in-95 duration-500">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-cyan)] via-[var(--neon-purple)] to-[var(--neon-pink)] animate-gradient-x"></div>
-
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h2 className="text-3xl font-black text-white uppercase tracking-tight font-bungee neon-glow-white">
-                    {qrTargetUser ? 'USER SINC' : 'JOIN ROOM'}
-                  </h2>
-                  {qrTargetUser && <p className="text-[var(--neon-cyan)] text-xs font-black uppercase tracking-widest font-righteous mt-1">TARGET: {qrTargetUser.name}</p>}
-                </div>
-                <button onClick={() => { setShowQrModal(false); setQrTargetUser(null); }} className="text-slate-600 hover:text-white p-2 font-black text-3xl transition-colors">✕</button>
-              </div>
-
-              <div className="flex flex-col items-center gap-4">
-                {/* Smart QR: auto URL on GitHub Pages, manual IP on localhost */}
-                {(() => {
-                  const autoUrl = getNetworkUrl();
-                  const isLocalhost = autoUrl.includes('localhost') || autoUrl.includes('127.0.0.1');
-
-                  // Build the final QR value
-                  const getQrValue = (base: string) => {
-                    const cleanBase = base.replace(/\/$/, '') + '/';
-                    if (qrTargetUser) return `${cleanBase}?userId=${qrTargetUser.id}&room=${roomId || ''}`;
-                    return `${cleanBase}?room=${roomId || ''}`;
-                  };
-
-                  // On GitHub Pages / network: use auto URL directly
-                  if (!isLocalhost) {
-                    const qrValue = getQrValue(autoUrl);
                     return (
                       <>
-                        <p className="text-[var(--neon-green)] font-black uppercase tracking-[0.2em] text-[10px] font-righteous self-start">✓ LIVE URL — SCAN TO JOIN</p>
+                        <div className="w-full p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl">
+                          <p className="text-rose-400 text-[10px] font-black uppercase tracking-widest text-center">⚠️ LOCALHOST — phones can't connect via this URL</p>
+                          <p className="text-slate-500 text-[10px] text-center mt-1 font-mono">Deploy to GitHub Pages for automatic public URLs, or enter your LAN IP below</p>
+                        </div>
+                        <p className="text-[var(--neon-yellow)] font-black uppercase tracking-[0.2em] text-[10px] font-righteous self-start">MANUAL NETWORK IP</p>
                         <div className="bg-white p-4 rounded-2xl w-full max-w-sm mx-auto shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:scale-105 transition-transform">
                           <QRCode value={qrValue} size={300} style={{ height: 'auto', maxWidth: '100%', width: '100%' }} viewBox="0 0 256 256" />
                         </div>
-                        <div className="w-full p-3 bg-[var(--neon-green)]/10 border border-[var(--neon-green)]/30 rounded-xl">
-                          <p className="text-[10px] font-mono text-[var(--neon-green)] break-all text-center">{qrValue}</p>
+                        <div className="w-full p-3 bg-black/60 border border-white/10 rounded-xl">
+                          <p className="text-[10px] font-mono text-[var(--neon-cyan)] break-all text-center">{manualBase ? qrValue : 'Enter IP below to generate URL'}</p>
                         </div>
+                        <input
+                          type="text"
+                          value={networkIpInput}
+                          onChange={(e) => setNetworkIpInput(e.target.value)}
+                          placeholder="e.g. 192.168.0.160"
+                          className="w-full bg-black border-2 border-[var(--neon-yellow)]/40 focus:border-[var(--neon-yellow)] rounded-xl px-4 py-3 text-white font-mono text-sm outline-none transition-all placeholder:text-slate-600"
+                        />
+                        <button
+                          onClick={() => { setNetworkIp(networkIpInput.trim()); }}
+                          className="w-full py-3 bg-[var(--neon-yellow)] text-black rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white transition-all font-righteous"
+                        >
+                          SAVE & USE THIS IP
+                        </button>
                       </>
                     );
-                  }
-
-                  // On localhost: show manual IP input
-                  const manualBase = networkIpInput.trim()
-                    ? (networkIpInput.trim().startsWith('http') ? networkIpInput.trim() : `http://${networkIpInput.trim()}:5173/SingMode-v.2/`)
-                    : null;
-                  const qrValue = manualBase ? getQrValue(manualBase) : 'http://enter-your-ip-below';
-
-                  return (
-                    <>
-                      <div className="w-full p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl">
-                        <p className="text-rose-400 text-[10px] font-black uppercase tracking-widest text-center">⚠️ LOCALHOST — phones can't connect via this URL</p>
-                        <p className="text-slate-500 text-[10px] text-center mt-1 font-mono">Deploy to GitHub Pages for automatic public URLs, or enter your LAN IP below</p>
-                      </div>
-                      <p className="text-[var(--neon-yellow)] font-black uppercase tracking-[0.2em] text-[10px] font-righteous self-start">MANUAL NETWORK IP</p>
-                      <div className="bg-white p-4 rounded-2xl w-full max-w-sm mx-auto shadow-[0_0_40px_rgba(255,255,255,0.1)] hover:scale-105 transition-transform">
-                        <QRCode value={qrValue} size={300} style={{ height: 'auto', maxWidth: '100%', width: '100%' }} viewBox="0 0 256 256" />
-                      </div>
-                      <div className="w-full p-3 bg-black/60 border border-white/10 rounded-xl">
-                        <p className="text-[10px] font-mono text-[var(--neon-cyan)] break-all text-center">{manualBase ? qrValue : 'Enter IP below to generate URL'}</p>
-                      </div>
-                      <input
-                        type="text"
-                        value={networkIpInput}
-                        onChange={(e) => setNetworkIpInput(e.target.value)}
-                        placeholder="e.g. 192.168.0.160"
-                        className="w-full bg-black border-2 border-[var(--neon-yellow)]/40 focus:border-[var(--neon-yellow)] rounded-xl px-4 py-3 text-white font-mono text-sm outline-none transition-all placeholder:text-slate-600"
-                      />
-                      <button
-                        onClick={() => { setNetworkIp(networkIpInput.trim()); }}
-                        className="w-full py-3 bg-[var(--neon-yellow)] text-black rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white transition-all font-righteous"
-                      >
-                        SAVE & USE THIS IP
-                      </button>
-                    </>
-                  );
-                })()}
-              </div>
-
-              <div className="mt-6 p-3 bg-white/5 rounded-2xl border border-white/5 text-center">
-                <p className="text-[var(--neon-cyan)] font-black uppercase tracking-widest text-sm font-righteous">
-                  {qrTargetUser ? 'AUTO-LOGIN ENABLED' : `ROOM ID: ${roomId}`}
-                </p>
-              </div>
-
-            </div>
-          </div>
-        )
-      }
-      {
-        showNetworkConfig && (
-          <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-300">
-            <div className="w-full max-w-xl bg-[#050510] border-4 border-white/10 p-12 rounded-[3.5rem] shadow-[0_0_100px_rgba(0,0,0,0.8)] relative overflow-hidden animate-in zoom-in-95 duration-300">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
-              <h3 className="text-5xl font-black text-white uppercase mb-4 tracking-tight font-bungee neon-glow-purple">Signal Origin</h3>
-              <p className="text-base text-[var(--neon-cyan)] font-black uppercase tracking-[0.4em] mb-12 font-righteous opacity-80">Set the endpoint for guest terminal connections</p>
-
-              <div className="space-y-8">
-                <div className="bg-black/40 p-8 rounded-[2rem] border-2 border-white/5 border-dashed">
-                  <p className="text-sm text-slate-500 uppercase font-black mb-3 tracking-[0.3em] font-righteous">LOCAL ENVIRONMENT DETECTION</p>
-                  <div className="text-xl text-[var(--neon-cyan)] font-mono font-black tracking-widest">
-                    {window.location.hostname} <span className="text-sm text-slate-700 opacity-60">(CURRENT HOST)</span>
-                  </div>
+                  })()}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-black text-slate-500 uppercase mb-4 ml-4 tracking-[0.3em] font-righteous">TERMINAL ADDRESS / PUBLIC TUNNEL URL</label>
-                  <input
-                    type="text"
-                    value={networkIpInput}
-                    onChange={(e) => setNetworkIpInput(e.target.value)}
-                    placeholder="E.G. 192.168.1.15 OR HTTPS://SIGNAL.NGROK.APP"
-                    className="w-full bg-black border-2 border-white/10 rounded-2xl px-8 py-5 text-white font-black uppercase font-mono tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all placeholder:text-slate-800 text-lg"
-                  />
-                </div>
-
-                <div className="bg-[var(--neon-pink)]/5 border border-[var(--neon-pink)]/10 p-6 rounded-2xl">
-                  <p className="text-sm text-[var(--neon-pink)]/60 font-black leading-relaxed uppercase tracking-widest font-righteous italic">
-                    Note: Cross-network connectivity requires tunneling (ngrok) for public-private bridge.
+                <div className="mt-6 p-3 bg-white/5 rounded-2xl border border-white/5 text-center">
+                  <p className="text-[var(--neon-cyan)] font-black uppercase tracking-widest text-sm font-righteous">
+                    {qrTargetUser ? 'AUTO-LOGIN ENABLED' : `ROOM ID: ${roomId}`}
                   </p>
                 </div>
 
-                <div className="flex gap-4 pt-6">
-                  <button
-                    onClick={() => setShowNetworkConfig(false)}
-                    className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-sm font-black uppercase tracking-widest font-righteous hover:bg-white/5"
-                  >
-                    ABORT
-                  </button>
-                  <button
-                    onClick={handleSaveNetworkIp}
-                    className="flex-[2] py-4 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all hover:scale-105"
-                  >
-                    AUTHORIZE CONFIG
-                  </button>
-                </div>
               </div>
-
-
             </div>
-          </div>
-        )
-      }
-      {
-        pickingSongForUser && (
-          <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-300">
-            <div className="w-full max-w-4xl bg-[#0a0a0a] border-4 border-white/10 rounded-[4rem] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] flex flex-col max-h-[90vh] relative animate-in zoom-in-95 duration-300">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
-              <div className="p-8 border-b-2 border-white/5 flex justify-between items-center bg-black/40 backdrop-blur-xl">
-                <div>
-                  <h2 className="text-5xl font-black text-white font-bungee uppercase tracking-tight neon-glow-pink">Signal Selection</h2>
-                  <p className="text-base text-[var(--neon-cyan)] font-black uppercase tracking-[0.4em] mt-1 font-righteous opacity-80">Verified Catalog • Target: <span className="text-[var(--neon-pink)]">{pickingSongForUser.name}</span></p>
-                </div>
-                <button onClick={() => setPickingSongForUser(null)} className="text-slate-600 hover:text-white p-3 font-black text-4xl transition-colors transform hover:scale-110">✕</button>
-              </div>
+          )
+        }
+        {
+          showNetworkConfig && (
+            <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-300">
+              <div className="w-full max-w-xl bg-[#050510] border-4 border-white/10 p-12 rounded-[3.5rem] shadow-[0_0_100px_rgba(0,0,0,0.8)] relative overflow-hidden animate-in zoom-in-95 duration-300">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
+                <h3 className="text-5xl font-black text-white uppercase mb-4 tracking-tight font-bungee neon-glow-purple">Signal Origin</h3>
+                <p className="text-base text-[var(--neon-cyan)] font-black uppercase tracking-[0.4em] mb-12 font-righteous opacity-80">Set the endpoint for guest terminal connections</p>
 
-              <div className="p-6 bg-black/20 border-b-2 border-white/5">
-                <div className="relative group">
-                  <input
-                    type="text"
-                    placeholder="FILTER VERIFIED TRANSMISSIONS..."
-                    value={pickerSearch}
-                    onChange={(e) => setPickerSearch(e.target.value)}
-                    className="w-full bg-[#050510] border-2 border-white/10 rounded-2xl px-12 py-4 text-white font-black uppercase tracking-widest font-righteous outline-none focus:border-[var(--neon-pink)] transition-all shadow-inner placeholder:text-slate-700 text-xl"
-                  />
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700 group-focus-within:text-[var(--neon-pink)] transition-colors">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
-                {pickerSearch && filteredVerifiedSongs.length === 0 && (
-                  <div className="text-center py-20 opacity-50">
-                    <p className="text-xl font-black uppercase tracking-widest text-slate-600 font-righteous">NO MATCHING TRANSMISSIONS</p>
-                  </div>
-                )}
-                {!pickerSearch && verifiedSongs.length === 0 && (
-                  <div className="text-center py-20 opacity-50">
-                    <p className="text-xl font-black uppercase tracking-widest text-slate-600 font-righteous">NO VERIFIED SONGS IN LIBRARY</p>
-                  </div>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {(pickerSearch ? filteredVerifiedSongs : verifiedSongs).map((song) => (
-                    <div key={song.id} className="bg-black/40 border-2 border-white/5 rounded-2xl p-4 relative overflow-hidden group hover:border-[var(--neon-pink)] transition-all">
-                      <h3 className="text-lg font-black text-white uppercase truncate font-righteous">{song.songName}</h3>
-                      <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-4 font-righteous">{song.artist}</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleSelectVerifiedSong(song)}
-                          className="flex-1 py-2 bg-[var(--neon-pink)]/20 text-[var(--neon-pink)] hover:text-black rounded-lg text-xs font-black uppercase transition-all font-righteous hover:bg-[var(--neon-pink)]"
-                        >
-                          SELECT
-                        </button>
-                        <button
-                          onClick={() => startEditVerifiedSong(song)}
-                          className="flex-1 py-2 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-white rounded-lg text-xs font-black uppercase transition-all font-righteous"
-                        >
-                          EDIT
-                        </button>
-                      </div>
+                <div className="space-y-8">
+                  <div className="bg-black/40 p-8 rounded-[2rem] border-2 border-white/5 border-dashed">
+                    <p className="text-sm text-slate-500 uppercase font-black mb-3 tracking-[0.3em] font-righteous">LOCAL ENVIRONMENT DETECTION</p>
+                    <div className="text-xl text-[var(--neon-cyan)] font-mono font-black tracking-widest">
+                      {window.location.hostname} <span className="text-sm text-slate-700 opacity-60">(CURRENT HOST)</span>
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              <div className="p-6 border-t-2 border-white/5 flex justify-end bg-black/40 backdrop-blur-xl">
-                <button
-                  onClick={() => setIsAddingVerifiedSong(true)}
-                  className="py-3 px-6 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all hover:scale-105"
-                >
-                  ADD NEW VERIFIED SONG
-                </button>
+                  <div>
+                    <label className="block text-sm font-black text-slate-500 uppercase mb-4 ml-4 tracking-[0.3em] font-righteous">TERMINAL ADDRESS / PUBLIC TUNNEL URL</label>
+                    <input
+                      type="text"
+                      value={networkIpInput}
+                      onChange={(e) => setNetworkIpInput(e.target.value)}
+                      placeholder="E.G. 192.168.1.15 OR HTTPS://SIGNAL.NGROK.APP"
+                      className="w-full bg-black border-2 border-white/10 rounded-2xl px-8 py-5 text-white font-black uppercase font-mono tracking-widest outline-none focus:border-[var(--neon-pink)] transition-all placeholder:text-slate-800 text-lg"
+                    />
+                  </div>
+
+                  <div className="bg-[var(--neon-pink)]/5 border border-[var(--neon-pink)]/10 p-6 rounded-2xl">
+                    <p className="text-sm text-[var(--neon-pink)]/60 font-black leading-relaxed uppercase tracking-widest font-righteous italic">
+                      Note: Cross-network connectivity requires tunneling (ngrok) for public-private bridge.
+                    </p>
+                  </div>
+
+                  <div className="flex gap-4 pt-6">
+                    <button
+                      onClick={() => setShowNetworkConfig(false)}
+                      className="flex-1 py-4 bg-black border border-white/10 text-white rounded-xl text-sm font-black uppercase tracking-widest font-righteous hover:bg-white/5"
+                    >
+                      ABORT
+                    </button>
+                    <button
+                      onClick={handleSaveNetworkIp}
+                      className="flex-[2] py-4 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all hover:scale-105"
+                    >
+                      AUTHORIZE CONFIG
+                    </button>
+                  </div>
+                </div>
+
+
               </div>
             </div>
-          </div>
-        )
-      }
+          )
+        }
+        {
+          pickingSongForUser && (
+            <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[200] backdrop-blur-3xl animate-in fade-in duration-300">
+              <div className="w-full max-w-4xl bg-[#0a0a0a] border-4 border-white/10 rounded-[4rem] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] flex flex-col max-h-[90vh] relative animate-in zoom-in-95 duration-300">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
+                <div className="p-8 border-b-2 border-white/5 flex justify-between items-center bg-black/40 backdrop-blur-xl">
+                  <div>
+                    <h2 className="text-5xl font-black text-white font-bungee uppercase tracking-tight neon-glow-pink">Signal Selection</h2>
+                    <p className="text-base text-[var(--neon-cyan)] font-black uppercase tracking-[0.4em] mt-1 font-righteous opacity-80">Verified Catalog • Target: <span className="text-[var(--neon-pink)]">{pickingSongForUser.name}</span></p>
+                  </div>
+                  <button onClick={() => setPickingSongForUser(null)} className="text-slate-600 hover:text-white p-3 font-black text-4xl transition-colors transform hover:scale-110">✕</button>
+                </div>
 
-      <style>{`
+                <div className="p-6 bg-black/20 border-b-2 border-white/5">
+                  <div className="relative group">
+                    <input
+                      type="text"
+                      placeholder="FILTER VERIFIED TRANSMISSIONS..."
+                      value={pickerSearch}
+                      onChange={(e) => setPickerSearch(e.target.value)}
+                      className="w-full bg-[#050510] border-2 border-white/10 rounded-2xl px-12 py-4 text-white font-black uppercase tracking-widest font-righteous outline-none focus:border-[var(--neon-pink)] transition-all shadow-inner placeholder:text-slate-700 text-xl"
+                    />
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-700 group-focus-within:text-[var(--neon-pink)] transition-colors">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+                  {pickerSearch && filteredVerifiedSongs.length === 0 && (
+                    <div className="text-center py-20 opacity-50">
+                      <p className="text-xl font-black uppercase tracking-widest text-slate-600 font-righteous">NO MATCHING TRANSMISSIONS</p>
+                    </div>
+                  )}
+                  {!pickerSearch && verifiedSongs.length === 0 && (
+                    <div className="text-center py-20 opacity-50">
+                      <p className="text-xl font-black uppercase tracking-widest text-slate-600 font-righteous">NO VERIFIED SONGS IN LIBRARY</p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {(pickerSearch ? filteredVerifiedSongs : verifiedSongs).map((song) => (
+                      <div key={song.id} className="bg-black/40 border-2 border-white/5 rounded-2xl p-4 relative overflow-hidden group hover:border-[var(--neon-pink)] transition-all">
+                        <h3 className="text-lg font-black text-white uppercase truncate font-righteous">{song.songName}</h3>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-4 font-righteous">{song.artist}</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleSelectVerifiedSong(song)}
+                            className="flex-1 py-2 bg-[var(--neon-pink)]/20 text-[var(--neon-pink)] hover:text-black rounded-lg text-xs font-black uppercase transition-all font-righteous hover:bg-[var(--neon-pink)]"
+                          >
+                            SELECT
+                          </button>
+                          <button
+                            onClick={() => startEditVerifiedSong(song)}
+                            className="flex-1 py-2 bg-black border border-white/10 hover:border-[var(--neon-pink)] text-white rounded-lg text-xs font-black uppercase transition-all font-righteous"
+                          >
+                            EDIT
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-6 border-t-2 border-white/5 flex justify-end bg-black/40 backdrop-blur-xl">
+                  <button
+                    onClick={() => setIsAddingVerifiedSong(true)}
+                    className="py-3 px-6 bg-[var(--neon-cyan)] text-black rounded-xl text-sm font-black uppercase tracking-widest font-righteous shadow-[0_0_20px_rgba(0,229,255,0.3)] hover:bg-white transition-all hover:scale-105"
+                  >
+                    ADD NEW VERIFIED SONG
+                  </button>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
+        <style>{`
         @keyframes gradient-x {
           0%, 100% { background-position: 0% 50%; }
           50% { background-position: 100% 50%; }
@@ -2661,326 +2821,341 @@ const DJView: React.FC<DJViewProps> = ({ onAdminAccess }) => {
           background: rgba(255, 255, 255, 0.2);
         }
       `}</style>
-      {
-        activeTab === 'ADMIN' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/5 shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-green)]/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+        {
+          activeTab === 'ADMIN' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/5 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-green)]/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
 
-              <div className="flex justify-between items-center mb-10 relative z-10">
-                <div>
-                  <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-green">
-                    <span className="text-5xl">🛡️</span> SESSION CONTROL
-                  </h2>
-                  <p className="text-slate-500 font-bold uppercase tracking-widest mt-2 font-righteous">MANAGE ACTIVE INSTANCES</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {activeSessions.map((s) => (
-                  <div key={s.id} className="bg-black/40 border-2 border-white/5 rounded-[2rem] p-6 relative overflow-hidden group hover:border-[var(--neon-green)] transition-all">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-12 h-12 bg-black rounded-xl border border-white/10 flex items-center justify-center text-2xl">
-                        {s.id === session?.id ? '📍' : '🌐'}
-                      </div>
-                      <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${s.id === session?.id ? 'bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] border-[var(--neon-cyan)]' : 'bg-slate-800 text-slate-400 border-white/10'}`}>
-                        {s.id === session?.id ? 'CURRENT' : 'REMOTE'}
-                      </div>
-                    </div>
-                    <h3 className="text-xl font-black text-white uppercase truncate font-bungee mb-1">{s.venueName || 'Unknown Venue'}</h3>
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-6 font-righteous">HOST: {s.hostName} • ID: {s.id}</p>
-
-                    <button
-                      onClick={() => {
-                        askConfirm(`Force close session "${s.venueName}"? This cannot be undone.`, async () => {
-                          await unregisterSession(s.id);
-                        });
-                      }}
-                      className="w-full py-3 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/30 rounded-xl font-black uppercase tracking-widest text-xs transition-all font-righteous"
-                    >
-                      FORCE CLOSE
-                    </button>
-                  </div>
-                ))}
-                {activeSessions.length === 0 && (
-                  <div className="col-span-full text-center py-20 opacity-50">
-                    <p className="text-xl font-black uppercase tracking-widest text-slate-600 font-righteous">NO ACTIVE SESSIONS FOUND</p>
-                  </div>
-                )}
-              </div>
-
-            </div>
-          </div>
-        )
-      }
-
-      {
-        activeTab === 'SESSION' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/5 shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-purple)]/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
-
-              <div className="flex justify-between items-center mb-10 relative z-10">
-                <div>
-                  <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-purple">
-                    <span className="text-5xl">📡</span> DAY_SHOW SESSION
-                  </h2>
-                  <p className="text-slate-400 mt-2 font-mono">
-                    Monitor all connected devices and manage active synchronization.
-                  </p>
-                </div>
-                <div className="flex gap-4">
-                  <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
-                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest font-righteous">STATUS</span>
-                    <span className={`text-xl font-black ${roomId ? 'text-[var(--neon-green)]' : 'text-rose-500'} uppercase font-bungee`}>
-                      {roomId ? 'ACTIVE' : 'OFFLINE'}
-                    </span>
-                  </div>
-                  <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
-                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest font-righteous">ROOM</span>
-                    <span className="text-2xl font-black text-white font-mono">{roomId || '----'}</span>
+                <div className="flex justify-between items-center mb-10 relative z-10">
+                  <div>
+                    <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-green">
+                      <span className="text-5xl">🛡️</span> SESSION CONTROL
+                    </h2>
+                    <p className="text-slate-500 font-bold uppercase tracking-widest mt-2 font-righteous">MANAGE ACTIVE INSTANCES</p>
                   </div>
                 </div>
-              </div>
 
-              {!roomId ? (
-                <div className="flex items-center justify-center py-20">
-                  <div className="max-w-xl w-full bg-[#0a0a0a] border-4 border-dashed border-white/5 rounded-[4rem] p-16 text-center">
-                    <div className="w-24 h-24 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)] rounded-[2.5rem] flex items-center justify-center text-5xl mx-auto mb-10 shadow-[0_0_50px_rgba(180,0,255,0.2)] animate-pulse">📡</div>
-                    <h2 className="text-4xl font-black text-white uppercase mb-4 font-bungee tracking-tight">OPEN BROADCAST</h2>
-                    <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mb-10 font-righteous leading-relaxed">
-                      ACTIVATE THE WORLDWIDE SYNC PROTOCOL. <br />ALLOW SINGER CONNECTIONS AND REMOTE COMMANDS.
-                    </p>
-
-                    <button
-                      onClick={() => setShowSessionHistory(true)}
-                      className="mb-10 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center gap-3 text-xs font-black text-slate-400 hover:text-white transition-all uppercase tracking-[0.2em] font-righteous mx-auto shadow-inner"
-                    >
-                      📜 VIEW SESSION HISTORY
-                    </button>
-
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-[10px] font-black text-[var(--neon-purple)] uppercase tracking-[0.3em] mb-3 font-righteous">SESSION NAME / ROOM ID</label>
-                        <input
-                          type="text"
-                          value={sessionName}
-                          onChange={(e) => setSessionName(e.target.value.toUpperCase().replace(/\s+/g, '_'))}
-                          className="w-full bg-black border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-mono text-center text-2xl tracking-widest focus:border-[var(--neon-purple)] outline-none transition-all"
-                        />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {activeSessions.map((s) => (
+                    <div key={s.id} className="bg-black/40 border-2 border-white/5 rounded-[2rem] p-6 relative overflow-hidden group hover:border-[var(--neon-green)] transition-all">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="w-12 h-12 bg-black rounded-xl border border-white/10 flex items-center justify-center text-2xl">
+                          {s.id === session?.id ? '📍' : '🌐'}
+                        </div>
+                        <div className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${s.id === session?.id ? 'bg-[var(--neon-cyan)]/20 text-[var(--neon-cyan)] border-[var(--neon-cyan)]' : 'bg-slate-800 text-slate-400 border-white/10'}`}>
+                          {s.id === session?.id ? 'CURRENT' : 'REMOTE'}
+                        </div>
                       </div>
+                      <h3 className="text-xl font-black text-white uppercase truncate font-bungee mb-1">{s.venueName || 'Unknown Venue'}</h3>
+                      <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-6 font-righteous">HOST: {s.hostName} • ID: {s.id}</p>
 
                       <button
-                        onClick={() => handleOpenSession()}
-                        disabled={isOpeningSession || !sessionName}
-                        className="w-full py-6 bg-[var(--neon-purple)] text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xl shadow-[0_0_40px_rgba(180,0,255,0.4)] hover:scale-105 hover:bg-fuchsia-500 transition-all disabled:opacity-50 disabled:scale-100 font-righteous"
+                        onClick={() => {
+                          askConfirm(`Force close session "${s.venueName}"? This cannot be undone.`, async () => {
+                            await unregisterSession(s.id);
+                          });
+                        }}
+                        className="w-full py-3 bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/30 rounded-xl font-black uppercase tracking-widest text-xs transition-all font-righteous"
                       >
-                        {isOpeningSession ? 'INITIALIZING...' : 'OPEN DAY_SHOW SESSION'}
+                        FORCE CLOSE
                       </button>
-
-                      {lastSessionName && lastSessionName !== sessionName && (
-                        <button
-                          onClick={() => handleOpenSession(lastSessionName)}
-                          disabled={isOpeningSession}
-                          className="w-full py-4 bg-black border-2 border-[var(--neon-cyan)] text-[var(--neon-cyan)] rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-sm shadow-[0_0_20px_rgba(0,229,255,0.2)] hover:bg-[var(--neon-cyan)]/10 transition-all font-righteous mt-4"
-                        >
-                          RECONNECT TO PREVIOUS: {lastSessionName}
-                        </button>
-                      )}
                     </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {session.deviceConnections?.map((device) => {
-                    const isConnected = device.status === 'connected';
-                    const assignedUser = device.userId ?
-                      (accounts.find(a => a.id === device.userId) ||
-                        session.participants?.find(p => p.id === device.userId)) : null;
-                    const isGuest = device.isGuest || (assignedUser && 'isGuest' in assignedUser ? (assignedUser as any).isGuest : false);
-
-                    return (
-
-                      <div key={device.id} className={`p-6 rounded-[2rem] border transition-all relative overflow-hidden group ${isConnected
-                        ? 'bg-[#151520] border-[var(--neon-purple)]/30 hover:border-[var(--neon-purple)]'
-                        : 'bg-[#05050A] border-white/5 opacity-60'
-                        }`}>
-                        {/* Status Dot */}
-                        <div className={`absolute top-6 right-6 w-3 h-3 rounded-full ${isConnected ? 'bg-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-rose-500'}`}></div>
-
-                        <div className="flex items-start gap-4 mb-6">
-                          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg ${assignedUser
-                            ? (isGuest ? 'bg-[var(--neon-orange)]/20 text-[var(--neon-orange)]' : 'bg-[var(--neon-blue)]/20 text-[var(--neon-blue)]')
-                            : 'bg-white/5 text-slate-500'
-                            }`}>
-                            {assignedUser ? (isGuest ? '👽' : '👤') : '📱'}
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-bold text-white font-righteous tracking-wide flex items-center gap-3">
-                              {device.id}
-                              {isGuest && (
-                                <span className="px-2 py-0.5 rounded bg-rose-500 text-[8px] font-black text-white">GUEST</span>
-                              )}
-                            </h3>
-                            <div className="text-xs font-mono text-slate-500 mt-1 flex flex-col gap-1">
-                              <div className="truncate max-w-[150px]" title={device.peerId}>{device.peerId}</div>
-                              {device.userAgent && (
-                                <div className="text-[10px] text-[var(--neon-cyan)]/60 font-black uppercase flex items-center gap-1">
-                                  {device.userAgent.toLowerCase().includes('mobile') ? '📱 MOBILE' : '💻 DESKTOP'}
-                                </div>
-                              )}
-                            </div>
-                            <div className={`mt-2 text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded inline-block ${isConnected ? 'bg-[var(--neon-green)]/10 text-[var(--neon-green)]' : 'bg-rose-500/10 text-rose-500'
-                              }`}>
-                              {device.status}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-4">
-                          <div className="p-4 bg-black/40 rounded-xl border border-white/5">
-                            <div className="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-1">
-                              Assigned Session
-                            </div>
-                            <div className="text-white font-medium truncate">
-                              {assignedUser ? assignedUser.name : <span className="text-slate-600 italic">Unassigned</span>}
-                            </div>
-                          </div>
-
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => {
-                                const userName = prompt("Enter User Name to link (must exist in Directory):");
-                                if (userName) {
-                                  const user = accounts.find(a => a.name.toLowerCase() === userName.toLowerCase());
-                                  if (user) {
-                                    assignUserToDevice(device.id, user.id, user.isGuest);
-                                    refresh();
-                                  } else {
-                                    alert("User not found!");
-                                  }
-                                }
-                              }}
-                              className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-sm font-bold text-white transition-all"
-                            >
-                              {assignedUser ? 'CHANGE' : 'LINK USER'}
-                            </button>
-                            <button
-                              onClick={() => {
-                                askConfirm("Forget this device?", async () => {
-                                  await removeDevice(device.id);
-                                  refresh();
-                                });
-                              }}
-                              className="px-4 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 transition-all"
-                            >
-                              Forget
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  {(!session.deviceConnections || session.deviceConnections.length === 0) && (
-                    <div className="col-span-full py-20 text-center text-slate-500 font-mono">
-                      No devices detected yet. Scan the QR code to connect.
+                  ))}
+                  {activeSessions.length === 0 && (
+                    <div className="col-span-full text-center py-20 opacity-50">
+                      <p className="text-xl font-black uppercase tracking-widest text-slate-600 font-righteous">NO ACTIVE SESSIONS FOUND</p>
                     </div>
                   )}
                 </div>
-              )}
 
-              {roomId && (
-                <div className="mt-10 p-8 bg-black/40 rounded-[2.5rem] border border-white/5 relative overflow-hidden animate-in slide-in-from-bottom-4 duration-700">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--neon-cyan)]/5 blur-[80px] rounded-full -mr-32 -mt-32 pointer-events-none"></div>
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-black text-white uppercase tracking-tight font-bungee neon-text-glow-cyan">Live Session Log</h3>
-                    <span className="px-3 py-1 rounded-full bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 text-[9px] font-black text-[var(--neon-cyan)] uppercase tracking-widest animate-pulse">
-                      ● REALTIME_FEED
-                    </span>
+              </div>
+            </div>
+          )
+        }
+
+        {
+          activeTab === 'SESSION' && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="bg-[#0a0a10]/90 backdrop-blur-2xl rounded-[3rem] p-10 border border-white/5 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[var(--neon-purple)]/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+
+                <div className="flex justify-between items-center mb-10 relative z-10">
+                  <div>
+                    <h2 className="text-4xl font-bold font-bungee text-white uppercase flex items-center gap-4 neon-glow-purple">
+                      <span className="text-5xl">📡</span> DAY_SHOW SESSION
+                    </h2>
+                    <p className="text-slate-400 mt-2 font-mono">
+                      Monitor all connected devices and manage active synchronization.
+                    </p>
                   </div>
-                  <div className="space-y-3 max-h-64 overflow-y-auto pr-4 no-scrollbar custom-scrollbar">
-                    {session.logs?.slice().reverse().map((log, i) => (
-                      <div key={i} className="flex gap-4 items-start animate-in slide-in-from-left-2 duration-300 group">
-                        <span className="text-[10px] font-mono text-slate-600 shrink-0 mt-0.5 group-hover:text-slate-400 transition-colors">
-                          [{new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]
-                        </span>
-                        <span className={`text-xs font-righteous uppercase tracking-wide px-2 py-0.5 rounded ${log.type === 'error' ? 'text-rose-500 bg-rose-500/5' :
-                          log.type === 'warn' ? 'text-[var(--neon-yellow)] bg-[var(--neon-yellow)]/5' :
-                            'text-slate-300 group-hover:text-white transition-colors'
-                          }`}>
-                          {log.message}
-                        </span>
+                  <div className="flex gap-4">
+                    <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
+                      <span className="text-sm font-bold text-slate-400 uppercase tracking-widest font-righteous">STATUS</span>
+                      <span className={`text-xl font-black ${roomId ? 'text-[var(--neon-green)]' : 'text-rose-500'} uppercase font-bungee`}>
+                        {roomId ? 'ACTIVE' : 'OFFLINE'}
+                      </span>
+                    </div>
+                    <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
+                      <span className="text-sm font-bold text-slate-400 uppercase tracking-widest font-righteous">ROOM</span>
+                      <span className="text-2xl font-black text-white font-mono">{roomId || '----'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {!roomId ? (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="max-w-xl w-full bg-[#0a0a0a] border-4 border-dashed border-white/5 rounded-[4rem] p-16 text-center">
+                      <div className="w-24 h-24 bg-[var(--neon-purple)]/10 text-[var(--neon-purple)] rounded-[2.5rem] flex items-center justify-center text-5xl mx-auto mb-10 shadow-[0_0_50px_rgba(180,0,255,0.2)] animate-pulse">📡</div>
+                      <h2 className="text-4xl font-black text-white uppercase mb-4 font-bungee tracking-tight">OPEN BROADCAST</h2>
+                      <p className="text-slate-500 font-bold uppercase tracking-widest text-xs mb-10 font-righteous leading-relaxed">
+                        ACTIVATE THE WORLDWIDE SYNC PROTOCOL. <br />ALLOW SINGER CONNECTIONS AND REMOTE COMMANDS.
+                      </p>
+
+                      <button
+                        onClick={() => setShowSessionHistory(true)}
+                        className="mb-10 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 flex items-center justify-center gap-3 text-xs font-black text-slate-400 hover:text-white transition-all uppercase tracking-[0.2em] font-righteous mx-auto shadow-inner"
+                      >
+                        📜 VIEW SESSION HISTORY
+                      </button>
+
+                      <div className="space-y-6">
+                        <div>
+                          <label className="block text-[10px] font-black text-[var(--neon-purple)] uppercase tracking-[0.3em] mb-3 font-righteous">SESSION NAME / ROOM ID</label>
+                          <input
+                            type="text"
+                            value={sessionName}
+                            onChange={(e) => setSessionName(e.target.value.toUpperCase().replace(/\s+/g, '_'))}
+                            className="w-full bg-black border-2 border-white/10 rounded-2xl px-6 py-4 text-white font-mono text-center text-2xl tracking-widest focus:border-[var(--neon-purple)] outline-none transition-all"
+                          />
+                        </div>
+
+                        <button
+                          onClick={() => handleOpenSession()}
+                          disabled={isOpeningSession || !sessionName}
+                          className="w-full py-6 bg-[var(--neon-purple)] text-white rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-xl shadow-[0_0_40px_rgba(180,0,255,0.4)] hover:scale-105 hover:bg-fuchsia-500 transition-all disabled:opacity-50 disabled:scale-100 font-righteous"
+                        >
+                          {isOpeningSession ? 'INITIALIZING...' : 'OPEN DAY_SHOW SESSION'}
+                        </button>
+
+                        {lastSessionName && lastSessionName !== sessionName && (
+                          <button
+                            onClick={() => handleOpenSession(lastSessionName)}
+                            disabled={isOpeningSession}
+                            className="w-full py-4 bg-black border-2 border-[var(--neon-cyan)] text-[var(--neon-cyan)] rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-sm shadow-[0_0_20px_rgba(0,229,255,0.2)] hover:bg-[var(--neon-cyan)]/10 transition-all font-righteous mt-4"
+                          >
+                            RECONNECT TO PREVIOUS: {lastSessionName}
+                          </button>
+                        )}
                       </div>
-                    ))}
-                    {(!session.logs || session.logs.length === 0) && (
-                      <div className="text-center py-10 text-slate-700 font-black uppercase tracking-widest text-[10px] italic">
-                        AWAITING_INITIAL_SYNC_EVENTS...
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {session.deviceConnections?.map((device) => {
+                      const isConnected = device.status === 'connected';
+                      const assignedUser = device.userId ?
+                        (accounts.find(a => a.id === device.userId) ||
+                          session.participants?.find(p => p.id === device.userId)) : null;
+                      const isGuest = device.isGuest || (assignedUser && 'isGuest' in assignedUser ? (assignedUser as any).isGuest : false);
+
+                      return (
+
+                        <div key={device.id} className={`p-6 rounded-[2rem] border transition-all relative overflow-hidden group ${isConnected
+                          ? 'bg-[#151520] border-[var(--neon-purple)]/30 hover:border-[var(--neon-purple)]'
+                          : 'bg-[#05050A] border-white/5 opacity-60'
+                          }`}>
+                          {/* Status Dot */}
+                          <div className={`absolute top-6 right-6 w-3 h-3 rounded-full ${isConnected ? 'bg-[var(--neon-green)] shadow-[0_0_10px_var(--neon-green)]' : 'bg-rose-500'}`}></div>
+
+                          <div className="flex items-start gap-4 mb-6">
+                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg ${assignedUser
+                              ? (isGuest ? 'bg-[var(--neon-orange)]/20 text-[var(--neon-orange)]' : 'bg-[var(--neon-blue)]/20 text-[var(--neon-blue)]')
+                              : 'bg-white/5 text-slate-500'
+                              }`}>
+                              {assignedUser ? (isGuest ? '👽' : '👤') : '📱'}
+                            </div>
+                            <div>
+                              <h3 className="text-xl font-bold text-white font-righteous tracking-wide flex items-center gap-3">
+                                {device.id}
+                                {isGuest && (
+                                  <span className="px-2 py-0.5 rounded bg-rose-500 text-[8px] font-black text-white">GUEST</span>
+                                )}
+                              </h3>
+                              <div className="text-xs font-mono text-slate-500 mt-1 flex flex-col gap-1">
+                                <div className="truncate max-w-[150px]" title={device.peerId}>{device.peerId}</div>
+                                {device.userAgent && (
+                                  <div className="text-[10px] text-[var(--neon-cyan)]/60 font-black uppercase flex items-center gap-1">
+                                    {device.userAgent.toLowerCase().includes('mobile') ? '📱 MOBILE' : '💻 DESKTOP'}
+                                  </div>
+                                )}
+                              </div>
+                              <div className={`mt-2 text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded inline-block ${isConnected ? 'bg-[var(--neon-green)]/10 text-[var(--neon-green)]' : 'bg-rose-500/10 text-rose-500'
+                                }`}>
+                                {device.status}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div className="p-4 bg-black/40 rounded-xl border border-white/5">
+                              <div className="text-[10px] uppercase text-slate-500 font-bold tracking-widest mb-1">
+                                Assigned Session
+                              </div>
+                              <div className="text-white font-medium truncate">
+                                {assignedUser ? assignedUser.name : <span className="text-slate-600 italic">Unassigned</span>}
+                              </div>
+                            </div>
+
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  const userName = prompt("Enter User Name to link (must exist in Directory):");
+                                  if (userName) {
+                                    const user = accounts.find(a => a.name.toLowerCase() === userName.toLowerCase());
+                                    if (user) {
+                                      assignUserToDevice(device.id, user.id, user.isGuest);
+                                      refresh();
+                                    } else {
+                                      alert("User not found!");
+                                    }
+                                  }
+                                }}
+                                className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 text-sm font-bold text-white transition-all"
+                              >
+                                {assignedUser ? 'CHANGE' : 'LINK USER'}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  askConfirm("Forget this device?", async () => {
+                                    await removeDevice(device.id);
+                                    refresh();
+                                  });
+                                }}
+                                className="px-4 py-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-500 transition-all"
+                              >
+                                Forget
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {(!session.deviceConnections || session.deviceConnections.length === 0) && (
+                      <div className="col-span-full py-20 text-center text-slate-500 font-mono">
+                        No devices detected yet. Scan the QR code to connect.
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )
-      }
+                )}
 
-      {/* Session History Modal */}
-      {showSessionHistory && (
-        <div className="fixed inset-0 bg-black/98 flex items-center justify-center p-6 z-[400] backdrop-blur-3xl animate-in fade-in duration-300">
-          <div className="w-full max-w-4xl bg-[#050510] border-4 border-[var(--neon-purple)]/30 rounded-[4rem] p-12 shadow-[0_0_100px_rgba(180,0,255,0.2)] flex flex-col max-h-[85vh] relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-[var(--neon-purple)]/5 blur-[100px] rounded-full -mr-48 -mt-48 pointer-events-none"></div>
-
-            <div className="flex justify-between items-center mb-12">
-              <div>
-                <h2 className="text-5xl font-black text-white uppercase tracking-tight font-bungee neon-text-glow-purple">SESSION_HISTORY</h2>
-                <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-xs mt-2 font-righteous">ARCHIVE OF PREVIOUS SINGMODE BETA BROADCASTS</p>
-              </div>
-              <button
-                onClick={() => setShowSessionHistory(false)}
-                className="w-16 h-16 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-2xl transition-all"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto pr-4 space-y-4 no-scrollbar">
-              {sessionHistory.length === 0 ? (
-                <div className="py-32 text-center text-slate-600 font-black uppercase tracking-widest font-righteous italic">
-                  NO PREVIOUS SESSIONS RECORDED
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  {sessionHistory.map((s) => (
-                    <div key={s.id} className="p-8 bg-white/5 rounded-[2.5rem] border border-white/5 hover:border-white/10 transition-all group flex items-center justify-between">
-                      <div className="flex items-center gap-8">
-                        <div className="w-20 h-20 rounded-2xl bg-[var(--neon-purple)]/10 border border-[var(--neon-purple)]/20 flex flex-col items-center justify-center">
-                          <span className="text-2xl">📡</span>
+                {roomId && (
+                  <div className="mt-10 p-8 bg-black/40 rounded-[2.5rem] border border-white/5 relative overflow-hidden animate-in slide-in-from-bottom-4 duration-700">
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-[var(--neon-cyan)]/5 blur-[80px] rounded-full -mr-32 -mt-32 pointer-events-none"></div>
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-xl font-black text-white uppercase tracking-tight font-bungee neon-text-glow-cyan">Live Session Log</h3>
+                      <span className="px-3 py-1 rounded-full bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 text-[9px] font-black text-[var(--neon-cyan)] uppercase tracking-widest animate-pulse">
+                        ● REALTIME_FEED
+                      </span>
+                    </div>
+                    <div className="space-y-3 max-h-64 overflow-y-auto pr-4 no-scrollbar custom-scrollbar">
+                      {session.logs?.slice().reverse().map((log, i) => (
+                        <div key={i} className="flex gap-4 items-start animate-in slide-in-from-left-2 duration-300 group">
+                          <span className="text-[10px] font-mono text-slate-600 shrink-0 mt-0.5 group-hover:text-slate-400 transition-colors">
+                            [{new Date(log.timestamp).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}]
+                          </span>
+                          <span className={`text-xs font-righteous uppercase tracking-wide px-2 py-0.5 rounded ${log.type === 'error' ? 'text-rose-500 bg-rose-500/5' :
+                            log.type === 'warn' ? 'text-[var(--neon-yellow)] bg-[var(--neon-yellow)]/5' :
+                              'text-slate-300 group-hover:text-white transition-colors'
+                            }`}>
+                            {log.message}
+                          </span>
                         </div>
-                        <div>
-                          <h3 className="text-2xl font-black text-white uppercase tracking-tight font-righteous">{s.venueName || 'Main Lounge'}</h3>
-                          <div className="flex items-center gap-4 mt-1 text-slate-500 font-mono text-sm">
-                            <span>ID: {s.id}</span>
-                            <span>•</span>
-                            <span>{new Date(s.startedAt).toLocaleDateString()}</span>
+                      ))}
+                      {(!session.logs || session.logs.length === 0) && (
+                        <div className="text-center py-10 text-slate-700 font-black uppercase tracking-widest text-[10px] italic">
+                          AWAITING_INITIAL_SYNC_EVENTS...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        }
+
+        {/* Session History Modal */}
+        {showSessionHistory && (
+          <div className="fixed inset-0 bg-black/98 flex items-center justify-center p-6 z-[400] backdrop-blur-3xl animate-in fade-in duration-300">
+            <div className="w-full max-w-4xl bg-[#050510] border-4 border-[var(--neon-purple)]/30 rounded-[4rem] p-12 shadow-[0_0_100px_rgba(180,0,255,0.2)] flex flex-col max-h-[85vh] relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-[var(--neon-purple)]/5 blur-[100px] rounded-full -mr-48 -mt-48 pointer-events-none"></div>
+
+              <div className="flex justify-between items-center mb-12">
+                <div>
+                  <h2 className="text-5xl font-black text-white uppercase tracking-tight font-bungee neon-text-glow-purple">SESSION_HISTORY</h2>
+                  <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-xs mt-2 font-righteous">ARCHIVE OF PREVIOUS SINGMODE BETA BROADCASTS</p>
+                </div>
+                <button
+                  onClick={() => setShowSessionHistory(false)}
+                  className="w-16 h-16 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-2xl transition-all"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-4 space-y-4 no-scrollbar">
+                {sessionHistory.length === 0 ? (
+                  <div className="py-32 text-center text-slate-600 font-black uppercase tracking-widest font-righteous italic">
+                    NO PREVIOUS SESSIONS RECORDED
+                  </div>
+                ) : (
+                  <div className="grid gap-4">
+                    {sessionHistory.map((s) => (
+                      <div key={s.id} className="p-8 bg-white/5 rounded-[2.5rem] border border-white/5 hover:border-white/10 transition-all group flex items-center justify-between">
+                        <div className="flex items-center gap-8">
+                          <div className="w-20 h-20 rounded-2xl bg-[var(--neon-purple)]/10 border border-[var(--neon-purple)]/20 flex flex-col items-center justify-center">
+                            <span className="text-2xl">📡</span>
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-black text-white uppercase tracking-tight font-righteous">{s.venueName || 'Main Lounge'}</h3>
+                            <div className="flex items-center gap-4 mt-1 text-slate-500 font-mono text-sm">
+                              <span>ID: {s.id}</span>
+                              <span>•</span>
+                              <span>{new Date(s.startedAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 font-righteous">Duration</div>
+                          <div className="text-white font-mono text-xl">
+                            {s.endedAt ? Math.floor((s.endedAt - s.startedAt) / (60 * 1000)) + ' MINS' : '---'}
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1 font-righteous">Duration</div>
-                        <div className="text-white font-mono text-xl">
-                          {s.endedAt ? Math.floor((s.endedAt - s.startedAt) / (60 * 1000)) + ' MINS' : '---'}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        <DragOverlay zIndex={9999} dropAnimation={{ sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.4' } } }) }}>
+          {activeId && activeData ? (
+            activeData.type === 'PARTICIPANT' ? (
+              <DraggingParticipantCard name={activeData.item?.name || activeData.name} />
+            ) : (
+              <DraggingSongCard
+                songName={activeData.item?.songName || activeData.songName}
+                artist={activeData.item?.artist || activeData.artist}
+                participantName={activeData.item?.participantName || activeData.participantName}
+              />
+            )
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       {confirmState.isOpen && (
         <div className="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-[300] backdrop-blur-3xl animate-in fade-in duration-300">
