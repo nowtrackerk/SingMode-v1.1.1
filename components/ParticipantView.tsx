@@ -278,20 +278,44 @@ const ParticipantView: React.FC = () => {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
+    setConnectionStatus('connecting');
+
+    const tryJoin = async (profileId: string) => {
+      await refresh();
+      await new Promise(resolve => setTimeout(resolve, 500));
+      let retries = 3;
+      let newPart = null;
+      while (retries > 0 && !newPart) {
+        try {
+          console.log(`[Participant] Attempting auth join, retries left: ${retries}`);
+          newPart = await joinSession(profileId);
+        } catch (joinErr: any) {
+          console.warn(`[Participant] Auth join attempt failed: ${joinErr.message}`);
+          retries--;
+          if (retries === 0) throw new Error("Could not reach session host. Please refresh and try again.");
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+      if (newPart) {
+        setParticipant(newPart);
+        setConnectionStatus('connected');
+      }
+    };
 
     try {
       if (isLoginMode) {
         const result = await loginUser(name, password);
         if (result.success && result.profile) {
-          const newPart = await joinSession(result.profile.id);
-          setParticipant(newPart);
           setUserProfile(result.profile);
+          await tryJoin(result.profile.id);
         } else {
           setAuthError(result.error || "Authorization failed.");
+          setConnectionStatus('disconnected');
         }
       } else {
         if (password !== confirmPassword) {
           setAuthError("PASSWORDS_DO_NOT_MATCH");
+          setConnectionStatus('disconnected');
           return;
         }
 
@@ -302,15 +326,17 @@ const ParticipantView: React.FC = () => {
         }, true);
 
         if (result.success && result.profile) {
-          const newPart = await joinSession(result.profile.id);
-          setParticipant(newPart);
           setUserProfile(result.profile);
+          await tryJoin(result.profile.id);
         } else {
           setAuthError(result.error || "Initialization failed.");
+          setConnectionStatus('disconnected');
         }
       }
     } catch (err: any) {
-      setAuthError(err.message || "An unexpected error occurred.");
+      console.error("[Participant] Fatal auth join error:", err);
+      setAuthError(err.message || "An unexpected network error occurred.");
+      setConnectionStatus('disconnected');
     }
   };
 
@@ -358,22 +384,49 @@ const ParticipantView: React.FC = () => {
 
   const handleGuestSingNow = async () => {
     setAuthError('');
+    setConnectionStatus('connecting'); // Show pending state in UI
     try {
       const guestName = `Guest-${Math.floor(Math.random() * 10000)}`;
       const result = await registerUser({ name: guestName }, true); // Auto-login true
+
       if (result.success && result.profile) {
-        const newPart = await joinSession(result.profile.id);
-        setParticipant(newPart);
         setUserProfile(result.profile);
-        setPrefillData(null);
-        setShowRequestForm(true);
-        // Auto-set status to READY upon entry?
-        await updateParticipantStatus(result.profile.id, ParticipantStatus.READY);
+
+        // Ensure local sync state is absolutely fresh before joining
+        await refresh();
+        await new Promise(resolve => setTimeout(resolve, 500)); // Brief network settle
+
+        let retries = 3;
+        let newPart = null;
+
+        while (retries > 0 && !newPart) {
+          try {
+            console.log(`[Participant] Attempting join for ${guestName}, retries left: ${retries}`);
+            newPart = await joinSession(result.profile.id);
+          } catch (joinErr: any) {
+            console.warn(`[Participant] Join attempt failed: ${joinErr.message}`);
+            retries--;
+            if (retries === 0) throw new Error("Could not reach session host. Please refresh and try again.");
+            await new Promise(resolve => setTimeout(resolve, 1000)); // wait before retry
+          }
+        }
+
+        if (newPart) {
+          setParticipant(newPart);
+          setPrefillData(null);
+          setShowRequestForm(true);
+          setConnectionStatus('connected');
+          await updateParticipantStatus(result.profile.id, ParticipantStatus.READY);
+        }
+
       } else {
         setAuthError(result.error || "Guest initialization failed.");
+        setConnectionStatus('disconnected');
       }
     } catch (err: any) {
-      setAuthError(err.message || "An unexpected error occurred.");
+      console.error("[Participant] Fatal join error:", err);
+      setAuthError(err.message || "An unexpected network error occurred.");
+      setConnectionStatus('disconnected');
     }
   };
 
