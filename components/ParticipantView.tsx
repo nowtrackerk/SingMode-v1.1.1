@@ -96,8 +96,15 @@ const ParticipantView: React.FC = () => {
   };
 
   useEffect(() => {
+    const urlRoom = new URLSearchParams(window.location.search).get('room');
+    const effectiveRoomId = roomId || urlRoom;
+
     const init = async () => {
-      // Check for SINC Login
+      // 1. Determine Room ID First and Initialize Sync BEFORE trying to join
+      console.log(`[Participant] Initializing sync. Room from URL/Storage: ${effectiveRoomId || 'None, using auto-discovery'}`);
+      await initializeSync('PARTICIPANT', effectiveRoomId || undefined);
+
+      // 2. Check for SINC Login
       const params = new URLSearchParams(window.location.search);
       const sincUserId = params.get('userId');
 
@@ -108,16 +115,14 @@ const ParticipantView: React.FC = () => {
           setUserProfile(result.profile);
           setIsLoginMode(false);
           // Preserve room param if it exists in current URL
-          const urlRoom = params.get('room');
           const roomToKeep = roomId || urlRoom;
           // Clear userId param to prevent re-login loop, but keep room for sync
           window.history.replaceState({}, '', window.location.pathname + (roomToKeep ? `?room=${roomToKeep}` : ''));
         }
       }
 
-      const urlRoom = new URLSearchParams(window.location.search).get('room');
+      // 3. Handle Auto-Join based on Profile State AFTER Sync is initialized
       const currentRoom = roomId || urlRoom;
-
       const profile = await getUserProfile();
       if (profile) {
         setUserProfile(profile);
@@ -142,12 +147,6 @@ const ParticipantView: React.FC = () => {
       refresh();
     };
     init();
-
-    const urlRoom = new URLSearchParams(window.location.search).get('room');
-    const effectiveRoomId = roomId || urlRoom;
-
-    console.log(`[Participant] Initializing sync. Room from URL/Storage: ${effectiveRoomId || 'None, using auto-discovery'}`);
-    initializeSync('PARTICIPANT', effectiveRoomId || undefined);
 
     syncService.onConnectionStatus = (status) => {
       setConnectionStatus(status);

@@ -189,8 +189,37 @@ async function handleRemoteAction(action: RemoteAction) {
 }
 
 export const initializeSync = async (role: 'DJ' | 'PARTICIPANT', room?: string) => {
-  isRemoteClient = role === 'PARTICIPANT' && !!room;
-  const peerId = await syncService.initialize(role, room);
+  // We'll set isRemoteClient below once we resolve the room
+  let effectiveRoom = room;
+
+  // Participants: Setup direct Firestore state subscription as a robust fallback
+  if (role === 'PARTICIPANT') {
+    if (!effectiveRoom) {
+      const activeSessions = await getActiveSessions();
+      if (activeSessions.length > 0) {
+        effectiveRoom = activeSessions[0].id; // Join latest
+        console.log("[Sync] No room provided for participant, joining latest active session:", effectiveRoom);
+
+        // Fetch and apply the initial state before subscriptions or peer connection to avoid 'ghost session' layout flash
+        const session = await getSessionById(effectiveRoom);
+        if (session) {
+          syncService.applyIncomingState(session);
+        }
+      }
+    }
+
+    if (effectiveRoom) {
+      isRemoteClient = true;
+      console.log("[Sync] Initializing robust Firestore fallback sync for room:", effectiveRoom);
+      subscribeToSession(effectiveRoom, (newState) => {
+        console.log("[Sync] Received state update via Firestore fallback");
+        syncService.applyIncomingState(newState);
+      });
+    }
+  }
+
+  const peerId = await syncService.initialize(role, effectiveRoom);
+  isRemoteClient = role === 'PARTICIPANT' && !!effectiveRoom;
 
   // Initialize Firebase Realtime Sync for Users if we are the DJ/Host
   if (!isRemoteClient && peerId) {
@@ -261,37 +290,6 @@ export const initializeSync = async (role: 'DJ' | 'PARTICIPANT', room?: string) 
         }
       });
     });
-  }
-
-  // Participants: Setup direct Firestore state subscription as a robust fallback
-  if (role === 'PARTICIPANT') {
-    let effectiveRoom = room;
-    if (!effectiveRoom) {
-      const activeSessions = await getActiveSessions();
-      if (activeSessions.length > 0) {
-        effectiveRoom = activeSessions[0].id; // Join latest
-        console.log("[Sync] No room provided for participant, joining latest active session:", effectiveRoom);
-
-        // Fetch and apply the initial state before subscriptions or peer connection to avoid 'ghost session' layout flash
-        const session = await getSessionById(effectiveRoom);
-        if (session) {
-          syncService.applyIncomingState(session);
-        }
-      }
-    }
-
-    if (effectiveRoom) {
-      isRemoteClient = true;
-      console.log("[Sync] Initializing robust Firestore fallback sync for room:", effectiveRoom);
-      subscribeToSession(effectiveRoom, (newState) => {
-        console.log("[Sync] Received state update via Firestore fallback");
-        syncService.applyIncomingState(newState);
-      });
-      // Ensure syncService also knows about the room if it was inferred
-      if (!room) {
-        await syncService.initialize('PARTICIPANT', effectiveRoom);
-      }
-    }
   }
 };
 
