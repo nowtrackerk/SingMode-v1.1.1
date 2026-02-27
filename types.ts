@@ -167,7 +167,8 @@ export type RemoteActionType =
   | 'TOGGLE_FAVORITE'
   | 'REORDER_PENDING'
   | 'REORDER_PARTICIPANTS'
-  | 'REORDER_MY_REQUESTS';
+  | 'REORDER_MY_REQUESTS'
+  | 'HEARTBEAT';
 
 export interface RemoteAction {
   type: RemoteActionType;

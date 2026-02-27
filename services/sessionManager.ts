@@ -138,6 +138,10 @@ async function handleRemoteAction(action: RemoteAction) {
     case 'TOGGLE_MIC':
       await updateParticipantMic(action.payload.id, action.payload.enabled);
       break;
+    case 'HEARTBEAT':
+      // Heartbeat strictly updates device connection status
+      await trackDeviceConnection(action.senderId);
+      break;
     case 'DELETE_REQUEST':
       await deleteRequest(action.payload);
       break;
@@ -209,12 +213,45 @@ export const initializeSync = async (role: 'DJ' | 'PARTICIPANT', room?: string) 
     }
 
     if (effectiveRoom) {
+      // PROBABLE FAILURE FIX: Check if the room we found is actually still active.
+      // If it's a dead session from yesterday, auto-discovery is better than a zombie room.
+      try {
+        const sessDoc = await getDoc(doc(db, "sessions", effectiveRoom));
+        if (sessDoc.exists()) {
+          const m = sessDoc.data() as ActiveSession;
+          if (m.isActive === false) {
+            console.warn("[Sync] Found last room but it is INACTIVE. Clearing stale cache.");
+            localStorage.removeItem('kstar_last_room');
+            effectiveRoom = undefined;
+            // Re-run discovery for actual live sessions
+            const actives = await getActiveSessions();
+            if (actives.length > 0) effectiveRoom = actives[0].id;
+          }
+        }
+      } catch (e) {
+        console.warn("[Sync] Error validating session activity:", e);
+      }
+    }
+
+    if (effectiveRoom) {
       isRemoteClient = true;
       console.log("[Sync] Initializing robust Firestore fallback sync for room:", effectiveRoom);
       subscribeToSession(effectiveRoom, (newState) => {
         console.log("[Sync] Received state update via Firestore fallback");
         syncService.applyIncomingState(newState);
       });
+
+      // Participant Heartbeat: Keep DJ informed of live status
+      const hb = setInterval(() => {
+        if (isRemoteClient) {
+          syncService.sendAction({
+            type: 'HEARTBEAT',
+            payload: {},
+            senderId: syncService.getMyPeerId() || 'anon'
+          }).catch(e => console.warn('[Sync] Heartbeat failed:', e.message));
+        }
+      }, 30000);
+      window.addEventListener('beforeunload', () => clearInterval(hb));
     }
   }
 
@@ -223,6 +260,14 @@ export const initializeSync = async (role: 'DJ' | 'PARTICIPANT', room?: string) 
 
   // Initialize Firebase Realtime Sync for Users if we are the DJ/Host
   if (!isRemoteClient && peerId) {
+    // Ensure local session object has the correct ID before any other operations
+    await runSessionUpdate((s) => {
+      s.id = peerId;
+    });
+
+    // Persist this ID as the DJ session ID for QR code stability across reloads
+    localStorage.setItem('kstar_dj_session_id', peerId);
+
     // Register Session
     const user = await getUserProfile();
     const hostName = user?.name || "SingMode DJ";
@@ -361,7 +406,8 @@ export const saveSession = async (session: KaraokeSession) => {
 
   // If we are the DJ/Host, also persist to Firestore for participants joining later
   // or as a fallback for connection drops
-  if (!isRemoteClient && session.id) {
+  // Safety: NEVER persist the default 'current-session' ID to Firestore.
+  if (!isRemoteClient && session.id && session.id !== 'current-session') {
     try {
       const sessionDoc = doc(db, "sessions", session.id);
       await updateDoc(sessionDoc, {

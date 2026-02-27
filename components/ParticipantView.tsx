@@ -257,11 +257,20 @@ const ParticipantView: React.FC = () => {
     setSession(sess);
     const up = await getUserProfile();
     setUserProfile(up);
+
+    // Safety check BEFORE overwriting participant
     if (!up) {
       setParticipant(null);
     } else {
       const found = sess.participants.find(p => p.id === up.id);
-      if (found) setParticipant(found);
+      if (found) {
+        setParticipant(found);
+      } else {
+        // CRITICAL FIX: If we have a local participant state, but they aren't in the global session YET,
+        // it means their JOIN_SESSION payload is still traveling to the DJ. 
+        // Do NOT overwrite participant to null here, or they get completely stuck in "Connecting".
+        setParticipant(prev => prev ? prev : null);
+      }
     }
     setPendingActions(syncService.getPendingActions());
   };
@@ -269,9 +278,15 @@ const ParticipantView: React.FC = () => {
   useEffect(() => {
     window.addEventListener('kstar_sync', refresh);
     window.addEventListener('storage', refresh);
+    window.addEventListener('online', refresh);
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refresh();
+    });
     return () => {
       window.removeEventListener('kstar_sync', refresh);
       window.removeEventListener('storage', refresh);
+      window.removeEventListener('online', refresh);
+      window.removeEventListener('visibilitychange', refresh);
     };
   }, []);
 
@@ -550,6 +565,20 @@ const ParticipantView: React.FC = () => {
   }
 
   if (!session || !participant) {
+    // Safety Timeout: if stuck here for 8 seconds, something broke in sync
+    useEffect(() => {
+      let timeout: any;
+      if (connectionStatus === 'connecting' || !participant) {
+        timeout = setTimeout(() => {
+          console.warn("[Participant] Connecting timeout reached. Forcing disconnect.");
+          setAuthError("Connection timed out. Please check your signal and try again.");
+          setConnectionStatus('disconnected');
+          setParticipant(null);
+        }, 8000);
+      }
+      return () => clearTimeout(timeout);
+    }, [connectionStatus, participant]);
+
     return (
       <div className="min-h-screen bg-[#050510] flex flex-col items-center justify-center p-8 space-y-12">
         <div className="scale-125 mb-8">

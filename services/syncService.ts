@@ -268,7 +268,14 @@ class SyncService {
       console.log(`[Sync] Connection closed: ${conn.peer}`);
       this.connections.delete(conn.peer);
       if (this.connections.size === 0 && this.onConnectionStatus) {
-        if (!this.isHost) this.onConnectionStatus('disconnected');
+        if (!this.isHost) {
+          this.onConnectionStatus('disconnected');
+          // Auto-reconnect participant if hostId is known
+          if (this.hostId) {
+            console.log('[Sync] Attempting background reconnect in 3s...');
+            setTimeout(() => this.connectToHost(this.hostId!), 3000);
+          }
+        }
       }
       // Trigger device disconnected event
       if (this.isHost && this.onDeviceDisconnected) {
@@ -314,17 +321,41 @@ class SyncService {
       this.actionQueue.push(action);
       this.persistQueue();
 
-      // 2. Buffer to Firestore ASYNCHRONOUSLY (Don't wait for internet)
+      // Check if we have an active, open P2P connection to the host
+      let hasOpenConnection = false;
+      this.connections.forEach(conn => {
+        if (conn.open) hasOpenConnection = true;
+      });
+
+      // 2. Buffer to Firestore 
+      // If we don't have a P2P connection, we MUST await the Firestore write to guarantee delivery before continuing UI flow.
       if (this.hostId) {
-        collection(db, "sessions", this.hostId, "pending_actions"); // Reference creation is fine
-        addDoc(collection(db, "sessions", this.hostId, "pending_actions"), {
-          ...action,
-          bufferedAt: Date.now()
-        }).then(() => {
-          console.log(`[Sync] Action ${action.type} buffered successfully to Firestore.`);
-        }).catch(e => {
-          console.warn('[Sync] Firestore buffering delayed (will sync when online):', e.message);
-        });
+        try {
+          const writePromise = addDoc(collection(db, "sessions", this.hostId, "pending_actions"), {
+            ...action,
+            bufferedAt: Date.now()
+          });
+
+          if (!hasOpenConnection) {
+            console.log(`[Sync] No active P2P connection. Awaiting explicit Firestore fallback write for ${action.type}...`);
+            // Wait up to 5 seconds for Firestore to acknowledge the write
+            await Promise.race([
+              writePromise,
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Firestore write timeout")), 5000))
+            ]);
+            console.log(`[Sync] Action ${action.type} confirmed written to Firestore.`);
+          } else {
+            // We have P2P, let it buffer asynchronously in the background
+            writePromise.catch(e => console.warn('[Sync] Background Firestore buffering delayed:', e.message));
+          }
+        } catch (e: any) {
+          console.error(`[Sync] CRITICAL: Failed to write to Firestore fallback: ${e.message}`);
+          if (!hasOpenConnection) {
+            throw new Error("Network unreachable. Failed to contact host via P2P or Database.");
+          }
+        }
+      } else if (!hasOpenConnection) {
+        throw new Error("Cannot send action: No Room ID and No Active Connection.");
       }
     }
 
