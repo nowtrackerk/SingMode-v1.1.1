@@ -1,0 +1,23 @@
+Subject: SingMode v.2 Update: Fix for Performance Log Not Tracking Songs
+
+Hi Jacobo,
+
+Here is a summary of the fix that was applied to the Performance Log issue in SingMode v.2:
+
+The Issue:
+When a song was marked as "DONE" or when an active round was finished, the DJ's system updated the user's `personalHistory` array locally on the DJ screen. However, this update was never communicated to the database (Firestore) or synchronized with other connected devices. Because of this, the `PERFORMANCE LOG` would temporarily update on the DJ's screen, but disappear the moment the app was refreshed or if the user viewed it from their own phone.
+
+The Fix:
+We updated two main functions in `services/sessionManager.ts`:
+- `completeStageSong`: The function called when manually marking a song as "DONE".
+- `finishRound`: The function called when finishing an active rotation block of songs.
+
+We modified both of these paths to route through the centralized `updateAccount` API. This automatically:
+1. Commits the `personalHistory` addition directly to Firestore.
+2. Updates local cache state.
+3. Broadcasts a live `SYNC_PROFILE` event to connected guest devices so the change reflects on their screens instantly without requiring a page refresh.
+
+The application has been built and tested successfully with these changes. 
+
+Best,
+SingMode AI Assistant

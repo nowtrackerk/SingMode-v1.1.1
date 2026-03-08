@@ -1,0 +1,5 @@
+afa90d1 Fix Cloud Fallback sync and UI bugs
+f055a91 Implement generalized Data Recovery tool and fix build errors
+09d7087 Add high-visibility banner to Admin Portal for Data Recovery tool
+da29574 Reinforce session data consistency in ParticipantView to prevent stale 'On Stage' songs
+cd0b500 Fix Stale Participant View Stage bug by preserving Session ID on reset

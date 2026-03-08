@@ -7,17 +7,29 @@ import {
   getSession, joinSession, updateParticipantStatus, addRequest, deleteRequest,
   updateRequest, getUserProfile, toggleFavorite, saveUserProfile, registerUser,
   loginUser, logoutUser, updateParticipantMic, reorderMyRequests, updateVocalRange, loginUserById,
-  getActiveSessions, initializeSync, subscribeToSessions
+  getActiveSessions, initializeSync
 } from '../services/sessionManager';
 import SongRequestForm from './SongRequestForm';
 import { syncService } from '../services/syncService';
 import { getNetworkUrl } from '../services/networkUtils';
+import { auth, db } from '../services/firebaseConfig';
+import { onSnapshot, doc } from 'firebase/firestore';
 import SessionList from './SessionList';
 import VocalFxPanel from './VocalFxPanel';
 import { SingModeLogo } from './common/SingModeLogo';
+import { useToast } from './ToastService';
 
+const ADJECTIVES = ['Neon', 'Cyber', 'Disco', 'Retro', 'Electric', 'Velvet', 'Funky', 'Cosmic', 'Liquid', 'Sonic', 'Crystal', 'Midnight', 'Solar', 'Atomic', 'Chrome'];
+const NOUNS = ['Cobra', 'Tiger', 'Panther', 'Dragon', 'Falcon', 'Shark', 'Wolf', 'Viper', 'Phoenix', 'Rider', 'Surfer', 'Runner', 'Dancer', 'Rocker', 'Star'];
 
-type Tab = 'ROTATION' | 'REQUESTS' | 'FAVORITES' | 'HISTORY' | 'VOCALS';
+const generateArtistName = () => {
+  const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+  const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+  const num = Math.floor(Math.random() * 99) + 1; // 1-99
+  return `${adj} ${noun} ${num}`;
+};
+
+type Tab = 'ROTATION' | 'REQUESTS' | 'FAVORITES' | 'HISTORY' | 'VOCALS' | 'VIDEOS';
 
 const VideoLink: React.FC<{ url?: string }> = ({ url }) => {
   if (!url) return null;
@@ -36,12 +48,67 @@ const VideoLink: React.FC<{ url?: string }> = ({ url }) => {
 
 
 
+const translations = {
+  en: {
+    rotation: 'STAGE',
+    requests: 'MY SONGS',
+    favorites: 'SONGBOOK',
+    history: 'LOG',
+    vocals: 'MIC SETUP',
+    videos: 'VIDEOS',
+    sing: 'SING!',
+    ready: 'READY',
+    notYet: 'NOT YET',
+    signOut: 'SIGN OUT',
+    comingUp: 'COMING UP',
+    onStage: 'ON STAGE',
+    searchBook: 'SEARCH SONGBOOK...',
+    edit: 'EDIT',
+    cancel: 'CANCEL',
+    noRequests: 'NO REQUESTS',
+    noMatches: 'NO_MATCHES',
+  },
+  es: {
+    rotation: 'ESCENARIO',
+    requests: 'MIS PEDIDOS',
+    favorites: 'CATÁLOGO',
+    history: 'HISTORIAL',
+    vocals: 'CANTANTE',
+    videos: 'VIDEOS',
+    sing: '¡CANTAR!',
+    ready: 'LISTO',
+    notYet: 'ESPERAR',
+    signOut: 'SALIR',
+    comingUp: 'EN LA FILA',
+    onStage: 'EN ESCENARIO',
+    searchBook: 'BUSCAR CANCIÓN...',
+    edit: 'EDITAR',
+    cancel: 'CANCELAR',
+    noRequests: 'SIN PEDIDOS',
+    noMatches: 'SIN COINCIDENCIAS',
+  }
+};
+
 const ParticipantView: React.FC = () => {
+  const [lang, setLang] = useState<'en' | 'es'>(() => (localStorage.getItem('singmode_lang') as 'en' | 'es') || 'en');
+  useEffect(() => {
+    localStorage.setItem('singmode_lang', lang);
+  }, [lang]);
+  const tx = translations[lang];
+
   const [participant, setParticipant] = useState<Participant | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+
+  // Auto-set language for Rosa
+  useEffect(() => {
+    if (userProfile?.name?.toLowerCase() === 'rosa') {
+      setLang('es');
+    }
+  }, [userProfile?.name]);
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [authError, setAuthError] = useState('');
   const [name, setName] = useState('');
+  const [guestNameInput, setGuestNameInput] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -50,6 +117,30 @@ const ParticipantView: React.FC = () => {
   const [editingRequest, setEditingRequest] = useState<SongRequest | null>(null);
   const [prefillData, setPrefillData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<Tab>('ROTATION');
+  const { showToast } = useToast();
+  const prevRequestsRef = useRef<SongRequest[]>([]);
+
+  useEffect(() => {
+    if (!session || !userProfile) return;
+
+    const currentMyRequests = session.requests.filter(r => r.participantId === userProfile.id);
+    const prevMyRequests = prevRequestsRef.current;
+
+    currentMyRequests.forEach(currReq => {
+      const prevReq = prevMyRequests.find(r => r.id === currReq.id);
+
+      if (prevReq) {
+        if (prevReq.status !== currReq.status && currReq.status === RequestStatus.APPROVED) {
+          showToast(`✅ ${currReq.songName} was approved by the DJ!`, 'info');
+        }
+        if (!prevReq.isInRound && currReq.isInRound) {
+          showToast(`🎵 You're up! Time to sing ${currReq.songName} 🎤`, 'success');
+        }
+      }
+    });
+
+    prevRequestsRef.current = currentMyRequests;
+  }, [session?.requests, userProfile?.id, showToast]);
 
   const [showQrModal, setShowQrModal] = useState(false);
   const [librarySearchQuery, setLibrarySearchQuery] = useState('');
@@ -59,7 +150,7 @@ const ParticipantView: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connecting');
   const [djHostName, setDjHostName] = useState<string | undefined>(undefined);
   const [pendingActions, setPendingActions] = useState<RemoteAction[]>([]);
-  const [latestSessionId, setLatestSessionId] = useState<string | null>(null);
+  const isInitialized = useRef(false);
 
   const roomId = syncService.getRoomId();
   const roomJoinUrl = getNetworkUrl() + (roomId ? `?room=${roomId}` : '');
@@ -96,15 +187,8 @@ const ParticipantView: React.FC = () => {
   };
 
   useEffect(() => {
-    const urlRoom = new URLSearchParams(window.location.search).get('room');
-    const effectiveRoomId = roomId || urlRoom;
-
     const init = async () => {
-      // 1. Determine Room ID First and Initialize Sync BEFORE trying to join
-      console.log(`[Participant] Initializing sync. Room from URL/Storage: ${effectiveRoomId || 'None, using auto-discovery'}`);
-      await initializeSync('PARTICIPANT', effectiveRoomId || undefined);
-
-      // 2. Check for SINC Login
+      // Check for SINC Login
       const params = new URLSearchParams(window.location.search);
       const sincUserId = params.get('userId');
 
@@ -114,15 +198,16 @@ const ParticipantView: React.FC = () => {
         if (result.success && result.profile) {
           setUserProfile(result.profile);
           setIsLoginMode(false);
-          // Preserve room param if it exists in current URL
-          const roomToKeep = roomId || urlRoom;
-          // Clear userId param to prevent re-login loop, but keep room for sync
-          window.history.replaceState({}, '', window.location.pathname + (roomToKeep ? `?room=${roomToKeep}` : ''));
+          // Clear param to prevent re-login loop but preserve the room param
+          const existingRoom = new URLSearchParams(window.location.search).get('room');
+          const finalRoom = syncService.getRoomId() || existingRoom;
+          window.history.replaceState({}, '', window.location.pathname + (finalRoom ? `?room=${finalRoom}` : ''));
         }
       }
 
-      // 3. Handle Auto-Join based on Profile State AFTER Sync is initialized
+      const urlRoom = new URLSearchParams(window.location.search).get('room');
       const currentRoom = roomId || urlRoom;
+
       const profile = await getUserProfile();
       if (profile) {
         setUserProfile(profile);
@@ -143,64 +228,47 @@ const ParticipantView: React.FC = () => {
       } else {
         const sess = await getSession(currentRoom || undefined);
         setSession(sess);
+
+        // Intentionally leaving users on the login page even if they scan a QR code
+        // so that they can input their custom username before hitting "SING!"
       }
       refresh();
     };
     init();
 
+    const urlRoomStr = new URLSearchParams(window.location.search).get('room');
+    const effectiveRoomId = roomId || urlRoomStr;
+
+    if (effectiveRoomId && !isInitialized.current) {
+      console.log(`[Participant] Initializing sync for room: ${effectiveRoomId}`);
+      initializeSync('PARTICIPANT', effectiveRoomId).catch(console.error);
+      isInitialized.current = true;
+
+      // Subscribe to Cloud Fallback state for Cloud-Only users
+      const unsub = onSnapshot(doc(db, "sessions", effectiveRoomId), (doc) => {
+        if (doc.exists()) {
+          const cloudData = doc.data();
+          if (cloudData.fullState) {
+            try {
+              const fullSess = JSON.parse(cloudData.fullState);
+              // Tell sync service to apply it so queues evaluate and events fire
+              syncService.applyIncomingState(fullSess);
+            } catch (e) {
+              console.warn("Failed to parse Cloud Fallback state", e);
+            }
+          }
+        }
+      });
+
+      // Cleanup listener on unmount
+      return () => unsub();
+    }
+
     syncService.onConnectionStatus = (status) => {
       setConnectionStatus(status);
-      if (status === 'connected' && effectiveRoomId) {
-        localStorage.setItem('kstar_last_room', effectiveRoomId);
-      }
-    };
-
-    // Keep track of the latest active session
-    const unsubscribe = subscribeToSessions((sessions) => {
-      if (sessions.length > 0) {
-        setLatestSessionId(sessions[0].id);
-      }
-    });
-
-    return () => {
-      unsubscribe();
     };
   }, [roomId]);
 
-  const handleReconnect = async () => {
-    setConnectionStatus('connecting');
-    try {
-      const sessions = await getActiveSessions();
-      // Filter for any active v.2 session (more inclusive)
-      const latestDjSession = sessions
-        .sort((a, b) => (b.lastHeartbeat || 0) - (a.lastHeartbeat || 0))[0];
-
-      if (latestDjSession) {
-        console.log(`[Participant] Smart Reconnect joining latest session: ${latestDjSession.id}`);
-        // Instead of a full reload, try to re-init in place
-        localStorage.setItem('kstar_last_room', latestDjSession.id);
-        window.location.search = `?room=${latestDjSession.id}`;
-      } else {
-        // Fallback: try last stored room if nothing found nearby
-        const lastRoom = localStorage.getItem('kstar_last_room');
-        if (lastRoom) {
-          window.location.search = `?room=${lastRoom}`;
-        } else {
-          console.log(`[Participant] Smart Reconnect: No active session or last room found. Initializing sync for auto-discovery.`);
-          await initializeSync('PARTICIPANT');
-          // No need to show scanner immediately if auto-discovery might work
-          // setShowSessionScanner(true);
-        }
-      }
-    } catch (e) {
-      console.error("Smart Reconnect failed:", e);
-      setShowSessionScanner(true);
-      setConnectionStatus('disconnected');
-    }
-  };
-
-  /* 
-  // Google Sign-In is currently disabled as it requires a valid Client ID.
   // To enable, uncomment this block and provide a valid client_id from Google Cloud Console.
   useEffect(() => {
     // Initialize Google Identity Services
@@ -213,14 +281,14 @@ const ParticipantView: React.FC = () => {
           picture: payload.picture,
           googleId: payload.sub
         };
-   
+
         const result = await registerUser({
           name: googleProfile.name,
           email: googleProfile.email,
           picture: googleProfile.picture,
           googleId: googleProfile.googleId
         }, true);
-   
+
         if (result.success && result.profile) {
           const newPart = await joinSession(result.profile.id);
           setParticipant(newPart);
@@ -231,46 +299,41 @@ const ParticipantView: React.FC = () => {
         setAuthError('Google Sign-in failed. Please try again.');
       }
     };
-   
+
     if ((window as any).google) {
-      (window as any).google.accounts.id.initialize({
-        client_id: 'YOUR_GOOGLE_CLIENT_ID', // Requires valid Client ID
-        callback: handleGoogleCallback,
-      });
-   
-      // Render button if in login/unauthenticated state
-      const buttonDiv = document.getElementById('google-signin-btn');
-      if (buttonDiv && !participant) {
-        (window as any).google.accounts.id.renderButton(buttonDiv, {
-          theme: 'outline',
-          size: 'large',
-          width: '100%',
-          text: 'continue_with'
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      if (clientId) {
+        (window as any).google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleGoogleCallback,
         });
+
+        // Render button if in login/unauthenticated state
+        const buttonDiv = document.getElementById('google-signin-btn');
+        if (buttonDiv && !participant) {
+          (window as any).google.accounts.id.renderButton(buttonDiv, {
+            theme: 'outline',
+            size: 'large',
+            width: '100%',
+            text: 'continue_with'
+          });
+        }
+      } else {
+        console.warn("VITE_GOOGLE_CLIENT_ID is not defined in environment variables.");
       }
     }
   }, [participant]);
-  */
 
   const refresh = async () => {
     const sess = await getSession();
     setSession(sess);
     const up = await getUserProfile();
     setUserProfile(up);
-
-    // Safety check BEFORE overwriting participant
     if (!up) {
       setParticipant(null);
     } else {
       const found = sess.participants.find(p => p.id === up.id);
-      if (found) {
-        setParticipant(found);
-      } else {
-        // CRITICAL FIX: If we have a local participant state, but they aren't in the global session YET,
-        // it means their JOIN_SESSION payload is still traveling to the DJ. 
-        // Do NOT overwrite participant to null here, or they get completely stuck in "Connecting".
-        setParticipant(prev => prev ? prev : null);
-      }
+      if (found) setParticipant(found);
     }
     setPendingActions(syncService.getPendingActions());
   };
@@ -278,59 +341,29 @@ const ParticipantView: React.FC = () => {
   useEffect(() => {
     window.addEventListener('kstar_sync', refresh);
     window.addEventListener('storage', refresh);
-    window.addEventListener('online', refresh);
-    window.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') refresh();
-    });
     return () => {
       window.removeEventListener('kstar_sync', refresh);
       window.removeEventListener('storage', refresh);
-      window.removeEventListener('online', refresh);
-      window.removeEventListener('visibilitychange', refresh);
     };
   }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
-    setConnectionStatus('connecting');
-
-    const tryJoin = async (profileId: string) => {
-      await refresh();
-      await new Promise(resolve => setTimeout(resolve, 500));
-      let retries = 3;
-      let newPart = null;
-      while (retries > 0 && !newPart) {
-        try {
-          console.log(`[Participant] Attempting auth join, retries left: ${retries}`);
-          newPart = await joinSession(profileId);
-        } catch (joinErr: any) {
-          console.warn(`[Participant] Auth join attempt failed: ${joinErr.message}`);
-          retries--;
-          if (retries === 0) throw new Error("Could not reach session host. Please refresh and try again.");
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-      }
-      if (newPart) {
-        setParticipant(newPart);
-        setConnectionStatus('connected');
-      }
-    };
 
     try {
       if (isLoginMode) {
         const result = await loginUser(name, password);
         if (result.success && result.profile) {
+          const newPart = await joinSession(result.profile.id);
+          setParticipant(newPart);
           setUserProfile(result.profile);
-          await tryJoin(result.profile.id);
         } else {
           setAuthError(result.error || "Authorization failed.");
-          setConnectionStatus('disconnected');
         }
       } else {
         if (password !== confirmPassword) {
           setAuthError("PASSWORDS_DO_NOT_MATCH");
-          setConnectionStatus('disconnected');
           return;
         }
 
@@ -341,17 +374,15 @@ const ParticipantView: React.FC = () => {
         }, true);
 
         if (result.success && result.profile) {
+          const newPart = await joinSession(result.profile.id);
+          setParticipant(newPart);
           setUserProfile(result.profile);
-          await tryJoin(result.profile.id);
         } else {
           setAuthError(result.error || "Initialization failed.");
-          setConnectionStatus('disconnected');
         }
       }
     } catch (err: any) {
-      console.error("[Participant] Fatal auth join error:", err);
-      setAuthError(err.message || "An unexpected network error occurred.");
-      setConnectionStatus('disconnected');
+      setAuthError(err.message || "An unexpected error occurred.");
     }
   };
 
@@ -399,49 +430,22 @@ const ParticipantView: React.FC = () => {
 
   const handleGuestSingNow = async () => {
     setAuthError('');
-    setConnectionStatus('connecting'); // Show pending state in UI
     try {
-      const guestName = `Guest-${Math.floor(Math.random() * 10000)}`;
-      const result = await registerUser({ name: guestName }, true); // Auto-login true
-
+      const finalGuestName = guestNameInput.trim() || generateArtistName();
+      const result = await registerUser({ name: finalGuestName }, true); // Auto-login true
       if (result.success && result.profile) {
+        const newPart = await joinSession(result.profile.id);
+        setParticipant(newPart);
         setUserProfile(result.profile);
-
-        // Ensure local sync state is absolutely fresh before joining
-        await refresh();
-        await new Promise(resolve => setTimeout(resolve, 500)); // Brief network settle
-
-        let retries = 3;
-        let newPart = null;
-
-        while (retries > 0 && !newPart) {
-          try {
-            console.log(`[Participant] Attempting join for ${guestName}, retries left: ${retries}`);
-            newPart = await joinSession(result.profile.id);
-          } catch (joinErr: any) {
-            console.warn(`[Participant] Join attempt failed: ${joinErr.message}`);
-            retries--;
-            if (retries === 0) throw new Error("Could not reach session host. Please refresh and try again.");
-            await new Promise(resolve => setTimeout(resolve, 1000)); // wait before retry
-          }
-        }
-
-        if (newPart) {
-          setParticipant(newPart);
-          setPrefillData(null);
-          setShowRequestForm(true);
-          setConnectionStatus('connected');
-          await updateParticipantStatus(result.profile.id, ParticipantStatus.READY);
-        }
-
+        setPrefillData(null);
+        setShowRequestForm(true);
+        // Auto-set status to READY upon entry?
+        await updateParticipantStatus(result.profile.id, ParticipantStatus.READY);
       } else {
         setAuthError(result.error || "Guest initialization failed.");
-        setConnectionStatus('disconnected');
       }
     } catch (err: any) {
-      console.error("[Participant] Fatal join error:", err);
-      setAuthError(err.message || "An unexpected network error occurred.");
-      setConnectionStatus('disconnected');
+      setAuthError(err.message || "An unexpected error occurred.");
     }
   };
 
@@ -460,14 +464,21 @@ const ParticipantView: React.FC = () => {
         </div>
 
         <h1 className="text-6xl md:text-8xl font-bold font-bungee text-white mb-6 uppercase tracking-tight neon-text-glow-purple leading-none">
-          Singmode Beta
+          Singmode v.2
         </h1>
         <p className="text-[var(--neon-cyan)] font-righteous mb-16 uppercase tracking-[0.6em] text-lg font-black neon-glow-cyan">SINGER LOGIN</p>
 
-        <div className="w-full max-w-lg mb-12 relative z-20">
+        <div className="w-full max-w-lg mb-12 relative z-20 space-y-4">
+          <input
+            type="text"
+            value={guestNameInput}
+            onChange={(e) => setGuestNameInput(e.target.value)}
+            placeholder="ENTER NAME OR LEAVE BLANK"
+            className="w-full bg-[#101015] border-2 border-[var(--neon-cyan)]/30 rounded-[2rem] px-8 py-5 text-white font-bold focus:border-[var(--neon-cyan)] outline-none transition-all shadow-[0_0_20px_rgba(0,229,255,0.1)] focus:shadow-[0_0_30px_rgba(0,229,255,0.3)] text-xl uppercase tracking-wider text-center font-righteous placeholder:text-slate-600"
+          />
           <button
             onClick={handleGuestSingNow}
-            className="w-full py-8 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-blue)] text-white rounded-[2.5rem] font-black text-4xl shadow-[0_0_60px_rgba(255,0,127,0.4)] uppercase tracking-[0.1em] active:scale-95 transition-all font-bungee hover:brightness-110 border-4 border-white/10 animate-pulse"
+            className="w-full py-6 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-blue)] text-white rounded-[2.5rem] font-black text-4xl shadow-[0_0_60px_rgba(255,0,127,0.4)] uppercase tracking-[0.1em] active:scale-95 transition-all font-bungee hover:brightness-110 border-4 border-white/10 animate-pulse mt-2"
           >
             SING!
           </button>
@@ -514,7 +525,6 @@ const ParticipantView: React.FC = () => {
             </div>
           )}
 
-          {/* 
           <div className="pt-2">
             <div id="google-signin-btn" className="w-full overflow-hidden rounded-2xl border-2 border-white/5 bg-white/5 grayscale hover:grayscale-0 transition-all"></div>
           </div>
@@ -524,7 +534,6 @@ const ParticipantView: React.FC = () => {
             <span className="text-sm font-black uppercase tracking-widest font-righteous text-white">OR SIGN IN TO PROFILE</span>
             <div className="h-px flex-1 bg-white/30"></div>
           </div>
-*/}
 
           <div className="space-y-4">
             <label className="block text-base font-black text-slate-500 uppercase tracking-[0.3em] mb-3 text-left font-righteous ml-4">PASSWORD</label>
@@ -538,19 +547,21 @@ const ParticipantView: React.FC = () => {
             />
           </div>
 
-          {!isLoginMode && (
-            <div className="space-y-4">
-              <label className="block text-base font-black text-slate-500 uppercase tracking-[0.3em] mb-3 text-left font-righteous ml-4">CONFIRM PASSWORD</label>
-              <input
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-8 py-5 text-white font-bold focus:border-[var(--neon-pink)] outline-none transition-all shadow-inner text-3xl tracking-wider placeholder:text-slate-600 font-righteous"
-              />
-            </div>
-          )}
+          {
+            !isLoginMode && (
+              <div className="space-y-4">
+                <label className="block text-base font-black text-slate-500 uppercase tracking-[0.3em] mb-3 text-left font-righteous ml-4">CONFIRM PASSWORD</label>
+                <input
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-[#101015] border-2 border-white/10 rounded-2xl px-8 py-5 text-white font-bold focus:border-[var(--neon-pink)] outline-none transition-all shadow-inner text-3xl tracking-wider placeholder:text-slate-600 font-righteous"
+                />
+              </div>
+            )
+          }
 
           <button type="submit" className="w-full py-6 mt-6 bg-[var(--neon-pink)] hover:bg-white hover:text-black text-white rounded-2xl font-black text-3xl shadow-[0_0_40px_rgba(255,0,127,0.3)] transition-all uppercase tracking-[0.2em] font-bungee hover:scale-[1.02] active:scale-95">
             {isLoginMode ? 'SIGN IN' : 'CREATE PROFILE'}
@@ -559,26 +570,12 @@ const ParticipantView: React.FC = () => {
           <button type="button" onClick={() => { setIsLoginMode(!isLoginMode); setAuthError(''); }} className="text-slate-600 hover:text-[var(--neon-cyan)] text-sm font-black uppercase tracking-[0.3em] pt-6 block mx-auto transition-colors font-righteous border-b-2 border-transparent hover:border-[var(--neon-cyan)] pb-1">
             {isLoginMode ? "CREATE ACCOUNT" : "BACK TO START"}
           </button>
-        </form>
-      </div>
+        </form >
+      </div >
     );
   }
 
   if (!session || !participant) {
-    // Safety Timeout: if stuck here for 8 seconds, something broke in sync
-    useEffect(() => {
-      let timeout: any;
-      if (connectionStatus === 'connecting' || !participant) {
-        timeout = setTimeout(() => {
-          console.warn("[Participant] Connecting timeout reached. Forcing disconnect.");
-          setAuthError("Connection timed out. Please check your signal and try again.");
-          setConnectionStatus('disconnected');
-          setParticipant(null);
-        }, 8000);
-      }
-      return () => clearTimeout(timeout);
-    }, [connectionStatus, participant]);
-
     return (
       <div className="min-h-screen bg-[#050510] flex flex-col items-center justify-center p-8 space-y-12">
         <div className="scale-125 mb-8">
@@ -615,7 +612,9 @@ const ParticipantView: React.FC = () => {
         <div className="fixed bottom-12 left-0 right-0 flex justify-center">
           <div className="px-4 py-2 bg-black/40 backdrop-blur-md border border-white/5 rounded-full flex items-center space-x-3">
             <div className={`w-2 h-2 rounded-full animate-ping ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-amber-500'}`}></div>
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Network: {connectionStatus}</span>
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+              Network: {connectionStatus} {connectionStatus === 'connected' ? '(Real-time)' : '(Cloud Fallback)'}
+            </span>
           </div>
         </div>
       </div>
@@ -625,6 +624,7 @@ const ParticipantView: React.FC = () => {
   const myRequests = session.requests.filter(r => r.participantId === participant.id && r.status !== RequestStatus.DONE);
 
   // Rotation Position Logic (Interleaved sorting matching DJ and Rotation Tab)
+  // Ensure we EXCLUDE songs that are DONE so they disappear from "Coming Up" as well.
   const approvedSingingRaw = session.requests.filter(r => r.status === RequestStatus.APPROVED && r.type === RequestType.SINGING && !r.isInRound);
   const participantsWithSongs = session.participants.filter(p => approvedSingingRaw.some(r => r.participantId === p.id))
     .sort((a, b) => (b.joinedAt || 0) - (a.joinedAt || 0));
@@ -655,52 +655,61 @@ const ParticipantView: React.FC = () => {
 
   const myFirstInRotation = fullRotation.findIndex(r => r.participantId === participant.id);
   const positionInLine = myFirstInRotation + 1;
-  const isOnStage = session.currentRound?.some(r => r.participantId === participant.id && r.status !== RequestStatus.DONE);
+  const isOnStage = session.currentRound?.some(r => r.participantId === participant.id);
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-10 relative">
-      {/* Tropical Profile Header */}
-      <header className="relative rounded-[3rem] p-1 overflow-hidden shadow-2xl group">
-        <div className="absolute inset-0 bg-[#0a0a0a] rounded-[2.9rem]"></div>
-        <div className="absolute top-0 inset-x-0 h-32 bg-[var(--neon-purple)]/10 blur-[50px]"></div>
+      {/* Compact Profile Header */}
+      <header className="relative rounded-3xl p-1 overflow-hidden shadow-2xl group">
+        <div className="absolute inset-0 bg-[#0a0a0a] rounded-[1.4rem]"></div>
+        <div className="absolute top-0 inset-x-0 h-24 bg-[var(--neon-purple)]/10 blur-[40px]"></div>
 
-        <div className="relative p-8 flex flex-col items-center text-center">
-          <div className="absolute top-6 right-6 z-20">
-            {/* Authorized Node Badge Removed, Sign Out moved here */}
+        <div className="relative p-4 px-6 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            <div className="w-16 h-16 p-0.5 rounded-full border-2 border-white/10 relative shrink-0">
+              <div className="absolute inset-0 rounded-full bg-[var(--neon-pink)]/20 blur-md"></div>
+              <img src="IGK.jpeg" alt="Logo" className="w-full h-full rounded-full object-cover relative z-10" />
+              <div className="absolute bottom-0 right-0 w-4 h-4 bg-black rounded-full flex items-center justify-center border-2 border-black z-20">
+                <div className={`w-2 h-2 rounded-full animate-pulse shadow-[0_0_10px_currentColor] ${connectionStatus === 'connected' ? 'bg-[var(--neon-green)] text-[var(--neon-green)]' : connectionStatus === 'connecting' ? 'bg-[var(--neon-yellow)] text-[var(--neon-yellow)]' : 'bg-rose-500 text-rose-500'}`}></div>
+              </div>
+            </div>
+
+            <div className="flex flex-col text-left justify-center min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <h2 className="text-2xl font-bold text-white tracking-tight uppercase leading-none font-bungee truncate">{participant.name}</h2>
+                {/* Sync Mode Indicator */}
+                <span className="bg-[#101015] border border-white/10 rounded-md px-1.5 py-0.5 text-[7px] font-black tracking-widest text-[var(--neon-cyan)] shadow-xl uppercase font-righteous shrink-0 relative top-[-2px]">
+                  {connectionStatus === 'connected' ? 'P2P+CLOUD' : 'CLOUD-ONLY'}
+                </span>
+              </div>
+
+              {/* Position Indicator */}
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                {positionInLine > 0 && !isOnStage && (
+                  <div className="px-3 py-1 bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 rounded-full inline-flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-[var(--neon-cyan)] rounded-full animate-pulse shrink-0"></span>
+                    <span className="text-[var(--neon-cyan)] font-black text-[10px] uppercase tracking-[0.2em] font-righteous whitespace-nowrap">
+                      {positionInLine === 1 ? 'NEXT UP' : `${positionInLine}${positionInLine === 2 ? 'ND' : positionInLine === 3 ? 'RD' : 'TH'} IN LINE`}
+                    </span>
+                  </div>
+                )}
+                {isOnStage && (
+                  <div className="px-3 py-1 bg-[var(--neon-green)]/10 border border-[var(--neon-green)]/30 rounded-full inline-flex items-center gap-2 shadow-[0_0_10px_rgba(0,255,157,0.2)]">
+                    <span className="w-1.5 h-1.5 bg-[var(--neon-green)] rounded-full animate-blink shrink-0"></span>
+                    <span className="text-[var(--neon-green)] font-black text-[10px] uppercase tracking-[0.2em] font-righteous whitespace-nowrap">LIVE STAGE</span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          <div className="w-24 h-24 p-1 rounded-full border-2 border-white/10 mb-6 relative">
-            <div className="absolute inset-0 rounded-full bg-[var(--neon-pink)]/20 blur-xl"></div>
-            <img src="IGK.jpeg" alt="Logo" className="w-full h-full rounded-full object-cover relative z-10" />
-            <div className="absolute bottom-0 right-0 w-6 h-6 bg-black rounded-full flex items-center justify-center border-2 border-black z-20">
-              <div className={`w-3 h-3 rounded-full animate-pulse shadow-[0_0_10px_currentColor] ${connectionStatus === 'connected' ? 'bg-[var(--neon-green)] text-[var(--neon-green)]' : connectionStatus === 'connecting' ? 'bg-[var(--neon-yellow)] text-[var(--neon-yellow)]' : 'bg-rose-500 text-rose-500'}`}></div>
-            </div>
-            {/* Sync Mode Indicator */}
-            <div className="absolute -bottom-2 -left-2 bg-[#101015] border border-white/10 rounded-lg px-2 py-0.5 text-[8px] font-black tracking-widest text-[var(--neon-cyan)] shadow-xl z-30 uppercase font-righteous">
-              {connectionStatus === 'connected' ? 'P2P+CLOUD' : 'CLOUD-ONLY'}
-            </div>
-          </div>
-
-          <h2 className="text-4xl font-bold text-white tracking-tight uppercase leading-none font-bungee mb-2">{participant.name}</h2>
-
-          {/* Position Indicator */}
-          {positionInLine > 0 && !isOnStage && (
-            <div className="mb-4 px-6 py-2 bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 rounded-full inline-flex items-center gap-3">
-              <span className="w-2 h-2 bg-[var(--neon-cyan)] rounded-full animate-pulse"></span>
-              <span className="text-[var(--neon-cyan)] font-black text-xs uppercase tracking-[0.2em] font-righteous">
-                {positionInLine === 1 ? 'NEXT UP IN ROTATION' : `${positionInLine}${positionInLine === 2 ? 'ND' : positionInLine === 3 ? 'RD' : 'TH'} IN LINE`}
-              </span>
-            </div>
-          )}
-
-          {isOnStage && (
-            <div className="mb-4 px-6 py-2 bg-[var(--neon-green)]/10 border border-[var(--neon-green)]/30 rounded-full inline-flex items-center gap-3 shadow-[0_0_20px_rgba(0,255,157,0.2)]">
-              <span className="w-2 h-2 bg-[var(--neon-green)] rounded-full animate-blink"></span>
-              <span className="text-[var(--neon-green)] font-black text-xs uppercase tracking-[0.2em] font-righteous">LIVE ON STAGE</span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-end gap-2 shrink-0 ml-4 hidden sm:flex">
+            <button
+              onClick={() => setLang(lang === 'en' ? 'es' : 'en')}
+              className="px-2 py-1 bg-white/10 hover:bg-white/20 text-white rounded-md transition-all font-black uppercase text-[9px] tracking-widest font-righteous border border-white/20 hover:border-white/40"
+            >
+              {lang === 'en' ? 'ESPAÑOL' : 'ENGLISH'}
+            </button>
             <button
               onClick={() => {
                 askConfirm('Are you sure you want to sign out?', async () => {
@@ -708,25 +717,45 @@ const ParticipantView: React.FC = () => {
                   window.location.reload();
                 });
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl transition-all font-black uppercase text-[10px] tracking-widest font-righteous border border-rose-500/20 hover:border-transparent"
+              className="flex items-center gap-1.5 px-3 py-1 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-lg transition-all font-black uppercase text-[10px] tracking-widest font-righteous border border-rose-500/20 hover:border-transparent whitespace-nowrap"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-              SIGN OUT
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              {tx.signOut}
             </button>
           </div>
 
+          {/* Mobile actions menu */}
+          <div className="flex flex-col sm:hidden items-end gap-2 ml-2">
+            <button
+              onClick={() => setLang(lang === 'en' ? 'es' : 'en')}
+              className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-md transition-all font-black font-righteous border border-white/20"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            </button>
+            <button
+              onClick={() => {
+                askConfirm('Are you sure you want to sign out?', async () => {
+                  await logoutUser();
+                  window.location.reload();
+                });
+              }}
+              className="p-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-md transition-all font-black border border-rose-500/20"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Live On Stage - Palm Glow */}
-      {session.currentRound && session.currentRound.length > 0 && (
+      {session.currentRound && session.currentRound.filter(s => s.status !== RequestStatus.DONE).length > 0 && (
         <section className="animate-in fade-in slide-in-from-top-4">
           <div className="flex items-center gap-3 mb-4 px-4">
             <div className="w-2 h-2 bg-[var(--neon-green)] rounded-full animate-blink"></div>
-            <h3 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] text-base font-righteous">ON STAGE</h3>
+            <h3 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] text-base font-righteous">{tx.onStage}</h3>
           </div>
           <div className="flex flex-col gap-3">
-            {session.currentRound.filter(r => r.status !== RequestStatus.DONE).map((song, i) => (
+            {session.currentRound.filter(s => s.status !== RequestStatus.DONE).map((song, i) => (
               <div
                 key={song.id}
                 className={`p-3 pl-6 pr-4 rounded-xl border-l-8 transition-all duration-300 flex items-center justify-between gap-4 w-full shadow-lg relative overflow-hidden group ${i === 0
@@ -777,23 +806,24 @@ const ParticipantView: React.FC = () => {
       )}
 
       {/* Retro Arcade Tabs */}
-      <div className="grid grid-cols-5 gap-2 bg-[#0a0a0a] p-2 rounded-2xl border border-white/5 shadow-inner">
-        {(['ROTATION', 'REQUESTS', 'FAVORITES', 'HISTORY', 'VOCALS'] as Tab[]).map((tab) => (
+      <div className="flex bg-[#0a0a0a] p-2 rounded-2xl border border-white/5 shadow-inner overflow-x-auto snap-x scrollbar-hide mb-6 gap-2">
+        {(['ROTATION', 'REQUESTS', 'FAVORITES', 'HISTORY', 'VIDEOS', 'VOCALS'] as Tab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all font-righteous flex flex-col items-center justify-center gap-1.5 ${activeTab === tab
+            className={`min-w-[4rem] flex-1 py-3 px-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-widest transition-all font-righteous flex flex-col items-center justify-center gap-1.5 shrink-0 snap-center ${activeTab === tab
               ? 'bg-[#151520] text-white shadow-[0_0_20px_rgba(255,255,255,0.05)] border border-white/10'
               : 'text-slate-600 hover:text-white hover:bg-white/5'
               }`}
           >
             <span className={`text-2xl mb-0.5 ${activeTab === tab ? 'text-[var(--neon-pink)]' : 'grayscale opacity-50'}`}>
-              {tab === 'ROTATION' ? '💿' : tab === 'REQUESTS' ? '📼' : tab === 'FAVORITES' ? '⭐' : tab === 'HISTORY' ? '📜' : '🎤'}
+              {tab === 'ROTATION' ? '💿' : tab === 'REQUESTS' ? '📼' : tab === 'FAVORITES' ? '⭐' : tab === 'HISTORY' ? '📜' : tab === 'VIDEOS' ? '📺' : '🎤'}
             </span>
-            {tab === 'ROTATION' ? 'STAGE' :
-              tab === 'REQUESTS' ? 'MY SONGS' :
-                tab === 'FAVORITES' ? 'SONGBOOK' :
-                  tab === 'HISTORY' ? 'LOG' : 'MIC SETUP'}
+            {tab === 'ROTATION' ? tx.rotation :
+              tab === 'REQUESTS' ? tx.requests :
+                tab === 'FAVORITES' ? tx.favorites :
+                  tab === 'HISTORY' ? tx.history :
+                    tab === 'VIDEOS' ? tx.videos : tx.vocals}
           </button>
         ))}
       </div>
@@ -802,28 +832,28 @@ const ParticipantView: React.FC = () => {
         onClick={() => { setPrefillData(null); setShowRequestForm(true); }}
         className="w-full py-8 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-blue)] text-white rounded-[2.5rem] font-black text-4xl shadow-[0_0_60px_rgba(255,0,127,0.4)] uppercase tracking-[0.1em] active:scale-95 transition-all font-bungee hover:brightness-110 border-4 border-white/10 animate-pulse"
       >
-        SING!
+        {tx.sing}
       </button>
 
       <div className="flex gap-4 pt-2">
         <button
           onClick={() => setStatus(ParticipantStatus.READY)}
-          className={`flex-1 py-4 rounded-[1.5rem] font-bold text-xl uppercase tracking-wider transition-all border-2 flex items-center justify-center gap-2 group relative overflow-hidden font-bungee ${participant.status === ParticipantStatus.READY
+          className={`flex-1 py-4 rounded-[1.5rem] font-bold text-xl uppercase tracking-wider transition-all border-2 flex items-center justify-center gap-2 group relative overflow-hidden font-bungee ${participant?.status === ParticipantStatus.READY
             ? 'bg-[#051005] border-[var(--neon-green)] shadow-[0_0_30px_rgba(0,255,157,0.2)] text-[var(--neon-green)]'
             : 'bg-[#101015] border-white/5 text-slate-700 hover:border-white/10'
             }`}
         >
-          <span className="relative z-10">READY</span>
+          <span className="relative z-10">{tx.ready}</span>
         </button>
 
         <button
           onClick={() => setStatus(ParticipantStatus.STANDBY)}
-          className={`flex-1 py-4 rounded-[1.5rem] font-bold text-xl uppercase tracking-wider transition-all border-2 flex items-center justify-center gap-2 group relative overflow-hidden font-bungee ${participant.status === ParticipantStatus.STANDBY
+          className={`flex-1 py-4 rounded-[1.5rem] font-bold text-xl uppercase tracking-wider transition-all border-2 flex items-center justify-center gap-2 group relative overflow-hidden font-bungee ${participant?.status === ParticipantStatus.STANDBY
             ? 'bg-[#150505] border-rose-500 shadow-[0_0_30px_rgba(244,63,94,0.2)] text-rose-500'
             : 'bg-[#101015] border-white/5 text-slate-700 hover:border-white/10'
             }`}
         >
-          <span className="relative z-10">NOT YET</span>
+          <span className="relative z-10">{tx.notYet}</span>
         </button>
       </div>
 
@@ -842,6 +872,7 @@ const ParticipantView: React.FC = () => {
               onCancel={closeModals}
               participants={session.participants}
               currentUserId={participant.id}
+              suggestions={session.verifiedSongbook || []}
             />
           </div>
         </div>
@@ -849,31 +880,88 @@ const ParticipantView: React.FC = () => {
 
       <main className="min-h-[300px] pb-32">
         {activeTab === 'ROTATION' && (
-          <section className="animate-in slide-in-from-bottom-8 duration-500 space-y-6">
-            <h3 className="text-[var(--neon-green)] font-black uppercase tracking-[0.3em] text-sm px-4 font-righteous opacity-80">COMING UP</h3>
-            <div className="space-y-4">
-              {(() => {
-                if (fullRotation.length === 0) return (
-                  <div className="text-center py-16 opacity-30 border-2 border-dashed border-white/5 rounded-[2.5rem] bg-black/20">
-                    <p className="text-sm font-black uppercase tracking-[0.4em] font-righteous text-slate-600">QUEUE EMPTY</p>
-                  </div>
-                );
+          <section className="animate-in slide-in-from-bottom-8 duration-500 space-y-10">
+            {/* Now Playing / Active Round */}
+            {session.currentRound && session.currentRound.length > 0 && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 px-4">
+                  <div className="w-2.5 h-2.5 bg-[var(--neon-green)] rounded-full animate-ping shadow-[0_0_15px_var(--neon-green)]"></div>
+                  <h3 className="text-[var(--neon-green)] font-black uppercase tracking-[0.4em] text-sm font-righteous">{tx.onStage}</h3>
+                </div>
 
-                return fullRotation.map((req, i) => (
-                  <div key={req.id} className="bg-[#101015] border-2 border-white/5 p-6 rounded-[2rem] flex justify-between items-center group hover:border-[var(--neon-blue)] transition-all">
-                    <div className="min-w-0 pr-4">
-                      <div className="text-white font-bold uppercase truncate text-2xl font-bungee tracking-tight mb-1 group-hover:text-[var(--neon-blue)] transition-colors">{req.songName}</div>
-                      <div className="text-base text-[var(--neon-cyan)] uppercase tracking-[0.2em] flex items-center gap-2 font-righteous">
-                        {req.artist} <span className="text-white/20">|</span> <span className="text-slate-400">{req.participantName}</span>
+                <div className="space-y-3">
+                  {session.currentRound.map((song, i) => {
+                    // Find index of first non-done song to highlight current singer
+                    const activeIndex = session.currentRound!.findIndex(s => s.status !== RequestStatus.DONE);
+                    const isActive = i === (activeIndex === -1 ? 0 : activeIndex);
+                    const isDone = song.status === RequestStatus.DONE;
+
+                    return (
+                      <div
+                        key={song.id}
+                        className={`relative overflow-hidden p-6 rounded-[2.5rem] border-2 transition-all duration-500 shadow-2xl ${isActive
+                          ? 'bg-[#001005] border-[var(--neon-green)] scale-[1.02] z-10 shadow-[0_0_40px_rgba(0,255,157,0.2)]'
+                          : 'bg-[#101015] border-white/5 opacity-60'}`}
+                      >
+                        {isActive && (
+                          <div className="absolute top-0 right-10 py-1 px-4 bg-[var(--neon-green)] text-black text-[10px] font-black uppercase tracking-widest rounded-b-xl font-righteous animate-pulse">
+                            LIVE_NOW
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="min-w-0 flex-1">
+                            <div className={`text-white font-black uppercase truncate text-3xl font-bungee tracking-tight mb-1 ${isActive ? 'neon-glow-green' : ''}`}>
+                              {song.songName}
+                            </div>
+                            <div className="flex items-center gap-3 text-lg font-righteous tracking-wider">
+                              <span className="text-[var(--neon-pink)] font-black">@{song.participantName}</span>
+                              <span className="text-white/20">|</span>
+                              <span className="text-slate-500 uppercase">{song.artist}</span>
+                            </div>
+                          </div>
+                          <div className={`w-14 h-14 rounded-2xl border-2 flex items-center justify-center font-black font-bungee text-2xl transition-all ${isActive ? 'bg-[var(--neon-green)] border-[var(--neon-green)] text-black shadow-[0_0_20px_var(--neon-green)]' : 'bg-black/40 border-white/10 text-slate-600'}`}>
+                            {song.requestNumber}
+                          </div>
+                        </div>
+                        {isDone && (
+                          <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] flex items-center justify-center">
+                            <span className="text-white/50 font-black uppercase tracking-[0.5em] text-sm border-2 border-white/20 px-6 py-2 rounded-full">PERFORMED</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mx-10"></div>
+              </div>
+            )}
+
+            <div className="space-y-6">
+              <h3 className="text-[var(--neon-cyan)] font-black uppercase tracking-[0.3em] text-sm px-4 font-righteous opacity-80">{tx.comingUp}</h3>
+              <div className="space-y-4">
+                {(() => {
+                  if (fullRotation.length === 0) return (
+                    <div className="text-center py-16 opacity-30 border-2 border-dashed border-white/5 rounded-[2.5rem] bg-black/20">
+                      <p className="text-sm font-black uppercase tracking-[0.4em] font-righteous text-slate-600">QUEUE EMPTY</p>
+                    </div>
+                  );
+
+                  return fullRotation.map((req, i) => (
+                    <div key={req.id} className="bg-[#101015] border-2 border-white/5 p-6 rounded-[2rem] flex justify-between items-center group hover:border-[var(--neon-blue)] transition-all">
+                      <div className="min-w-0 pr-4">
+                        <div className="text-white font-bold uppercase truncate text-2xl font-bungee tracking-tight mb-1 group-hover:text-[var(--neon-blue)] transition-colors">{req.songName}</div>
+                        <div className="text-base text-[var(--neon-cyan)] uppercase tracking-[0.2em] flex items-center gap-2 font-righteous">
+                          {req.artist} <span className="text-white/20">|</span> <span className="text-slate-400">{req.participantName}</span>
+                        </div>
+                      </div>
+                      <div className="shrink-0 w-12 h-12 rounded-full border border-[var(--neon-blue)]/50 bg-[var(--neon-blue)]/10 flex items-center justify-center text-[var(--neon-blue)] text-xl font-black font-bungee shadow-[0_0_15px_rgba(5,217,232,0.2)]">
+                        {i + 1}
                       </div>
                     </div>
-                    <div className="shrink-0 w-12 h-12 rounded-full border border-[var(--neon-blue)]/50 bg-[var(--neon-blue)]/10 flex items-center justify-center text-[var(--neon-blue)] text-xl font-black font-bungee shadow-[0_0_15px_rgba(5,217,232,0.2)]">
-                      {i + 1}
-                    </div>
-                  </div>
-                ));
-              })()}
+                  ));
+                })()}
 
+              </div>
             </div>
           </section>
         )}
@@ -892,15 +980,23 @@ const ParticipantView: React.FC = () => {
                       </div>
                       <div className="text-base text-slate-400 font-bold uppercase tracking-[0.2em] truncate font-righteous">{(action.payload as any).artist}</div>
                     </div>
-                    <div className="shrink-0 flex flex-col items-end gap-2">
-                      <div className="px-3 py-1 rounded-lg border border-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] text-xs font-black uppercase tracking-widest animate-pulse">
-                        SENDING...
-                      </div>
-                      <div className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">Trying direct link & cloud backup</div>
+                    <div className="shrink-0 px-3 py-1 rounded-lg border border-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] text-xs font-black uppercase tracking-widest animate-pulse">
+                      SENDING...
                     </div>
                   </div>
-                  <div className="mt-4 text-[10px] text-[var(--neon-cyan)] font-bold tracking-widest uppercase opacity-60 font-mono">
-                    CLOUD BUFFERED // AUTO-RETRYING
+                  <div className="mt-4 flex justify-between items-center border-t border-white/5 pt-3">
+                    <div className="text-[10px] text-[var(--neon-cyan)] font-bold tracking-widest uppercase opacity-60 font-mono">
+                      CLOUD BUFFERED // AUTO-RETRYING
+                    </div>
+                    <button
+                      onClick={() => {
+                        syncService.removePendingAction(action);
+                        refresh();
+                      }}
+                      className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg text-xs font-black uppercase tracking-widest transition-all font-righteous text-rose-500 border border-rose-500/20"
+                    >
+                      {tx.cancel || 'CANCEL'}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -944,8 +1040,8 @@ const ParticipantView: React.FC = () => {
                           ▼
                         </button>
                       </div>
-                      <button onClick={() => setEditingRequest(req)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous text-white">EDIT</button>
-                      <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="flex-1 py-3 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous text-rose-500">CANCEL</button>
+                      <button onClick={() => setEditingRequest(req)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous text-white">{tx.edit}</button>
+                      <button onClick={async () => { await deleteRequest(req.id); await refresh(); }} className="flex-1 py-3 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl text-sm font-black uppercase tracking-widest transition-all font-righteous text-rose-500">{tx.cancel}</button>
                     </div>
                   )}
                 </div>
@@ -953,7 +1049,7 @@ const ParticipantView: React.FC = () => {
             ))}
             {myRequests.length === 0 && (
               <div className="text-center py-20 bg-black/20 rounded-[3rem] border-2 border-dashed border-white/5">
-                <p className="text-base font-black uppercase tracking-[0.5em] font-righteous text-slate-700">NO REQUESTS</p>
+                <p className="text-base font-black uppercase tracking-[0.5em] font-righteous text-slate-700">{tx.noRequests}</p>
               </div>
             )}
           </section>
@@ -964,30 +1060,49 @@ const ParticipantView: React.FC = () => {
             <div className="relative group">
               <input
                 type="text"
-                placeholder="SEARCH SONGBOOK..."
+                placeholder={tx.searchBook}
                 value={librarySearchQuery}
                 onChange={(e) => setLibrarySearchQuery(e.target.value)}
-                className="w-full bg-[#101015] border-2 border-white/10 rounded-[2rem] py-5 px-6 pl-14 text-xl font-bold uppercase tracking-wider text-white focus:outline-none focus:border-[var(--neon-pink)] transition-all font-righteous placeholder:text-slate-600 shadow-inner"
+                className="w-full bg-[#101015] border-2 border-white/10 rounded-[2rem] py-5 px-6 pl-14 pr-14 text-xl font-bold uppercase tracking-wider text-white focus:outline-none focus:border-[var(--neon-pink)] transition-all font-righteous placeholder:text-slate-600 shadow-inner"
               />
               <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl text-slate-600 group-focus-within:text-[var(--neon-pink)] transition-colors">🔍</span>
+              {librarySearchQuery && (
+                <button
+                  onClick={() => setLibrarySearchQuery('')}
+                  className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-2"
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
             <div className="grid gap-3">
               {(() => {
                 const combined = [
-                  ...userProfile.favorites.map(f => ({ ...f, isFavorite: true })),
+                  ...userProfile.favorites.filter(f => f.type !== RequestType.LISTENING).map(f => ({ ...f, isFavorite: true })),
                   ...(session?.verifiedSongbook || [])
+                    .filter(v => v.type !== RequestType.LISTENING)
                     .filter(v => !userProfile.favorites.some(f => f.songName === v.songName && f.artist === v.artist))
                     .map(v => ({ ...v, isFavorite: false }))
                 ].filter(song => !librarySearchQuery || song.songName.toLowerCase().includes(librarySearchQuery.toLowerCase()) || song.artist.toLowerCase().includes(librarySearchQuery.toLowerCase()));
 
-                if (combined.length === 0) return <div className="text-center py-20 opacity-30 font-righteous text-sm uppercase tracking-widest text-slate-500">NO_MATCHES</div>;
+                if (combined.length === 0) return <div className="text-center py-20 opacity-30 font-righteous text-sm uppercase tracking-widest text-slate-500">{tx.noMatches}</div>;
 
                 return combined.map(song => (
                   <div key={song.id} className="bg-[#101015] p-5 rounded-[2rem] flex justify-between items-center group border-2 border-white/5 hover:border-[var(--neon-yellow)] transition-all">
                     <div className="min-w-0 pr-4">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-3 mb-1">
                         <div className="text-white font-bold uppercase truncate text-2xl font-bungee tracking-tight group-hover:text-[var(--neon-yellow)] transition-colors">{song.songName}</div>
+                        <a
+                          href={song.youtubeUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${song.songName} ${song.artist} karaoke`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 hover:bg-[var(--neon-cyan)] text-[var(--neon-cyan)] hover:text-black border border-[var(--neon-cyan)]/30 hover:border-transparent transition-all hover:scale-110 shadow-[0_0_10px_rgba(5,217,232,0)] hover:shadow-[0_0_15px_rgba(5,217,232,0.6)]"
+                          title="Listen on YouTube"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                        </a>
                         {song.isFavorite && <span className="text-lg text-[var(--neon-yellow)] animate-pulse">★</span>}
                       </div>
                       <div className="text-sm text-slate-400 font-bold uppercase tracking-[0.2em] font-righteous">{song.artist}</div>
@@ -1004,21 +1119,117 @@ const ParticipantView: React.FC = () => {
         )}
 
         {activeTab === 'HISTORY' && userProfile && (
-          <section className="animate-in slide-in-from-bottom-8 duration-500 space-y-4">
-            {userProfile.personalHistory.map((h, i) => (
-              <div key={i} className="bg-[#101015] p-6 rounded-[2rem] flex justify-between items-center border-2 border-white/5 hover:border-[var(--neon-purple)] group transition-all">
-                <div className="min-w-0 pr-4">
-                  <div className="text-white font-bold uppercase truncate text-2xl font-bungee tracking-tight mb-1 group-hover:text-[var(--neon-purple)] transition-colors">{h.songName}</div>
-                  <div className="text-base text-[var(--neon-cyan)]/70 font-bold uppercase tracking-[0.2em] font-righteous">{h.artist}</div>
+          <section className="animate-in slide-in-from-bottom-8 duration-500 space-y-6">
+            {(() => {
+              const approvedHistory = userProfile.personalHistory.filter(h => h.status === RequestStatus.APPROVED || h.status === RequestStatus.DONE);
+              if (approvedHistory.length === 0) {
+                return (
+                  <div className="text-center py-20 opacity-30 border-2 border-dashed border-white/5 rounded-[2.5rem] bg-black/20">
+                    <p className="text-sm font-black uppercase tracking-[0.4em] font-righteous text-slate-600">NO HISTORY FOUND</p>
+                  </div>
+                );
+              }
+
+              // Group by sessionName
+              const grouped = approvedHistory.reduce((acc, curr) => {
+                const sName = curr.sessionName || 'PREVIOUS SESSIONS';
+                if (!acc[sName]) acc[sName] = [];
+                acc[sName].push(curr);
+                return acc;
+              }, {} as Record<string, typeof approvedHistory>);
+
+              return Object.entries(grouped).map(([sName, items]) => (
+                <div key={sName} className="space-y-4">
+                  <h3 className="text-[var(--neon-purple)] font-black uppercase tracking-[0.2em] text-sm px-4 font-righteous opacity-80">{sName}</h3>
+                  {items.map((h, i) => (
+                    <div key={i} className="bg-[#101015] p-6 rounded-[2rem] flex justify-between items-center border-2 border-white/5 hover:border-[var(--neon-purple)] group transition-all">
+                      <div className="min-w-0 pr-4">
+                        <div className="flex items-center gap-3 mb-1">
+                          <div className="text-white font-bold uppercase truncate text-2xl font-bungee tracking-tight group-hover:text-[var(--neon-purple)] transition-colors">{h.songName}</div>
+                          <a
+                            href={h.youtubeUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${h.songName} ${h.artist} karaoke`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 hover:bg-[var(--neon-cyan)] text-[var(--neon-cyan)] hover:text-black border border-[var(--neon-cyan)]/30 hover:border-transparent transition-all hover:scale-110 shadow-[0_0_10px_rgba(5,217,232,0)] hover:shadow-[0_0_15px_rgba(5,217,232,0.6)]"
+                            title="Listen on YouTube"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                          </a>
+                        </div>
+                        <div className="text-base text-[var(--neon-cyan)]/70 font-bold uppercase tracking-[0.2em] font-righteous">{h.artist}</div>
+                      </div>
+                      <button onClick={() => { setPrefillData({ ...h, type: RequestType.SINGING }); setShowRequestForm(true); }} className="text-slate-600 hover:text-white border border-white/5 hover:border-white px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all font-righteous">AGAIN</button>
+                    </div>
+                  ))}
                 </div>
-                <button onClick={() => { setPrefillData({ ...h, type: RequestType.SINGING }); setShowRequestForm(true); }} className="text-slate-600 hover:text-white border border-white/5 hover:border-white px-4 py-2 rounded-xl font-black text-xs uppercase tracking-widest transition-all font-righteous">AGAIN</button>
-              </div>
-            ))}
-            {userProfile.personalHistory.length === 0 && (
-              <div className="text-center py-20 opacity-30 border-2 border-dashed border-white/5 rounded-[2.5rem] bg-black/20">
-                <p className="text-sm font-black uppercase tracking-[0.4em] font-righteous text-slate-600">NO HISTORY FOUND</p>
-              </div>
-            )}
+              ));
+            })()}
+          </section>
+        )}
+
+        {activeTab === 'VIDEOS' && userProfile && (
+          <section className="animate-in slide-in-from-bottom-8 duration-500 space-y-6">
+            <div className="relative mb-6">
+              <input
+                type="text"
+                placeholder="SEARCH VIDEOS..."
+                value={librarySearchQuery}
+                onChange={(e) => setLibrarySearchQuery(e.target.value)}
+                className="w-full bg-[#101015] border-2 border-white/10 rounded-[2rem] py-5 px-6 pl-14 pr-14 text-xl font-bold uppercase tracking-wider text-[var(--neon-cyan)] focus:outline-none focus:border-[var(--neon-cyan)] transition-all font-righteous placeholder:text-slate-600 shadow-inner"
+              />
+              <span className="absolute left-6 top-1/2 -translate-y-1/2 text-2xl text-slate-600 group-focus-within:text-[var(--neon-cyan)] transition-colors">🔍</span>
+              {librarySearchQuery && (
+                <button
+                  onClick={() => setLibrarySearchQuery('')}
+                  className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors p-2"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className="grid gap-3">
+              {(() => {
+                const videoItems = [
+                  ...userProfile.favorites.filter(f => f.type === RequestType.LISTENING).map(f => ({ ...f, isFavorite: true })),
+                  ...(session?.verifiedSongbook || [])
+                    .filter(v => v.type === RequestType.LISTENING)
+                    .filter(v => !userProfile.favorites.some(f => f.songName === v.songName && f.artist === v.artist))
+                    .map(v => ({ ...v, isFavorite: false }))
+                ].filter(song => !librarySearchQuery || song.songName.toLowerCase().includes(librarySearchQuery.toLowerCase()) || song.artist.toLowerCase().includes(librarySearchQuery.toLowerCase()));
+
+                if (videoItems.length === 0) return (
+                  <div className="text-center py-20 opacity-30 border-2 border-dashed border-white/5 rounded-[2.5rem] bg-black/20">
+                    <p className="text-sm font-black uppercase tracking-[0.4em] font-righteous text-slate-600">NO VIDEOS FOUND</p>
+                  </div>
+                );
+
+                return videoItems.map(song => (
+                  <div key={song.id} className="bg-[#101015] p-5 py-6 rounded-[2rem] flex justify-between items-center group border-2 border-[var(--neon-cyan)]/20 hover:border-[var(--neon-cyan)] transition-all">
+                    <div className="min-w-0 pr-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="text-white font-bold uppercase truncate text-3xl font-bungee tracking-tight group-hover:text-[var(--neon-cyan)] transition-colors">{song.songName}</div>
+                        {song.isFavorite && <span className="text-xl text-[var(--neon-yellow)] animate-pulse">★</span>}
+                      </div>
+                      <div className="text-base text-slate-400 font-bold uppercase tracking-[0.2em] font-righteous">{song.artist}</div>
+                    </div>
+                    <div className="flex gap-4 items-center">
+                      <a
+                        href={song.youtubeUrl || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${song.songName} ${song.artist} song`)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center p-4 rounded-xl bg-[var(--neon-cyan)]/20 hover:bg-[var(--neon-cyan)] text-[var(--neon-cyan)] hover:text-black border border-[var(--neon-cyan)]/30 hover:border-transparent transition-all hover:scale-105 shadow-[0_0_15px_rgba(5,217,232,0.2)] hover:shadow-[0_0_25px_rgba(5,217,232,0.6)]"
+                        title="Watch Video"
+                      >
+                        <svg className="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                      </a>
+                      <button onClick={async () => { await toggleFavorite(song); await refresh(); }} className={`px-2 transition-colors text-2xl ${song.isFavorite ? 'text-rose-500' : 'text-slate-700 hover:text-[var(--neon-yellow)]'}`}>{song.isFavorite ? '✕' : '★'}</button>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
           </section>
         )}
 
@@ -1049,23 +1260,117 @@ const ParticipantView: React.FC = () => {
                 ) : (
                   <button
                     onClick={async () => {
-                      setIsScanning(true);
-                      let progress = 0;
-                      const interval = setInterval(() => {
-                        progress += 5;
-                        setScanProgress(progress);
-                        if (progress >= 100) {
-                          clearInterval(interval);
-                          setTimeout(async () => {
-                            const ranges: ('Soprano' | 'Alto' | 'Tenor' | 'Baritone' | 'Bass')[] = ['Soprano', 'Alto', 'Tenor', 'Baritone', 'Bass'];
-                            const randomRange = ranges[Math.floor(Math.random() * ranges.length)];
-                            if (userProfile) await updateVocalRange(userProfile.id, randomRange);
-                            setIsScanning(false);
-                            setScanProgress(0);
-                            await refresh();
-                          }, 500);
-                        }
-                      }, 100);
+                      try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                        const analyser = audioContext.createAnalyser();
+                        analyser.fftSize = 2048;
+                        const microphone = audioContext.createMediaStreamSource(stream);
+                        microphone.connect(analyser);
+
+                        const bufferLength = analyser.frequencyBinCount;
+                        const dataArray = new Float32Array(bufferLength);
+
+                        setIsScanning(true);
+                        setScanProgress(0);
+
+                        const autoCorrelate = (buf: Float32Array, sampleRate: number) => {
+                          let SIZE = buf.length;
+                          let MAX_SAMPLES = Math.floor(SIZE / 2);
+                          let best_offset = -1;
+                          let best_correlation = 0;
+                          let rms = 0;
+                          let foundGoodCorrelation = false;
+                          let correlations = new Array(MAX_SAMPLES);
+
+                          for (let i = 0; i < SIZE; i++) {
+                            let val = buf[i];
+                            rms += val * val;
+                          }
+                          rms = Math.sqrt(rms / SIZE);
+                          if (rms < 0.01) return -1;
+
+                          let lastCorrelation = 1;
+                          for (let offset = 0; offset < MAX_SAMPLES; offset++) {
+                            let correlation = 0;
+                            for (let i = 0; i < MAX_SAMPLES; i++) {
+                              correlation += Math.abs((buf[i]) - (buf[i + offset]));
+                            }
+                            correlation = 1 - (correlation / MAX_SAMPLES);
+                            correlations[offset] = correlation;
+                            if ((correlation > 0.9) && (correlation > lastCorrelation)) {
+                              foundGoodCorrelation = true;
+                              if (correlation > best_correlation) {
+                                best_correlation = correlation;
+                                best_offset = offset;
+                              }
+                            } else if (foundGoodCorrelation) {
+                              let shift = (correlations[best_offset + 1] - correlations[best_offset - 1]) / correlations[best_offset];
+                              return sampleRate / (best_offset + (8 * shift));
+                            }
+                            lastCorrelation = correlation;
+                          }
+                          if (best_correlation > 0.01) {
+                            return sampleRate / best_offset;
+                          }
+                          return -1;
+                        };
+
+                        let samples: number[] = [];
+                        let progress = 0;
+                        const interval = setInterval(() => {
+                          progress += 5;
+                          setScanProgress(progress);
+
+                          analyser.getFloatTimeDomainData(dataArray);
+                          const pitch = autoCorrelate(dataArray, audioContext.sampleRate);
+                          if (pitch > 50 && pitch < 1000) {
+                            samples.push(pitch);
+                          }
+
+                          if (progress >= 100) {
+                            clearInterval(interval);
+                            stream.getTracks().forEach(track => track.stop());
+                            audioContext.close();
+
+                            let avgPitch = 0;
+                            if (samples.length > 0) {
+                              samples.sort((a, b) => a - b);
+                              const q1 = samples[Math.floor((samples.length / 4))];
+                              const q3 = samples[Math.ceil((samples.length * (3 / 4))) - 1] || q1;
+                              const iqr = q3 - q1;
+                              const filtered = samples.filter(x => x >= q1 - 1.5 * iqr && x <= q3 + 1.5 * iqr);
+                              avgPitch = filtered.length > 0 ? filtered.reduce((a, b) => a + b, 0) / filtered.length : 0;
+                            }
+
+                            let range: 'Soprano' | 'Alto' | 'Tenor' | 'Baritone' | 'Bass' | 'Unknown' = 'Unknown';
+                            if (avgPitch > 0) {
+                              if (avgPitch < 100) range = 'Bass';
+                              else if (avgPitch < 150) range = 'Baritone';
+                              else if (avgPitch < 250) range = 'Tenor';
+                              else if (avgPitch < 350) range = 'Alto';
+                              else range = 'Soprano';
+                            }
+
+                            setTimeout(async () => {
+                              if (userProfile && range !== 'Unknown') {
+                                await updateVocalRange(userProfile.id, range as any);
+                              } else if (range === 'Unknown') {
+                                alert("Could not detect clear pitch. Please sing louder and hold a note.");
+                              }
+                              setIsScanning(false);
+                              setScanProgress(0);
+                              await refresh();
+                            }, 500);
+                          }
+                        }, 150);
+
+                      } catch (e) {
+                        console.error("Mic error:", e);
+                        setIsScanning(false);
+                        setScanProgress(0);
+                        alert("Microphone access denied or unavailable.");
+                      }
                     }}
                     className="px-8 py-4 bg-[var(--neon-cyan)]/10 hover:bg-[var(--neon-cyan)] text-[var(--neon-cyan)] hover:text-black rounded-xl font-black uppercase tracking-[0.2em] transition-all font-righteous border border-[var(--neon-cyan)]/30 hover:shadow-[0_0_20px_var(--neon-cyan)]"
                   >
@@ -1086,44 +1391,24 @@ const ParticipantView: React.FC = () => {
       </main>
 
 
-      <footer className="fixed bottom-6 left-6 right-6 z-40 flex gap-4 pointer-events-none">
-        <div className="flex-1 pointer-events-auto">
-          {(connectionStatus !== 'connected' || (latestSessionId && roomId !== latestSessionId)) && (
-            <button
-              onClick={handleReconnect}
-              disabled={connectionStatus === 'connecting'}
-              className={`w-full border-2 p-4 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl transition-all group ${connectionStatus === 'connecting'
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-500'
-                : 'bg-[#101015] border-[var(--neon-green)]/30 text-[var(--neon-green)] hover:bg-[var(--neon-green)] hover:text-black hover:border-[var(--neon-green)]'
-                }`}
-            >
-              <span className="text-sm font-black uppercase tracking-[0.3em] font-righteous">
-                {connectionStatus === 'connecting' ? 'CONNECTING...' : 'RECONNECT'}
-              </span>
-              <span className={`text-2xl transition-transform ${connectionStatus === 'connecting' ? 'animate-spin' : 'group-hover:scale-125'}`}>
-                {connectionStatus === 'connecting' ? '⌛' : '📡'}
-              </span>
-            </button>
-          )}
-        </div>
+      <footer className="fixed bottom-6 left-6 right-6 z-40 flex gap-4">
+        <button
+          onClick={() => setShowSessionScanner(true)}
+          className="flex-1 bg-[#101015] border-2 border-[var(--neon-green)]/30 p-4 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl hover:bg-[var(--neon-green)] hover:text-black hover:border-[var(--neon-green)] transition-all group"
+        >
+          <span className="text-sm font-black uppercase tracking-[0.3em] font-righteous group-hover:text-black text-[var(--neon-green)]">RECONNECT</span>
+          <span className="text-2xl group-hover:scale-125 transition-transform">📡</span>
+        </button>
 
-        <div className="shrink-0 pointer-events-auto">
-          <button
-            onClick={() => setShowQrModal(true)}
-            className="w-14 h-14 bg-[#101015] border-2 border-white/10 rounded-[1.2rem] flex items-center justify-center shadow-2xl hover:border-[var(--neon-pink)] transition-all group relative overflow-hidden"
-            title="SYSTEM LINK"
-          >
-            {/* Visual QR Code Representation */}
-            <div className="w-8 h-8 grid grid-cols-2 gap-0.5 p-1 bg-white/5 rounded-md group-hover:bg-[var(--neon-pink)]/20 transition-colors">
-              <div className="border border-white/40 rounded-[2px] bg-white/10"></div>
-              <div className="border border-white/40 rounded-[2px] bg-white/10"></div>
-              <div className="border border-white/40 rounded-[2px] bg-white/10"></div>
-              <div className="relative">
-                <div className="absolute inset-0.5 bg-[var(--neon-pink)] animate-pulse rounded-[1px]"></div>
-              </div>
-            </div>
-          </button>
-        </div>
+        <button
+          onClick={() => setShowQrModal(true)}
+          className="flex-1 bg-[#101015] border-2 border-white/10 p-4 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl hover:border-[var(--neon-pink)] transition-all group"
+        >
+          <span className="text-sm text-[var(--neon-pink)] font-black uppercase tracking-[0.3em] font-righteous">SYSTEM_LINK</span>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl group-hover:scale-125 transition-transform">📲</span>
+          </div>
+        </button>
       </footer>
 
       {showSessionScanner && (
@@ -1149,9 +1434,11 @@ const ParticipantView: React.FC = () => {
           <div className="w-full max-w-sm text-center relative bg-[#050510] border-4 border-white/10 rounded-[3rem] p-10 overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[var(--neon-pink)] via-[var(--neon-purple)] to-[var(--neon-cyan)] animate-gradient-x"></div>
             <button onClick={() => setShowQrModal(false)} className="absolute top-6 right-6 text-slate-700 hover:text-white text-3xl transition-colors">✕</button>
-            <div className="bg-white p-4 rounded-[2rem] inline-block shadow-[0_0_40px_rgba(255,255,255,0.1)]">
+            <div className="bg-white p-4 rounded-[2rem] inline-block mb-8 shadow-[0_0_40px_rgba(255,255,255,0.1)]">
               <img src={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(roomJoinUrl)}&bgcolor=ffffff`} alt="Room QR" className="w-48 h-48" />
             </div>
+            <h3 className="text-5xl font-black text-white uppercase tracking-tight mb-2 font-bungee neon-glow-white">SYNC_NODE</h3>
+            <p className="text-[var(--neon-cyan)] text-sm font-black uppercase tracking-[0.4em] font-righteous opacity-80">SCAN TO INITIALIZE CONNECTION</p>
           </div>
         </div>
       )}

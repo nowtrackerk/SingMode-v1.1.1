@@ -9,8 +9,9 @@ import { SingModeLogo } from './components/common/SingModeLogo';
 import FeaturesView from './components/FeaturesView';
 import AdminPortal from './components/AdminPortal';
 import { getNetworkUrl, getStoredNetworkIp, setNetworkIp } from './services/networkUtils';
+import { ToastProvider } from './components/ToastService';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
   const [role, setRole] = useState<ViewRole>('SELECT');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,36 +34,30 @@ const App: React.FC = () => {
       }
 
       try {
-        const lastRoom = localStorage.getItem('kstar_last_room');
-        const effectiveRoom = room || sincUserId || lastRoom || undefined;
-
-        // If room/userId param is present, always force PARTICIPANT — never allow DJ via QR
-        if (room || sincUserId) {
-          setRole('PARTICIPANT');
-          await initializeSync('PARTICIPANT', room || undefined);
-        } else if (view === 'DJ') {
+        // Handle initial role and sync - DJ VIEW TAKES PRECEDENCE
+        if (view === 'DJ') {
           setRole('DJ');
-        } else if (view === 'PARTICIPANT' || view === 'STAGE') {
+        } else if (room || sincUserId || view === 'PARTICIPANT' || view === 'STAGE') {
           setRole('PARTICIPANT');
-          await initializeSync('PARTICIPANT', undefined);
         } else {
           setRole('SELECT');
         }
+
+        // Pre-load session and cleanup
+        const s = await getSession();
+        if (s && s.customTheme) {
+          document.documentElement.style.setProperty('--neon-pink', s.customTheme.primaryNeon);
+          document.documentElement.style.setProperty('--neon-cyan', s.customTheme.secondaryNeon);
+          document.documentElement.style.setProperty('--neon-yellow', s.customTheme.accentNeon);
+        }
+        await cleanupExpiredGuestAccounts();
       } catch (err: any) {
         console.error('[App] Init Error:', err);
         setError(err.message);
-        setRole('SELECT'); // Revert to select role on error
+        setRole('SELECT');
+      } finally {
+        setLoading(false);
       }
-
-      // Pre-load session to avoid flickering
-      const s = await getSession();
-      if (s.customTheme) {
-        document.documentElement.style.setProperty('--neon-pink', s.customTheme.primaryNeon);
-        document.documentElement.style.setProperty('--neon-cyan', s.customTheme.secondaryNeon);
-        document.documentElement.style.setProperty('--neon-yellow', s.customTheme.accentNeon);
-      }
-      await cleanupExpiredGuestAccounts();
-      setLoading(false);
     };
     init();
   }, []);
@@ -82,8 +77,6 @@ const App: React.FC = () => {
       setLoading(false);
     }
   };
-
-
 
   const handleSaveNetworkIp = () => {
     if (networkIpInput.trim()) {
@@ -122,7 +115,6 @@ const App: React.FC = () => {
     const isUsingLocalhost = currentUrl.includes('localhost') || currentUrl.includes('127.0.0.1');
 
     return (
-
       <div className="min-h-screen flex items-center justify-center p-6 bg-[#050510] relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-black via-[#10002B] to-black -z-10"></div>
         <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] opacity-10"></div>
@@ -138,7 +130,7 @@ const App: React.FC = () => {
               </div>
             </div>
             <h1 className="text-6xl md:text-9xl font-bold font-bungee text-white mb-6 uppercase tracking-tight neon-text-glow-purple leading-none drop-shadow-2xl">
-              Singmode Beta
+              Singmode v.2
             </h1>
             <p className="text-[var(--neon-yellow)] text-xl md:text-2xl font-bold tracking-widest uppercase neon-glow-yellow font-righteous">KARAOKE_LOUNGE_SYSTEM</p>
           </div>
@@ -152,8 +144,6 @@ const App: React.FC = () => {
               <p className="text-rose-500/50 text-xs mt-8 uppercase font-bold tracking-widest font-righteous">SINGLE_DJ_PROTOCOL_ACTIVE</p>
             </div>
           )}
-
-
 
           <div className={`grid gap-8 ${isQRCodeUser ? 'grid-cols-1 max-w-2xl mx-auto' : 'md:grid-cols-2'}`}>
             {!isQRCodeUser && (
@@ -255,28 +245,28 @@ const App: React.FC = () => {
     );
   }
 
-
-
   return (
     <div className="min-h-screen bg-[#050510] text-white selection:bg-[var(--neon-pink)] selection:text-white">
-      <nav className="fixed top-0 inset-x-0 z-[100] backdrop-blur-xl bg-black/80 border-b border-white/5 transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div onClick={() => setRole('SELECT')} className="cursor-pointer group flex items-center gap-4">
-            <div className="w-10 h-10 rounded-full border-2 border-[var(--neon-pink)] p-0.5 group-hover:shadow-[0_0_20px_rgba(255,0,127,0.4)] transition-all">
-              <img src="IGK.jpeg" alt="Logo" className="w-full h-full rounded-full" />
+      {role !== 'PARTICIPANT' && (
+        <nav className="fixed top-0 inset-x-0 z-[100] backdrop-blur-xl bg-black/80 border-b border-white/5 transition-all duration-300">
+          <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <div onClick={() => setRole('SELECT')} className="cursor-pointer group flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full border-2 border-[var(--neon-pink)] p-0.5 group-hover:shadow-[0_0_20px_rgba(255,0,127,0.4)] transition-all">
+                <img src="IGK.jpeg" alt="Logo" className="w-full h-full rounded-full" />
+              </div>
+              <span className="font-bungee text-xl text-white tracking-widest group-hover:text-[var(--neon-cyan)] transition-colors">Singmode v.2</span>
             </div>
-            <span className="font-bungee text-xl text-white tracking-widest group-hover:text-[var(--neon-cyan)] transition-colors">Singmode Beta</span>
+            <div className="flex items-center gap-6">
+              <button
+                onClick={() => { setRole('SELECT'); setError(null); }}
+                className="text-[9px] font-bold uppercase tracking-widest px-5 py-2.5 rounded-xl transition-all font-righteous bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/5 hover:border-white/20"
+              >
+                EXIT {role}
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-6">
-            <button
-              onClick={() => { setRole('SELECT'); setError(null); }}
-              className="text-[9px] font-bold uppercase tracking-widest px-5 py-2.5 rounded-xl transition-all font-righteous bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white border border-white/5 hover:border-white/20"
-            >
-              EXIT {role}
-            </button>
-          </div>
-        </div>
-      </nav>
+        </nav>
+      )}
 
       <main className="pb-20">
         {role === 'DJ' ? (
@@ -285,9 +275,15 @@ const App: React.FC = () => {
           <ParticipantView />
         )}
       </main>
-
-
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 };
 

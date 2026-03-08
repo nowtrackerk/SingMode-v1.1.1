@@ -40,7 +40,6 @@ export interface UserProfile {
   googleId?: string;
   favorites: FavoriteSong[];
   personalHistory: SongRequest[];
-  pendingQueue?: SongRequest[]; // Unsung approved requests persisting between sessions
   createdAt: number;
   isGuest?: boolean; // Metadata for guest users
   isAdmin?: boolean; // Metadata for Admin users
@@ -74,6 +73,7 @@ export interface SongRequest {
   message?: string; // Metadata for A.16: User message to DJ
   duetPartnerId?: string; // Metadata for A.12: Duet Partner ID
   duetPartnerName?: string; // Metadata for A.12: Duet Partner Name
+  sessionName?: string; // Identifier for grouping history by session
 }
 
 export interface BannedUser {
@@ -164,11 +164,13 @@ export type RemoteActionType =
   | 'SYNC_PROFILE'
   | 'REORDER_ROUND'
   | 'REORDER_REQUESTS'
+  | 'SET_REQUESTS_ORDER'
+  | 'SET_ROUND_ORDER'
+  | 'SET_PARTICIPANTS_ORDER'
+  | 'REORDER_USER_REQUESTS'
   | 'TOGGLE_FAVORITE'
   | 'REORDER_PENDING'
-  | 'REORDER_PARTICIPANTS'
-  | 'REORDER_MY_REQUESTS'
-  | 'HEARTBEAT';
+  | 'REORDER_MY_REQUESTS';
 
 export interface RemoteAction {
   type: RemoteActionType;

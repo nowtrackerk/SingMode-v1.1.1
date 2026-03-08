@@ -22,7 +22,6 @@ class SyncService {
   // New Event for Device Tracking
   public onDeviceConnected: ((peerId: string) => void) | null = null;
   public onDeviceDisconnected: ((peerId: string) => void) | null = null;
-  private staleCheckInterval: number | null = null;
 
   constructor() {
     this.loadQueue();
@@ -34,29 +33,10 @@ class SyncService {
       if (saved) {
         this.actionQueue = JSON.parse(saved);
         console.log(`[Sync] Loaded ${this.actionQueue.length} pending actions from storage.`);
-        this.startStaleActionCleanup();
       }
     } catch (e) {
       console.warn('[Sync] Failed to load pending actions:', e);
     }
-  }
-
-  private startStaleActionCleanup() {
-    if (this.staleCheckInterval) clearInterval(this.staleCheckInterval);
-    this.staleCheckInterval = window.setInterval(() => {
-      const now = Date.now();
-      const initialLen = this.actionQueue.length;
-      // If action is older than 30 seconds and still in queue, it likely failed or was handled without state update
-      this.actionQueue = this.actionQueue.filter(a => {
-        const bufferedAt = (a as any).bufferedAt || (a as any).timestamp || 0;
-        return bufferedAt === 0 || (now - bufferedAt < 45000);
-      });
-
-      if (this.actionQueue.length !== initialLen) {
-        console.log(`[Sync] Cleared ${initialLen - this.actionQueue.length} stale actions from queue.`);
-        this.persistQueue();
-      }
-    }, 10000);
   }
 
   private persistQueue() {
@@ -100,17 +80,22 @@ class SyncService {
       console.log(`[Sync] Attempting to claim network lock: ${lockId}`);
 
       const lockAcquired = await new Promise<boolean>((resolve) => {
+        const timeout = setTimeout(() => {
+          console.warn('[Sync] Lock acquisition timed out, proceeding anyway');
+          resolve(true);
+        }, 10000);
+
         const tempLock = new Peer(lockId, { debug: 1 });
         tempLock.on('open', () => {
+          clearTimeout(timeout);
           this.lockPeer = tempLock;
           resolve(true);
         });
         tempLock.on('error', (err) => {
+          clearTimeout(timeout);
           if (err.type === 'unavailable-id') {
             resolve(false);
           } else {
-            // Some other error, might be network. We shouldn't block DJing just because signaling is down
-            // But usually this means we can't be sure about the lock.
             resolve(true);
           }
           tempLock.destroy();
@@ -123,31 +108,34 @@ class SyncService {
     }
 
     return new Promise((resolve, reject) => {
-      // Step 2: Initialize actual Data Peer
-      // For DJs, always generate a fresh unique ID for the QR code
       const id = this.isHost ? (room || `singmode-${Math.random().toString(36).substr(2, 6)}`) : undefined;
+      console.log(`[Sync] Initializing Peer with ID: ${id || 'auto-generated'} (Role: ${role})`);
 
+      const timeout = setTimeout(() => {
+        console.warn('[Sync] Main peer initialization timed out, proceeding anyway');
+        const fallbackId = this.isHost ? (room || 'fallback-host') : 'fallback-peer';
+        if (this.isHost) {
+          this.hostId = fallbackId;
+        }
+        resolve(fallbackId);
+      }, 20000);
+
+      // Step 2: Initialize actual Data Peer
       this.peer = new Peer(id, {
-        debug: 1,
+        debug: 3, // Full logs for debugging sync issues
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
             { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' },
-            { urls: 'stun:stun.stuntmanit.com:3478' },
-            { urls: 'stun:stun.ekiga.net' },
-            { urls: 'stun:stun.ideasip.com' },
-            { urls: 'stun:stun.schlund.de' },
-            { urls: 'stun:stun.voiparound.com' },
-            { urls: 'stun:stun.voipbuster.com' },
-            { urls: 'stun:stun.voipstunt.com' }
+            { urls: 'stun:stun4.l.google.com:19302' }
           ]
         }
       });
 
       this.peer.on('open', (peerId) => {
+        clearTimeout(timeout);
         console.log(`[Sync] Peer opened with ID: ${peerId}`);
         if (this.isHost) {
           this.hostId = peerId;
@@ -156,6 +144,7 @@ class SyncService {
         this.startHeartbeat();
 
         if (!this.isHost && room) {
+          this.hostId = room; // CRITICAL: Save target room ID for Firestore Fallback queue
           this.connectToHost(room);
         }
 
@@ -180,9 +169,13 @@ class SyncService {
         console.error('[Sync] Peer error:', err.type, err);
 
         if (err.type === 'unavailable-id') {
-          // This should be rare now with random IDs, but if it happens, try again
-          this.destroy();
-          this.initialize(role).then(resolve).catch(reject);
+          // If a specific room ID was requested and it's taken, reject to let the UI know
+          if (room) {
+            reject(new Error(`The session name "${room}" is currently in use. Please try another name or wait a moment.`));
+          } else {
+            this.destroy();
+            this.initialize(role).then(resolve).catch(reject);
+          }
         } else if (err.type === 'network' || err.type === 'server-error' || err.message?.includes('Lost connection')) {
           if (this.onConnectionStatus) this.onConnectionStatus('disconnected');
           this.handleNetworkError(role, room);
@@ -268,14 +261,7 @@ class SyncService {
       console.log(`[Sync] Connection closed: ${conn.peer}`);
       this.connections.delete(conn.peer);
       if (this.connections.size === 0 && this.onConnectionStatus) {
-        if (!this.isHost) {
-          this.onConnectionStatus('disconnected');
-          // Auto-reconnect participant if hostId is known
-          if (this.hostId) {
-            console.log('[Sync] Attempting background reconnect in 3s...');
-            setTimeout(() => this.connectToHost(this.hostId!), 3000);
-          }
-        }
+        if (!this.isHost) this.onConnectionStatus('disconnected');
       }
       // Trigger device disconnected event
       if (this.isHost && this.onDeviceDisconnected) {
@@ -318,44 +304,21 @@ class SyncService {
 
     if (!alreadyQueued) {
       console.log('[Sync] Queuing new action locally:', action.type);
-      this.actionQueue.push(action);
+      const actionWithTimestamp = { ...action, localTimestamp: Date.now() };
+      this.actionQueue.push(actionWithTimestamp);
       this.persistQueue();
 
-      // Check if we have an active, open P2P connection to the host
-      let hasOpenConnection = false;
-      this.connections.forEach(conn => {
-        if (conn.open) hasOpenConnection = true;
-      });
-
-      // 2. Buffer to Firestore 
-      // If we don't have a P2P connection, we MUST await the Firestore write to guarantee delivery before continuing UI flow.
+      // 2. Buffer to Firestore ASYNCHRONOUSLY (Don't wait for internet)
       if (this.hostId) {
-        try {
-          const writePromise = addDoc(collection(db, "sessions", this.hostId, "pending_actions"), {
-            ...action,
-            bufferedAt: Date.now()
-          });
-
-          if (!hasOpenConnection) {
-            console.log(`[Sync] No active P2P connection. Awaiting explicit Firestore fallback write for ${action.type}...`);
-            // Wait up to 5 seconds for Firestore to acknowledge the write
-            await Promise.race([
-              writePromise,
-              new Promise((_, reject) => setTimeout(() => reject(new Error("Firestore write timeout")), 5000))
-            ]);
-            console.log(`[Sync] Action ${action.type} confirmed written to Firestore.`);
-          } else {
-            // We have P2P, let it buffer asynchronously in the background
-            writePromise.catch(e => console.warn('[Sync] Background Firestore buffering delayed:', e.message));
-          }
-        } catch (e: any) {
-          console.error(`[Sync] CRITICAL: Failed to write to Firestore fallback: ${e.message}`);
-          if (!hasOpenConnection) {
-            throw new Error("Network unreachable. Failed to contact host via P2P or Database.");
-          }
-        }
-      } else if (!hasOpenConnection) {
-        throw new Error("Cannot send action: No Room ID and No Active Connection.");
+        collection(db, "sessions", this.hostId, "pending_actions"); // Reference creation is fine
+        addDoc(collection(db, "sessions", this.hostId, "pending_actions"), {
+          ...action,
+          bufferedAt: Date.now()
+        }).then(() => {
+          console.log(`[Sync] Action ${action.type} buffered successfully to Firestore.`);
+        }).catch(e => {
+          console.warn('[Sync] Firestore buffering delayed (will sync when online):', e.message);
+        });
       }
     }
 
@@ -379,7 +342,12 @@ class SyncService {
   applyIncomingState(state: KaraokeSession) {
     if (!this.isHost && this.actionQueue.length > 0) {
       const initialLen = this.actionQueue.length;
-      this.actionQueue = this.actionQueue.filter(q => {
+      this.actionQueue = this.actionQueue.filter((q: any) => {
+        // Expire requests older than 2 minutes in case they were rejected by the DJ (limits, dupes)
+        if (q.localTimestamp && Date.now() - q.localTimestamp > 2 * 60 * 1000) {
+          return false;
+        }
+
         if (q.type === 'ADD_REQUEST') {
           const payload = q.payload as any;
           // If this song/artist for this participant is already in session, it reached the host
@@ -390,6 +358,16 @@ class SyncService {
             r.artist.toLowerCase().trim() === payload.artist.toLowerCase().trim()
           );
         }
+
+        if (q.type === 'TOGGLE_STATUS') {
+          const payload = q.payload as any;
+          const p = state.participants.find(part => part.id === payload.id);
+          // If the session state now reflects the requested status, the action succeeded.
+          if (p && p.status === payload.status) {
+            return false;
+          }
+        }
+
         return true;
       });
       if (this.actionQueue.length !== initialLen) {
@@ -403,6 +381,24 @@ class SyncService {
 
   getPendingActions(): RemoteAction[] {
     return this.actionQueue;
+  }
+
+  removePendingAction(actionToRemove: any) {
+    if (!actionToRemove) return;
+    const initialLen = this.actionQueue.length;
+    this.actionQueue = this.actionQueue.filter((q: any) => {
+      if (typeof actionToRemove === 'number' && q.localTimestamp === actionToRemove) return false;
+      if (typeof actionToRemove === 'object') {
+        if (q.localTimestamp && actionToRemove.localTimestamp && q.localTimestamp === actionToRemove.localTimestamp) return false;
+        // Fallback match for older stuck items
+        if (q.type === actionToRemove.type && JSON.stringify(q.payload) === JSON.stringify(actionToRemove.payload)) return false;
+      }
+      return true;
+    });
+    if (this.actionQueue.length !== initialLen) {
+      console.log(`[Sync] Manually removed pending action from queue.`);
+      this.persistQueue();
+    }
   }
 
   destroy() {

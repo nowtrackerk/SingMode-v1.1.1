@@ -1,0 +1,50 @@
+fd64b8b | Sat Feb 28 06:08:21 2026 -0400 | Fix DJ Approval Delay: serialized refresh in DJView and added skipSync flag to storage updates to prevent synchronization races
+ad05f88 | Sat Feb 28 05:41:50 2026 -0400 | Finalize participant synchronization: added REQUEST_STATE action, refined ParticipantView reconnection UI, and fixed connection heartbeat
+1f56bdc | Sat Feb 28 04:39:22 2026 -0400 | Fix participant synchronization: robust client request tracking, explicit queue flushing, and reconnection logic
+6dd7d81 | Fri Feb 27 22:54:39 2026 -0400 | Enhance markRequestAsDone and revert DJView filtering
+dacd54e | Fri Feb 27 22:46:18 2026 -0400 | Fix request delivery with Firestore fallback and filter DONE songs from participant view
+b24b1df | Fri Feb 27 21:01:23 2026 -0400 | Fix: complete refactor of session persistence to prevent overwrites
+5311513 | Fri Feb 27 20:48:08 2026 -0400 | Fix: robust session registration and state persistence
+2312f36 | Fri Feb 27 20:36:20 2026 -0400 | Fix: session synchronization race conditions and participant initialization order
+8e7993d | Fri Feb 27 20:29:28 2026 -0400 | Fix: participant visibility and request synchronization consistency
+bd85591 | Fri Feb 27 20:20:54 2026 -0400 | Fix: second legacy roomId reference
+d38f3f0 | Fri Feb 27 20:19:13 2026 -0400 | Fix: legacy roomId reference causing build failure
+4fcbc15 | Fri Feb 27 20:16:37 2026 -0400 | Fix: synchronization identity mismatch and initialization loop
+e27994e | Fri Feb 27 20:08:11 2026 -0400 | Fix: synchronization loop, PeerID sanitization, and state hydration
+aacd7c2 | Mon Feb 23 00:58:38 2026 -0400 | Fix unavailable-id error stripping room ID
+8812d8e | Sun Feb 22 21:54:12 2026 -0400 | Add detailed SyncService logging and fix hostId timeout assignment
+3df9a57 | Sun Feb 22 20:54:34 2026 -0400 | Restore Firebase keys as fallbacks and remove strict check for production deployment
+5fe55df | Sun Feb 22 20:45:53 2026 -0400 | Add configuration validation and push for GitHub Actions deployment
+0aeb868 | Sun Feb 22 20:25:15 2026 -0400 | Enhance robustness with timeouts for sync and database
+6ba4242 | Sun Feb 22 20:18:24 2026 -0400 | Fix initialization hang and production paths
+bd96c85 | Sun Feb 22 06:05:42 2026 -0400 | Fix SingModeLogo named import
+c056298 | Sun Feb 22 06:01:06 2026 -0400 | Enhance iOS sync and fix blank screen with loading state
+7685890 | Sun Feb 22 05:35:25 2026 -0400 | Add missing RemoteAction import
+0e0ee8b | Sun Feb 22 05:31:12 2026 -0400 | Fix offline song request persistence and robustness
+9899d49 | Sun Feb 22 04:40:27 2026 -0400 | Fix: Ensure offline requests are immediately visible in the UI by dispatching sync events and forcing manual refresh.
+fd1c8c9 | Sun Feb 22 04:19:00 2026 -0400 | Robustness & Synchronization Upgrade: Implemented lost request protection, local action queue persistence, and refined participant synchronization flow.
+72db702 | Sat Feb 21 10:10:11 2026 -0400 | Fix: dynamic active singer detection and hostId initialization for participants
+06a6764 | Sat Feb 21 09:56:53 2026 -0400 | Fix: correct Room ID overwrite in ParticipantView and fix SYNC QR CODE button
+6fb0699 | Sat Feb 21 09:14:18 2026 -0400 | Filter CONNECTIONS list to Singmode v.2 sessions only via appVersion tag
+bff7d61 | Sat Feb 21 09:02:05 2026 -0400 | Fix: fetch djHostName from active sessions, fix TS error
+2bd9325 | Sat Feb 21 08:58:36 2026 -0400 | Lock QR to ParticipantView, rename CONNECTIONS, filter sessions to DJ host
+0d5baf9 | Sat Feb 21 08:37:16 2026 -0400 | QR: auto-detect GitHub Pages URL, show manual IP only on localhost
+485b5d0 | Sat Feb 21 08:21:21 2026 -0400 | Singmode v.2 - Session Hub, QR Fixes, Pill Navigation, GitHub Pages Setup
+cf890f9 | Sat Feb 21 06:32:32 2026 -0400 | Fix robust user lookup in DJ view for meta matching
+e49b2f0 | Sat Feb 21 06:17:18 2026 -0400 | Fix Stage 404 redirect and add STAGE role support
+c21888b | Sat Feb 21 05:58:33 2026 -0400 | Fix automatic device matching and metadata display
+c7629ca | Sat Feb 21 05:40:32 2026 -0400 | Automate device-to-user matching and enhance network view info
+52cccd3 | Sat Feb 21 05:29:49 2026 -0400 | Fix duplicate import in App.tsx
+fbc82ee | Sat Feb 21 05:23:10 2026 -0400 | Remove SyncBadge and Voice Calibration Tool
+7019c42 | Sat Feb 21 04:30:48 2026 -0400 | Fix Firestore permissions: allow document deletions for administrative cleanup
+f13e707 | Sat Feb 21 04:22:03 2026 -0400 | Fix Participant View: implement heartbeat session filtering, signal cleanup tools, and connection status indicator
+ec542fd | Fri Feb 20 09:09:20 2026 -0400 | Fix deletion buttons: Replace window.confirm with custom neon confirmation modal across all views
+cd61481 | Fri Feb 20 08:07:42 2026 -0400 | UI: Remove Admin Portal shortcut from Hub and finalize label simplifications
+ed8508d | Fri Feb 20 06:36:56 2026 -0400 | UI: Refine 'NOW PLAYING' interactivity (copy-on-click, checkmark toggle, badge repositioning)
+2d9d5c9 | Fri Feb 20 05:59:27 2026 -0400 | UI: Optimize Active Round visibility for long song/singer names
+a722711 | Fri Feb 20 05:48:50 2026 -0400 | UI: Remove SEQ_ID label and leading zeros from song counts
+6de7c99 | Fri Feb 20 05:13:32 2026 -0400 | Re-trigger build: Applied Firebase secrets
+7da1892 | Fri Feb 20 04:54:09 2026 -0400 | Fix: Pass Firebase secrets to GitHub Actions build
+9e9a7d3 | Thu Feb 19 09:48:31 2026 -0400 | Integrated Directory Purge tool and verified Firestore document deletion for user accounts
+3f3e5c6 | Thu Feb 19 08:56:21 2026 -0400 | v1.1.1 Review: Bug fixes, UI refinements, Administrative Cleanup tool, and asset restoration
+84d1525 | Wed Feb 18 07:42:49 2026 -0400 | Implement DJ Password Change UI

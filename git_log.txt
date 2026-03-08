@@ -1,0 +1,15 @@
+fd64b8b Sat Feb 28 06:08:21 2026 -0400 Fix DJ Approval Delay: serialized refresh in DJView and added skipSync flag to storage updates to prevent synchronization races
+ad05f88 Sat Feb 28 05:41:50 2026 -0400 Finalize participant synchronization: added REQUEST_STATE action, refined ParticipantView reconnection UI, and fixed connection heartbeat
+1f56bdc Sat Feb 28 04:39:22 2026 -0400 Fix participant synchronization: robust client request tracking, explicit queue flushing, and reconnection logic
+6dd7d81 Fri Feb 27 22:54:39 2026 -0400 Enhance markRequestAsDone and revert DJView filtering
+dacd54e Fri Feb 27 22:46:18 2026 -0400 Fix request delivery with Firestore fallback and filter DONE songs from participant view
+b24b1df Fri Feb 27 21:01:23 2026 -0400 Fix: complete refactor of session persistence to prevent overwrites
+5311513 Fri Feb 27 20:48:08 2026 -0400 Fix: robust session registration and state persistence
+2312f36 Fri Feb 27 20:36:20 2026 -0400 Fix: session synchronization race conditions and participant initialization order
+8e7993d Fri Feb 27 20:29:28 2026 -0400 Fix: participant visibility and request synchronization consistency
+bd85591 Fri Feb 27 20:20:54 2026 -0400 Fix: second legacy roomId reference
+d38f3f0 Fri Feb 27 20:19:13 2026 -0400 Fix: legacy roomId reference causing build failure
+4fcbc15 Fri Feb 27 20:16:37 2026 -0400 Fix: synchronization identity mismatch and initialization loop
+e27994e Fri Feb 27 20:08:11 2026 -0400 Fix: synchronization loop, PeerID sanitization, and state hydration
+aacd7c2 Mon Feb 23 00:58:38 2026 -0400 Fix unavailable-id error stripping room ID
+8812d8e Sun Feb 22 21:54:12 2026 -0400 Add detailed SyncService logging and fix hostId timeout assignment

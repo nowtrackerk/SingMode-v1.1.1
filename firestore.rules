@@ -22,6 +22,11 @@ service cloud.firestore {
       allow create: if request.resource.data.id == sessionId;
       // Allow updates and deletions for heartbeats and cleanup
       allow update, delete: if true; 
+      
+      // Allow writes to pending_actions for Cloud Fallback
+      match /pending_actions/{actionId} {
+        allow read, write: if true;
+      }
     }
   }
 }
