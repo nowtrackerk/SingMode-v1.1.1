@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/SingMode-v.2/sw.js', { scope: '/SingMode-v.2/' })})}
